@@ -1,5 +1,5 @@
 F-117A NIGHTHAWK RUNTIME CONTRACT VALIDATION
-Generated: 2026-08-25 00:39:22
+Generated: 2026-08-25 00:56:50
 Result: PASS
 
 Validated root: F117A_Nighthawk
@@ -22,7 +22,7 @@ Sensors: no emitting search Radar; passive EOTS=15 km/3x, passive RadarLocator r
 Infrared: two forward-aligned sources, 0.5 idle to 2.2 full dry thrust; no afterburner, vapor, or global contrail components
 Status HUD: retail bottom-right 260 px layout; plugin wires embedded F-117 damage Images before initialization
 Exterior: baked boarding-ladder triangles=0
-Cockpit: stock Cricket display atlas mapped without stretching across 3 physical displays (center camera/radar, left flight instruments, right engine instruments); root-aligned viewpoint at Y=1.39 m on the seat line
+Cockpit: stock Cricket display atlas mapped without stretching across 3 physical displays (upright center camera/radar; 90-degree-corrected left flight and right engine instruments); root-aligned viewpoint at Y=1.39 m on the seat line
 Canopy: upward 40 degree ejection opening
 Landing gear: aircraft-forward tire-physics frames, full authored suspension travel before BreakWheel, false-positive skid audio muted
 Rear controls: model-measured elevon area, 15 pitch + 7.5 roll travel; both rudders use coordinated -18 yaw on local-Z visual hinges

@@ -15,12 +15,12 @@
   ],
   "artifact": {
     "fileName": "F117Nighthawk.dll",
-    "version": "0.4.63",
+    "version": "0.4.64",
     "category": "prerelease",
     "type": "plugin",
     "gameVersion": "0.34.1",
     "downloadUrl": "",
-    "hash": "sha256:7c90a726df4506a54f3398d1a3709926a7b2ab5b2c0f62151ca20755f0a72024",
+    "hash": "sha256:d0b5e07ede2e3de00c4fdf7ec6d15219c330d9761609bc6b4b7210ef516e5186",
     "extends": null,
     "dependencies": [
       {

@@ -19,7 +19,7 @@ namespace Blacknight2u.F117Nighthawk
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.4.63";
+        public const string PluginVersion = "0.4.64";
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
         internal const string LightweightAgmMountKey = "AGM1_quad_internal";

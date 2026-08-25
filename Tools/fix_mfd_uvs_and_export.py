@@ -5,11 +5,13 @@ native COIN_targetScreen mesh assigns a different atlas rectangle to the main
 camera/radar, engine instruments, and basic flight instruments.  Mapping the
 complete 2:1 atlas onto every F-117 screen crushes all four panels together.
 
-The F-117 center screen receives the native main camera/radar rectangle.  The
-left screen receives the native basic-flight instruments and the right screen
-receives the native engine instruments.  Each rectangle is center-cropped only
-enough to match the modeled screen's physical aspect ratio, so the image is not
-stretched.  All non-MFD UVs and geometry remain untouched.
+The F-117 center screen receives the native main camera/radar rectangle without
+rotation.  The two instrument regions are stored 90 degrees clockwise relative
+to the F-117's physical side screens, so their UV axes are counter-oriented at
+the mesh: screen-up samples atlas-right and screen-right samples atlas-down.
+Each rectangle is center-cropped only enough to match the modeled screen's
+physical aspect ratio, so the image is not stretched.  All non-MFD UVs and
+geometry remain untouched.
 """
 
 import os
@@ -129,7 +131,12 @@ def author_display_uvs():
         available_u = u_max - u_min
         available_v = v_max - v_min
         physical_aspect = record["width"] / record["surface_height"]
-        required_u = physical_aspect * available_v / ATLAS_PIXEL_ASPECT
+        rotated_instrument = panel != "camera"
+        required_u = (
+            available_v / (physical_aspect * ATLAS_PIXEL_ASPECT)
+            if rotated_instrument
+            else physical_aspect * available_v / ATLAS_PIXEL_ASPECT
+        )
         if required_u > available_u + 1e-6:
             raise RuntimeError(
                 f"The native {panel} atlas region cannot cover MFD island {component_index} "
@@ -142,11 +149,21 @@ def author_display_uvs():
         for polygon in component:
             for loop_index in polygon.loop_indices:
                 position = cockpit.data.vertices[cockpit.data.loops[loop_index].vertex_index].co
-                uv_layer.data[loop_index].uv = (
-                    u_min + ((position.x - record["minimum_x"]) / record["width"]) * (u_max - u_min),
-                    v_min + ((position.y - record["minimum_y"]) /
-                             (record["maximum_y"] - record["minimum_y"])) * (v_max - v_min),
-                )
+                horizontal = (position.x - record["minimum_x"]) / record["width"]
+                vertical = ((position.y - record["minimum_y"]) /
+                            (record["maximum_y"] - record["minimum_y"]))
+                if rotated_instrument:
+                    # The atlas content is clockwise. Sampling U from physical up and
+                    # V from physical right-to-left displays it upright on the panel.
+                    uv_layer.data[loop_index].uv = (
+                        u_min + vertical * (u_max - u_min),
+                        v_min + (1.0 - horizontal) * (v_max - v_min),
+                    )
+                else:
+                    uv_layer.data[loop_index].uv = (
+                        u_min + horizontal * (u_max - u_min),
+                        v_min + vertical * (v_max - v_min),
+                    )
 
         component_uvs = [uv_layer.data[loop].uv for polygon in component for loop in polygon.loop_indices]
         minimum_uv = tuple(min(uv[axis] for uv in component_uvs) for axis in range(2))
@@ -154,8 +171,11 @@ def author_display_uvs():
         if min(minimum_uv) < -1e-5 or max(maximum_uv) > 1.00001:
             raise RuntimeError(f"MFD island {component_index} UVs escaped the native texture range")
         rendered_aspect = (
-            (maximum_uv[0] - minimum_uv[0]) * ATLAS_PIXEL_ASPECT /
-            (maximum_uv[1] - minimum_uv[1])
+            (maximum_uv[1] - minimum_uv[1]) /
+            ((maximum_uv[0] - minimum_uv[0]) * ATLAS_PIXEL_ASPECT)
+            if rotated_instrument
+            else (maximum_uv[0] - minimum_uv[0]) * ATLAS_PIXEL_ASPECT /
+                 (maximum_uv[1] - minimum_uv[1])
         )
         if abs(rendered_aspect - physical_aspect) > 0.01:
             raise RuntimeError(
@@ -164,7 +184,9 @@ def author_display_uvs():
             )
         print(
             f"MFD_ISLAND_{component_index}=panel:{panel},polygons:{len(component)},"
-            f"physicalAspect:{physical_aspect:.5f},uvMin:{minimum_uv},uvMax:{maximum_uv}"
+            f"physicalAspect:{physical_aspect:.5f},orientation:"
+            f"{'side-corrected-ccw' if rotated_instrument else 'center-upright'},"
+            f"uvMin:{minimum_uv},uvMax:{maximum_uv}"
         )
     cockpit.data.update()
 

@@ -30,6 +30,6 @@ The current project targets Unity `2022.3.62f3` and .NET for the runtime plugin.
 5. Put the generated `.nobp`, Release DLL, `meta.json`, and package README under
    `mods/blacknight2u.f117a.nighthawk/`, with `modlist.nomm.json` at the archive root.
 
-Version 0.4.63 adapts only the F-117's cloned AGM-48 rack to the stock heavy-AGM downward bay-release
-path. It also restores stock-scale damage behavior with the common FastBomber armor profile, standard
-100 HP AeroParts, a -25 structural margin, and no erroneous instant-kill AeroParts.
+Version 0.4.64 preserves the upright center camera/radar display and counter-rotates only the two
+clockwise stock instrument-atlas regions by 90 degrees. Validation now checks UV-axis orientation,
+not merely each region's bounds and aspect ratio.

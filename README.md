@@ -278,3 +278,9 @@ the aircraft as the doors finish opening. The aircraft's 13 AeroParts now use th
 FastBomber damage profile, standard 100 HP initialization, and a -25 structural margin. The center
 body and engine AeroParts are no longer incorrect instant-kill components; normal pilot, engine,
 fuel, structural, and system damage paths remain active.
+
+Version 0.4.64 fixes the two side instrument screens being rotated 90 degrees clockwise. The center
+camera/radar display was already correct and is left unchanged. Only the left basic-flight and right
+engine-instrument UV islands now counter-rotate their stock atlas content by 90 degrees while
+preserving each panel's aspect ratio. Build validation now checks the direction of both UV axes, so a
+correct atlas rectangle with a rotated image can no longer pass.

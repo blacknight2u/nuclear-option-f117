@@ -1342,7 +1342,7 @@ public static class F117ContractValidator
         notes.Add("Status HUD: retail bottom-right 260 px layout; plugin wires embedded F-117 damage Images before initialization");
         notes.Add("Exterior: baked boarding-ladder triangles=" + bakedLadderTriangleCount);
         notes.Add("Cockpit: stock Cricket display atlas mapped without stretching across " + cockpitDisplayCount +
-            " physical displays (center camera/radar, left flight instruments, right engine instruments); " +
+            " physical displays (upright center camera/radar; 90-degree-corrected left flight and right engine instruments); " +
             "root-aligned viewpoint at Y=1.39 m on the seat line");
         notes.Add("Canopy: upward 40 degree ejection opening");
         notes.Add("Landing gear: aircraft-forward tire-physics frames, full authored suspension travel before BreakWheel, false-positive skid audio muted");
@@ -1578,40 +1578,87 @@ public static class F117ContractValidator
             float physicalHeight = Mathf.Sqrt(
                 Mathf.Pow(maximumY - minimumY, 2f) + Mathf.Pow(maximumZ - minimumZ, 2f));
             float physicalAspect = physicalHeight > 0.0001f ? physicalWidth / physicalHeight : 0f;
-            float renderedAspect = maximumV - minimumV > 0.0001f
-                ? (maximumU - minimumU) * atlasPixelAspect / (maximumV - minimumV)
+            bool camera = minimumU < 0.2f && minimumV < 0.01f && maximumV > 0.99f;
+            bool basicFlight = minimumU > 0.75f && maximumV < 0.36f;
+            bool engine = minimumU > 0.75f && minimumV > 0.35f && maximumV < 0.72f;
+            bool rotatedInstrument = basicFlight || engine;
+            float renderedAspect = maximumV - minimumV > 0.0001f && maximumU - minimumU > 0.0001f
+                ? rotatedInstrument
+                    ? (maximumV - minimumV) / ((maximumU - minimumU) * atlasPixelAspect)
+                    : (maximumU - minimumU) * atlasPixelAspect / (maximumV - minimumV)
                 : 0f;
             Require(physicalAspect > 0f && Near(renderedAspect, physicalAspect, 0.02f),
                 "F-117 cockpit display " + (index + 1) +
                 " preserves the 1024x512 source aspect without stretching",
                 failures);
 
-            bool camera = minimumU < 0.2f && minimumV < 0.01f && maximumV > 0.99f;
-            bool basicFlight = minimumU > 0.75f && maximumV < 0.36f;
-            bool engine = minimumU > 0.75f && minimumV > 0.35f && maximumV < 0.72f;
             Require(camera || basicFlight || engine,
                 "F-117 cockpit display " + (index + 1) + " maps one approved stock Cricket atlas region",
                 failures);
+
+            float meanX = components[index].Average(vertex => vertices[vertex].x);
+            float meanY = components[index].Average(vertex => vertices[vertex].y);
+            float meanU = components[index].Average(vertex => uvs[vertex].x);
+            float meanV = components[index].Average(vertex => uvs[vertex].y);
+            float varianceX = 0f, varianceY = 0f, varianceU = 0f, varianceV = 0f;
+            float covarianceXU = 0f, covarianceXV = 0f, covarianceYU = 0f, covarianceYV = 0f;
+            foreach (int vertex in components[index])
+            {
+                float x = vertices[vertex].x - meanX;
+                float y = vertices[vertex].y - meanY;
+                float u = uvs[vertex].x - meanU;
+                float v = uvs[vertex].y - meanV;
+                varianceX += x * x;
+                varianceY += y * y;
+                varianceU += u * u;
+                varianceV += v * v;
+                covarianceXU += x * u;
+                covarianceXV += x * v;
+                covarianceYU += y * u;
+                covarianceYV += y * v;
+            }
+            float Correlation(float covariance, float firstVariance, float secondVariance) =>
+                firstVariance > 0.0000001f && secondVariance > 0.0000001f
+                    ? covariance / Mathf.Sqrt(firstVariance * secondVariance)
+                    : 0f;
+            float correlationXU = Correlation(covarianceXU, varianceX, varianceU);
+            float correlationXV = Correlation(covarianceXV, varianceX, varianceV);
+            float correlationYU = Correlation(covarianceYU, varianceY, varianceU);
+            float correlationYV = Correlation(covarianceYV, varianceY, varianceV);
             if (camera)
             {
                 cameraFound = true;
                 Require(Near(minimumU, 0.09402f, 0.005f) && Near(maximumU, 0.69771f, 0.005f) &&
                         Near(minimumV, 0.00011f, 0.005f) && Near(maximumV, 0.99989f, 0.005f),
                     "Center display maps only the native Cricket camera/radar atlas region", failures);
+                // FBX conversion mirrors the model's horizontal X axis. The known-good
+                // center screen therefore imports as X/U=-1 while physical up remains Y/V=+1.
+                Require(correlationXU < -0.95f && correlationYV > 0.95f,
+                    "Center camera/radar display remains upright and unrotated " +
+                    "(x/u=" + correlationXU.ToString("0.000") + ", y/v=" + correlationYV.ToString("0.000") +
+                    ", x/v=" + correlationXV.ToString("0.000") + ", y/u=" + correlationYU.ToString("0.000") + ")", failures);
             }
             else if (basicFlight)
             {
                 basicFlightFound = true;
-                Require(Near(minimumU, 0.81732f, 0.005f) && Near(maximumU, 0.96857f, 0.005f) &&
+                Require(Near(minimumU, 0.80791f, 0.005f) && Near(maximumU, 0.97798f, 0.005f) &&
                         Near(minimumV, 0.02251f, 0.005f) && Near(maximumV, 0.34329f, 0.005f),
                     "Left display maps the native Cricket basic-flight instrument region", failures);
+                Require(correlationYU > 0.95f && correlationXV > 0.95f,
+                    "Left instrument display counter-rotates the clockwise atlas content by 90 degrees " +
+                    "(y/u=" + correlationYU.ToString("0.000") + ", x/v=" + correlationXV.ToString("0.000") +
+                    ", x/u=" + correlationXU.ToString("0.000") + ", y/v=" + correlationYV.ToString("0.000") + ")", failures);
             }
             else if (engine)
             {
                 engineFound = true;
-                Require(Near(minimumU, 0.81920f, 0.005f) && Near(maximumU, 0.96663f, 0.005f) &&
+                Require(Near(minimumU, 0.81003f, 0.005f) && Near(maximumU, 0.97580f, 0.005f) &&
                         Near(minimumV, 0.38727f, 0.005f) && Near(maximumV, 0.69994f, 0.005f),
                     "Right display maps the native Cricket engine-instrument region", failures);
+                Require(correlationYU > 0.95f && correlationXV > 0.95f,
+                    "Right instrument display counter-rotates the clockwise atlas content by 90 degrees " +
+                    "(y/u=" + correlationYU.ToString("0.000") + ", x/v=" + correlationXV.ToString("0.000") +
+                    ", x/u=" + correlationXU.ToString("0.000") + ", y/v=" + correlationYV.ToString("0.000") + ")", failures);
             }
         }
         Require(cameraFound && basicFlightFound && engineFound,
