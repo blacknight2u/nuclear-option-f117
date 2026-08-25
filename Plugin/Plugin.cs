@@ -19,14 +19,23 @@ namespace Blacknight2u.F117Nighthawk
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.4.62";
+        public const string PluginVersion = "0.4.63";
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
+        internal const string LightweightAgmMountKey = "AGM1_quad_internal";
 
         private static readonly FieldInfo CockpitAircraft =
             AccessTools.Field(typeof(Cockpit), "aircraft");
         private static readonly FieldInfo CockpitTacScreenPrefab =
             AccessTools.Field(typeof(Cockpit), "tacScreenUIPrefab");
+        private static readonly FieldInfo MissileRailDirection =
+            AccessTools.Field(typeof(MountedMissile), "railDirection");
+        private static readonly FieldInfo MissileRailLength =
+            AccessTools.Field(typeof(MountedMissile), "railLength");
+        private static readonly FieldInfo MissileRailSpeed =
+            AccessTools.Field(typeof(MountedMissile), "railSpeed");
+        private static readonly FieldInfo MissileRailDelay =
+            AccessTools.Field(typeof(MountedMissile), "railDelay");
         private static GameObject nativeTacScreenPrefab;
         private static GameObject nativeHudExtrasPrefab;
         private static bool loggedTacScreenSelection;
@@ -36,6 +45,7 @@ namespace Blacknight2u.F117Nighthawk
         private static bool loggedHudTelemetryRemoval;
         private static bool loggedFixedJammer;
         private static bool warnedFixedJammerUnavailable;
+        private static bool loggedLightweightAgmAdapter;
 
         private Harmony harmony;
         internal static ManualLogSource Log { get; private set; }
@@ -132,6 +142,35 @@ namespace Blacknight2u.F117Nighthawk
             {
                 loggedFixedJammer = true;
                 Log.LogInfo("F-117 installed the unchanged native JammingPod1 weapon on its concealed fixed station.");
+            }
+        }
+
+        internal static void ConfigureLightweightAgmBayRelease(
+            MountedMissile missile, Aircraft aircraft, WeaponMount mount)
+        {
+            if (missile == null || !IsF117(aircraft))
+                return;
+
+            if (mount == null ||
+                (!string.Equals(mount.jsonKey, LightweightAgmMountKey, StringComparison.Ordinal) &&
+                 !string.Equals(mount.name, LightweightAgmMountKey, StringComparison.Ordinal)))
+                return;
+
+            // AGM1_quad_internal is the only compatible stock bay rack that performs a
+            // zero-distance forward launch. That is valid for its donor installation but
+            // spawns the missile inside the F-117's fuselage. Use the unchanged native
+            // AGM_heavy_internalx2 release motion on this aircraft's cloned rack: while
+            // the doors open at 2 normalized units/second, lower the store 2 m at 4 m/s.
+            // The live missile therefore spawns below the aircraft after the same 0.5 s.
+            MissileRailDirection.SetValue(missile, MountedMissile.RailDirection.Down);
+            MissileRailLength.SetValue(missile, 2f);
+            MissileRailSpeed.SetValue(missile, 4f);
+            MissileRailDelay.SetValue(missile, 0f);
+
+            if (!loggedLightweightAgmAdapter)
+            {
+                loggedLightweightAgmAdapter = true;
+                Log.LogInfo("F-117 adapted AGM1_quad_internal to the native 2 m downward bay-release path.");
             }
         }
 
@@ -389,6 +428,19 @@ namespace Blacknight2u.F117Nighthawk
         {
             Aircraft aircraft = __instance == null ? null : __instance.GetComponentInParent<Aircraft>();
             Plugin.ConcealInstalledJammer(aircraft);
+        }
+    }
+
+    [HarmonyPatch(typeof(MountedMissile), nameof(MountedMissile.AttachToHardpoint))]
+    internal static class F117LightweightAgmBayReleasePatch
+    {
+        [HarmonyPrefix]
+        private static void Prefix(
+            MountedMissile __instance, Aircraft aircraft, WeaponMount weaponMount)
+        {
+            // AttachToHardpoint derives its cached rail vector inside the original method,
+            // so the direction must be set before that calculation runs.
+            Plugin.ConfigureLightweightAgmBayRelease(__instance, aircraft, weaponMount);
         }
     }
 

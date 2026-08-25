@@ -704,16 +704,16 @@ internal static class F117AircraftAssembler
         // mass point so the complete graph—not merely its part origins—has the
         // required tricycle-gear margin.
         Component central = ConfigureAeroPart(visual, 6990f, CentralBodyLiftArea, 0.42f, 0, aircraft, rigidbody,
-            true, Locator(visual, "LOC_CenterOfMass"), null, 0f);
+            Locator(visual, "LOC_CenterOfMass"), null, 0f);
         AddBox(central.transform, "CentralCollider", new Vector3(0f, 0.08f, 0.4f),
             new Vector3(3.4f, 1.05f, 10.2f), 0f);
 
         Component nose = AddPart(central.transform, "F117_Nose", new Vector3(0f, 0.02f, 5.5f),
-            2250f, NoseLiftArea, 0.12f, 0, aircraft, rigidbody, false, central, 260000f);
+            2250f, NoseLiftArea, 0.12f, 0, aircraft, rigidbody, central, 260000f);
         AddBox(nose.transform, "NoseCollider", Vector3.zero, new Vector3(2.2f, 0.78f, 4.1f), 0f);
 
         Component rear = AddPart(central.transform, "F117_RearBody", new Vector3(0f, 0.16f, -3.2f),
-            1010f, RearBodyLiftArea, 0.24f, 0, aircraft, rigidbody, false, central, 320000f);
+            1010f, RearBodyLiftArea, 0.24f, 0, aircraft, rigidbody, central, 320000f);
         // The central fuselage collider already covers most of this part. Keep only a
         // compact tail collision volume here so the rear body cannot overlap both wing
         // rigidbodies when Aircraft.SetComplexPhysics splits the graph.
@@ -721,7 +721,7 @@ internal static class F117AircraftAssembler
             new Vector3(2.8f, 0.7f, 1.5f), 0f);
 
         Component leftWing = AddPart(central.transform, "F117_Wing_Left", new Vector3(-3.7f, -0.02f, -0.6f),
-            785f, MainWingLiftArea, 0.08f, 0, aircraft, rigidbody, false, central, 360000f);
+            785f, MainWingLiftArea, 0.08f, 0, aircraft, rigidbody, central, 360000f);
         // Keep the two wing rigidbodies on their own side of the centreline. The old
         // inner boxes overlapped each other and the rear-body box; sibling FixedJoints
         // do not suppress those collisions and the parts separated by >0.5 m, causing
@@ -731,7 +731,7 @@ internal static class F117AircraftAssembler
         AddBox(leftWing.transform, "OuterCollider", new Vector3(-1.3f, 0f, -0.9f), new Vector3(4.3f, 0.24f, 3.3f), -44f);
 
         Component rightWing = AddPart(central.transform, "F117_Wing_Right", new Vector3(3.7f, -0.02f, -0.6f),
-            785f, MainWingLiftArea, 0.08f, 0, aircraft, rigidbody, false, central, 360000f);
+            785f, MainWingLiftArea, 0.08f, 0, aircraft, rigidbody, central, 360000f);
         AddBox(rightWing.transform, "InnerCollider", new Vector3(0.8f, 0f, 0.8f),
             new Vector3(4f, 0.28f, 3.8f), 31f);
         AddBox(rightWing.transform, "OuterCollider", new Vector3(1.3f, 0f, -0.9f), new Vector3(4.3f, 0.24f, 3.3f), 44f);
@@ -908,16 +908,16 @@ internal static class F117AircraftAssembler
     }
 
     private static Component AddPart(Transform parent, string name, Vector3 localPosition, float mass,
-        float wingArea, float dragArea, int airfoil, Component aircraft, Rigidbody rigidbody, bool critical,
+        float wingArea, float dragArea, int airfoil, Component aircraft, Rigidbody rigidbody,
         Component connectedPart, float breakStrength)
     {
         GameObject gameObject = Child(parent, name, localPosition);
         return ConfigureAeroPart(gameObject, mass, wingArea, dragArea, airfoil, aircraft, rigidbody,
-            critical, gameObject.transform, connectedPart, breakStrength);
+            gameObject.transform, connectedPart, breakStrength);
     }
 
     private static Component ConfigureAeroPart(GameObject gameObject, float mass, float wingArea,
-        float dragArea, int airfoil, Component aircraft, Rigidbody rigidbody, bool critical,
+        float dragArea, int airfoil, Component aircraft, Rigidbody rigidbody,
         Transform centerOfMass, Component connectedPart, float breakStrength)
     {
          // Native aircraft leave fixed liftNormal unset; AeroPart.Awake then binds
@@ -925,14 +925,29 @@ internal static class F117AircraftAssembler
          Transform liftNormal = null;
         Component part = AddRuntimeComponent(gameObject, "AeroPart");
         SerializedObject data = new SerializedObject(part);
-        Set(data, "criticalPart", critical);
+        // Aircraft AeroParts are not instant-kill components in the stock damage graph.
+        // Engine failure and pilot/system damage already provide the normal kill paths.
+        Set(data, "criticalPart", false);
         Set(data, "parentUnit", aircraft);
         Set(data, "mass", mass);
         Set(data, "rb", rigidbody);
         Set(data, "centerOfMass", centerOfMass);
-        Set(data, "hitPoints", critical ? 220f : 120f);
-        Set(data, "structuralThreshold", 0f);
+        // UnitPart.Awake resets every part to 100 HP. Durability is therefore authored
+        // through ArmorProperties, as on stock aircraft, rather than ineffective HP values.
+        Set(data, "hitPoints", 100f);
+        Set(data, "structuralThreshold", -25f);
         Set(data, "integrityThreshold", float.MinValue);
+        SerializedProperty armor = Require(data, "armorProperties");
+        // Exact common FastBomber1 structural profile. The F-117 has only 13 AeroParts
+        // versus the donor's 35, so this restores stock-scale survivability without
+        // inventing extra hit points or making the aircraft unusually armored.
+        Set(armor, "pierceArmor", 20f);
+        Set(armor, "blastArmor", 60f);
+        Set(armor, "fireArmor", 0f);
+        Set(armor, "pierceTolerance", 5f);
+        Set(armor, "blastTolerance", 6f);
+        Set(armor, "fireTolerance", 1f);
+        Set(armor, "overpressureLimit", 5f);
         Set(data, "hitSound", null);
         Size(data, "damageEffects", 0);
         Size(data, "disintegrationEffects", 0);
@@ -1059,7 +1074,7 @@ internal static class F117AircraftAssembler
             (surfaceWorldCenter - liftAxis.position);
 
         Component part = ConfigureAeroPart(transform.gameObject, mass, area, 0.025f, 1, aircraft,
-            rigidbody, false, transform, connectedPart, 120000f);
+            rigidbody, transform, connectedPart, 120000f);
         Transform generatedLiftNormal = FindDeep(transform, name + "_LiftNormal");
         SerializedObject partData = new SerializedObject(part);
         // Match the native control-surface durability contract used by both audited
@@ -1223,7 +1238,7 @@ internal static class F117AircraftAssembler
         {
             Vector3 localPosition = physicsRoot.InverseTransformPoint(locator.position);
             Component part = AddPart(physicsRoot, "F117_Engine_" + side, localPosition,
-                675f, 0f, 0.05f, -1, aircraft, rigidbody, true, connectedPart, 300000f);
+                675f, 0f, 0.05f, -1, aircraft, rigidbody, connectedPart, 300000f);
             BoxCollider engineDamageCollider = part.gameObject.AddComponent<BoxCollider>();
             engineDamageCollider.center = EngineDamageColliderCenter;
             engineDamageCollider.size = EngineDamageColliderSize;

@@ -391,6 +391,24 @@ public static class F117ContractValidator
             RequireRef(data, "parentUnit", part.name, failures);
             RequireRef(data, "rb", part.name, failures);
             RequireRef(data, "centerOfMass", part.name, failures);
+            Require(!Bool(data, "criticalPart", part.name, failures),
+                part.name + " is not an instant-kill AeroPart", failures);
+            Require(Near(Float(data, "hitPoints", part.name, failures), 100f, 0.001f),
+                part.name + " uses the game-standard 100 HP initialized by UnitPart.Awake", failures);
+            Require(Near(Float(data, "structuralThreshold", part.name, failures), -25f, 0.001f),
+                part.name + " retains the stock FastBomber structural margin below zero HP", failures);
+            SerializedProperty armor = Property(data, "armorProperties", part.name, failures);
+            if (armor != null)
+            {
+                Require(Near(RelativeFloat(armor, "pierceArmor", part.name, failures), 20f, 0.001f) &&
+                        Near(RelativeFloat(armor, "blastArmor", part.name, failures), 60f, 0.001f) &&
+                        Near(RelativeFloat(armor, "fireArmor", part.name, failures), 0f, 0.001f) &&
+                        Near(RelativeFloat(armor, "pierceTolerance", part.name, failures), 5f, 0.001f) &&
+                        Near(RelativeFloat(armor, "blastTolerance", part.name, failures), 6f, 0.001f) &&
+                        Near(RelativeFloat(armor, "fireTolerance", part.name, failures), 1f, 0.001f) &&
+                        Near(RelativeFloat(armor, "overpressureLimit", part.name, failures), 5f, 0.001f),
+                    part.name + " uses the audited common FastBomber damage profile", failures);
+            }
             float partWingArea = Float(data, "wingArea", part.name, failures);
             Transform serializedLiftNormal = Ref(data, "liftNormal") as Transform;
             bool isControlSurfacePart = part.GetComponent("ControlSurface") != null;
@@ -410,8 +428,6 @@ public static class F117ContractValidator
             BoxCollider rootBox = part.GetComponent<BoxCollider>();
             if (isControlSurfacePart)
             {
-                Require(Near(Float(data, "hitPoints", part.name, failures), 100f, 0.001f),
-                    part.name + " matches the native 100 HP control-surface durability contract", failures);
                 MeshCollider meshCollider = part.GetComponent<MeshCollider>();
                 Renderer[] renderers = part.GetComponentsInChildren<Renderer>(true);
                 Bounds geometryBounds = F117AircraftAssembler.CalculateRendererGeometryBounds(part.transform, renderers);
@@ -1308,7 +1324,7 @@ public static class F117ContractValidator
         notes.Add("Electrical: stock 300 kJ bus and two engines share the native 0.003 charge/RPM rate; JammingPod1 retains its native draw");
         notes.Add("Physics graph: one root AeroPart plus 12 parent-matched, jointed descendants; elevons attach to wings and rudders to rear body");
         notes.Add("Control collisions: six inset convex mesh colliders matching the working Aryx pattern; full unrelated-part penetration audit passed");
-        notes.Add("Control durability: native-reference 100 HP surfaces with 120 kN parent-matched attachments");
+        notes.Add("Damage model: 13 non-critical, standard 100 HP AeroParts; common FastBomber 20/60 armor, 5x/6x tolerances, -25 structural margin; controls retain 120 kN parent-matched attachments");
         notes.Add("Elevon neutral: unbiased native servo/aero pivots; measured inner-panel visual corrections isolated below them");
         notes.Add("Mass: dry graph=13380 kg; full internal fuel=21630 kg; MTOW=23814 kg; payload margin=2184 kg; runtime CoM Z=" +
             runtimeCenterOfMass.z.ToString("0.00") + " m");
@@ -1420,6 +1436,13 @@ public static class F117ContractValidator
     private static float Float(SerializedObject data, string field, string owner, List<string> failures)
     {
         SerializedProperty property = Property(data, field, owner, failures);
+        return property == null ? float.NaN : property.floatValue;
+    }
+
+    private static float RelativeFloat(SerializedProperty data, string field, string owner, List<string> failures)
+    {
+        SerializedProperty property = data.FindPropertyRelative(field);
+        Require(property != null, owner + ".armorProperties serializes " + field, failures);
         return property == null ? float.NaN : property.floatValue;
     }
 

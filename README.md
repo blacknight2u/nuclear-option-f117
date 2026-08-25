@@ -269,3 +269,12 @@ instruments. Each region is cropped to the modeled panel's aspect ratio rather t
 Runtime setup also restores the intended transparent render state of the HUD combiner after the
 launcher replaces its placeholder shader, preventing its thin glass edge from becoming an opaque
 vertical obstruction.
+
+Version 0.4.63 fixes internal AGM-48 release and aircraft durability at their actual configuration
+points. The stock `AGM1_quad_internal` rack is intended for a forward-clear bay and uniquely has no
+rail travel; on the F-117 it spawned missiles inside the fuselage. Only the F-117's cloned rack now
+uses the unchanged stock heavy-AGM motion of 2 m downward at 4 m/s, placing the live missile below
+the aircraft as the doors finish opening. The aircraft's 13 AeroParts now use the common stock
+FastBomber damage profile, standard 100 HP initialization, and a -25 structural margin. The center
+body and engine AeroParts are no longer incorrect instant-kill components; normal pilot, engine,
+fuel, structural, and system damage paths remain active.

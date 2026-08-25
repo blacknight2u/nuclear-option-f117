@@ -1,5 +1,5 @@
 F-117A NIGHTHAWK RUNTIME CONTRACT VALIDATION
-Generated: 2026-08-24 23:57:26
+Generated: 2026-08-25 00:39:22
 Result: PASS
 
 Validated root: F117A_Nighthawk
@@ -9,7 +9,7 @@ Active jammer: native JammingPod1 weapon, permanently installed and target-fired
 Electrical: stock 300 kJ bus and two engines share the native 0.003 charge/RPM rate; JammingPod1 retains its native draw
 Physics graph: one root AeroPart plus 12 parent-matched, jointed descendants; elevons attach to wings and rudders to rear body
 Control collisions: six inset convex mesh colliders matching the working Aryx pattern; full unrelated-part penetration audit passed
-Control durability: native-reference 100 HP surfaces with 120 kN parent-matched attachments
+Damage model: 13 non-critical, standard 100 HP AeroParts; common FastBomber 20/60 armor, 5x/6x tolerances, -25 structural margin; controls retain 120 kN parent-matched attachments
 Elevon neutral: unbiased native servo/aero pivots; measured inner-panel visual corrections isolated below them
 Mass: dry graph=13380 kg; full internal fuel=21630 kg; MTOW=23814 kg; payload margin=2184 kg; runtime CoM Z=-0.26 m
 Aerodynamic area: 77.449 m^2 total (62.180 m^2 fixed + 10.820 m^2 measured elevons + 4.449 m^2 full vertical tails)
