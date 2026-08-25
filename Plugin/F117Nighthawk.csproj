@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net471</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>F117Nighthawk</AssemblyName>
+    <RootNamespace>Blacknight2u.F117Nighthawk</RootNamespace>
+    <Version>0.4.62</Version>
+    <Authors>blacknight2u</Authors>
+    <Description>Runtime flight-system support for the F-117A Nighthawk aircraft mod.</Description>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <DebugType>embedded</DebugType>
+    <Optimize>true</Optimize>
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildProjectDirectory)=.</PathMap>
+    <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option</GameDir>
+    <ManagedDir>$(GameDir)\NuclearOption_Data\Managed</ManagedDir>
+    <BepInExCoreDir>$(GameDir)\BepInEx\core</BepInExCoreDir>
+  </PropertyGroup>
+
+  <Target Name="ValidateGameReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(ManagedDir)\Assembly-CSharp.dll')" Text="Nuclear Option was not found at $(GameDir)." />
+    <Error Condition="!Exists('$(BepInExCoreDir)\BepInEx.dll')" Text="BepInEx 5 was not found under $(GameDir)\BepInEx\core." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Mirage">
+      <HintPath>$(ManagedDir)\Mirage.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExCoreDir)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExCoreDir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(ManagedDir)\UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\NuclearOption-BroomWitch\UnityProject\Assets\F117\UI\F117_Damage.png"
+                      LogicalName="Blacknight2u.F117Nighthawk.F117_Damage.png" />
+  </ItemGroup>
+</Project>
