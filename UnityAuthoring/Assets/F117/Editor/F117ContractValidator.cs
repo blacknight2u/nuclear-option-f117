@@ -1644,7 +1644,7 @@ public static class F117ContractValidator
                 Require(Near(minimumU, 0.80791f, 0.005f) && Near(maximumU, 0.97798f, 0.005f) &&
                         Near(minimumV, 0.02251f, 0.005f) && Near(maximumV, 0.34329f, 0.005f),
                     "Left display maps the native Cricket basic-flight instrument region", failures);
-                Require(correlationYU > 0.95f && correlationXV > 0.95f,
+                Require(correlationYU < -0.95f && correlationXV < -0.95f,
                     "Left instrument display counter-rotates the clockwise atlas content by 90 degrees " +
                     "(y/u=" + correlationYU.ToString("0.000") + ", x/v=" + correlationXV.ToString("0.000") +
                     ", x/u=" + correlationXU.ToString("0.000") + ", y/v=" + correlationYV.ToString("0.000") + ")", failures);
@@ -1655,7 +1655,7 @@ public static class F117ContractValidator
                 Require(Near(minimumU, 0.81003f, 0.005f) && Near(maximumU, 0.97580f, 0.005f) &&
                         Near(minimumV, 0.38727f, 0.005f) && Near(maximumV, 0.69994f, 0.005f),
                     "Right display maps the native Cricket engine-instrument region", failures);
-                Require(correlationYU > 0.95f && correlationXV > 0.95f,
+                Require(correlationYU < -0.95f && correlationXV < -0.95f,
                     "Right instrument display counter-rotates the clockwise atlas content by 90 degrees " +
                     "(y/u=" + correlationYU.ToString("0.000") + ", x/v=" + correlationXV.ToString("0.000") +
                     ", x/u=" + correlationXU.ToString("0.000") + ", y/v=" + correlationYV.ToString("0.000") + ")", failures);

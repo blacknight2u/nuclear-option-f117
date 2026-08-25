@@ -284,3 +284,8 @@ camera/radar display was already correct and is left unchanged. Only the left ba
 engine-instrument UV islands now counter-rotate their stock atlas content by 90 degrees while
 preserving each panel's aspect ratio. Build validation now checks the direction of both UV axes, so a
 correct atlas rectangle with a rotated image can no longer pass.
+
+Version 0.4.65 corrects the direction of that side-screen adjustment. Version 0.4.64 sampled the two
+rotated instrument regions in the same visual direction as their existing clockwise rotation, adding
+another 90 degrees and displaying them upside down. The side UV axes now use the actual inverse
+mapping; the already-correct center camera/radar island remains byte-for-byte unchanged.

@@ -6,9 +6,9 @@ camera/radar, engine instruments, and basic flight instruments.  Mapping the
 complete 2:1 atlas onto every F-117 screen crushes all four panels together.
 
 The F-117 center screen receives the native main camera/radar rectangle without
-rotation.  The two instrument regions are stored 90 degrees clockwise relative
-to the F-117's physical side screens, so their UV axes are counter-oriented at
-the mesh: screen-up samples atlas-right and screen-right samples atlas-down.
+rotation.  The two instrument regions appear 90 degrees clockwise relative to
+the F-117's physical side screens, so their UV axes must apply the visual
+inverse: screen-up samples atlas-left and screen-right samples atlas-up.
 Each rectangle is center-cropped only enough to match the modeled screen's
 physical aspect ratio, so the image is not stretched.  All non-MFD UVs and
 geometry remain untouched.
@@ -153,11 +153,11 @@ def author_display_uvs():
                 vertical = ((position.y - record["minimum_y"]) /
                             (record["maximum_y"] - record["minimum_y"]))
                 if rotated_instrument:
-                    # The atlas content is clockwise. Sampling U from physical up and
-                    # V from physical right-to-left displays it upright on the panel.
+                    # The rendered content appears clockwise. Apply the visual inverse:
+                    # physical up samples decreasing U and physical right increases V.
                     uv_layer.data[loop_index].uv = (
-                        u_min + vertical * (u_max - u_min),
-                        v_min + (1.0 - horizontal) * (v_max - v_min),
+                        u_min + (1.0 - vertical) * (u_max - u_min),
+                        v_min + horizontal * (v_max - v_min),
                     )
                 else:
                     uv_layer.data[loop_index].uv = (

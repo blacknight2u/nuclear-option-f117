@@ -29,7 +29,7 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.4.64";
+    private const string Version = "0.4.65";
     private const string FixedJammerAsset = "JammingPod1";
     private static readonly string[] WeaponAssets =
     {
