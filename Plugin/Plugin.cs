@@ -19,7 +19,7 @@ namespace Blacknight2u.F117Nighthawk
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.4.83";
+        public const string PluginVersion = "0.4.84";
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
         internal const string LightweightAgmMountKey = "AGM1_quad_internal";
@@ -680,10 +680,15 @@ namespace Blacknight2u.F117Nighthawk
                 if (entry != null && source == entry.Material)
                     continue;
 
-                ProfileKind? kind = Classify(renderer, source);
-                if (!kind.HasValue)
+                // SetLivery may replace a renderer's material instance after the
+                // profile was discovered. Renderer/slot identity remains authoritative:
+                // rebind that known slot even when the replacement already uses URP/Lit.
+                // Reclassifying it would reject the live replacement and leave Apply
+                // updating a detached, invisible material clone.
+                if (entry == null && !discover)
                     continue;
-                if (!discover && entry == null)
+                ProfileKind? kind = entry == null ? Classify(renderer, source) : entry.Kind;
+                if (!kind.HasValue)
                     continue;
 
                 string canonical = CanonicalImportedName(source.name);
@@ -852,6 +857,10 @@ namespace Blacknight2u.F117Nighthawk
             material.SetFloat("_Metallic", 1f);
             material.SetFloat("_Smoothness", 1f);
             material.SetFloat("_SmoothnessTextureChannel", 0f);
+            if (material.HasProperty("_EnvironmentReflections"))
+                material.SetFloat("_EnvironmentReflections", 1f);
+            if (material.HasProperty("_SpecularHighlights"))
+                material.SetFloat("_SpecularHighlights", 1f);
             if (normal != null)
                 material.EnableKeyword("_NORMALMAP");
             if (occlusion != null)
@@ -868,63 +877,76 @@ namespace Blacknight2u.F117Nighthawk
 
         private void LogMaterialState(bool paradeFlag, string finishName)
         {
+            int boundCount = 0;
+            int skinCount = 0;
+            int accessoryCount = 0;
+            int tireCount = 0;
+            var failures = new List<string>();
             foreach (Entry entry in entries)
             {
                 Material material = entry.Material;
-                if (material == null)
+                if (material == null || entry.Renderer == null)
+                {
+                    failures.Add("missing material/renderer");
                     continue;
-                string finishProperty = entry.Kind == ProfileKind.AircraftSkin
-                    ? "_Metallic"
-                    : "_MetallicGlossMap";
-                Texture finish = material.HasProperty(finishProperty)
-                    ? material.GetTexture(finishProperty)
-                    : null;
-                Plugin.Log.LogDebug("F-117 profile=" +
-                    (paradeFlag ? "Flag/" + finishName : "Black") +
-                    " renderer=" + entry.Renderer.name + " slot=" + entry.Slot +
-                    " shader=" + (material.shader == null ? "<null>" : material.shader.name) +
-                    " albedo=" + TextureState(material, "_Basecolor") +
-                    " damage=" + TextureState(material, "_BasecolorDmg") +
-                    " normal=" + TextureState(material, "_Normal") +
-                    " ao=" + TextureState(material, "_AO") +
-                    " finish=" + (finish == null ? "<null>" : finish.name) +
-                    " smoothness=" + FloatState(material, "_Smoothness") +
-                    " keywords=" + string.Join(",", material.shaderKeywords) +
-                    " instance=" + material.GetInstanceID() + ".");
-            }
+                }
+                Material[] liveSlots = entry.Renderer.sharedMaterials;
+                if (entry.Slot < 0 || entry.Slot >= liveSlots.Length ||
+                    liveSlots[entry.Slot] != material)
+                {
+                    failures.Add(entry.Renderer.name + "[" + entry.Slot + "] detached");
+                    continue;
+                }
+                boundCount++;
 
-            Aircraft aircraft = GetComponent<Aircraft>();
-            foreach (Renderer renderer in Plugin.GetAircraftRenderers(aircraft))
-            foreach (Material material in renderer.sharedMaterials)
-            {
-                if (material == null || CanonicalImportedName(material.name) != "F117_Tires")
-                    continue;
-                Texture finish = material.HasProperty("_MetallicGlossMap")
+                Texture expectedFinish;
+                if (entry.Kind == ProfileKind.AircraftSkin)
+                {
+                    expectedFinish = paradeFlag ? Plugin.MirrorMetallicTexture : entry.MatteFinish;
+                    skinCount++;
+                }
+                else if (entry.Kind == ProfileKind.StaticAccessory)
+                {
+                    expectedFinish = entry.MatteFinish;
+                    accessoryCount++;
+                }
+                else if (entry.Kind == ProfileKind.CockpitFrame)
+                {
+                    expectedFinish = paradeFlag ? Plugin.MirrorMetallicTexture : entry.MatteFinish;
+                }
+                else
+                {
+                    expectedFinish = null;
+                    tireCount++;
+                }
+
+                Texture actualFinish = material.HasProperty("_MetallicGlossMap")
                     ? material.GetTexture("_MetallicGlossMap")
                     : null;
-                Plugin.Log.LogDebug("F-117 tire invariant profile=" +
-                    (paradeFlag ? "Flag/" + finishName : "Black") + " renderer=" + renderer.name +
-                    " shader=" + (material.shader == null ? "<null>" : material.shader.name) +
-                    " finish=" + (finish == null ? "<null>" : finish.name) +
-                    " smoothness=" + FloatState(material, "_Smoothness") +
-                    " keywords=" + string.Join(",", material.shaderKeywords) +
-                    " instance=" + material.GetInstanceID() + ".");
+                if (actualFinish != expectedFinish)
+                    failures.Add(entry.Renderer.name + "[" + entry.Slot + "] wrong finish");
+                if (entry.Kind == ProfileKind.TireRubber &&
+                    (material.GetFloat("_Metallic") > 0.001f ||
+                     material.GetFloat("_Smoothness") > 0.121f))
+                    failures.Add(entry.Renderer.name + "[" + entry.Slot + "] reflective tire");
+                if (entry.Kind == ProfileKind.AircraftSkin && paradeFlag &&
+                    (!material.IsKeywordEnabled("_METALLICSPECGLOSSMAP") ||
+                     material.GetFloat("_Metallic") < 0.999f ||
+                     material.GetFloat("_Smoothness") < 0.999f))
+                    failures.Add(entry.Renderer.name + "[" + entry.Slot + "] chrome disabled");
             }
-        }
 
-        private static string FloatState(Material material, string property)
-        {
-            return material.HasProperty(property)
-                ? material.GetFloat(property).ToString("0.###")
-                : "<missing>";
-        }
-
-        private static string TextureState(Material material, string property)
-        {
-            Texture texture = Plugin.IsTextureProperty(material, property)
-                ? material.GetTexture(property)
-                : null;
-            return texture == null ? "<null>" : texture.name;
+            if (failures.Count > 0)
+            {
+                Plugin.Log.LogError("F-117 livery material verification failed for " +
+                    failures.Count + " slot(s): " + string.Join("; ", failures.Take(12)) +
+                    (failures.Count > 12 ? "; ..." : "."));
+                return;
+            }
+            Plugin.Log.LogDebug("F-117 verified " + boundCount + " live " +
+                (paradeFlag ? finishName + " livery" : "Nighthawk Black") +
+                " material slots: " + skinCount + " skin, " + accessoryCount +
+                " matte accessory, and " + tireCount + " non-metallic tire.");
         }
 
         private static Texture FinishTexture(Material material, ProfileKind kind)
