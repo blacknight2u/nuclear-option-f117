@@ -2,12 +2,13 @@
 
 import bpy
 import os
+from pathlib import Path
 from mathutils import Quaternion, Vector
 
 
 OUTPUT = os.environ.get(
     "F117_GEAR_AUDIT_OUTPUT",
-    r"C:\Users\JEDENSMORE\NuclearOption-F117\ReferenceAudit\Renders\articulated-gear",
+    str(Path(__file__).resolve().parents[3] / "artifacts" / "audits" / "articulated-gear"),
 )
 os.makedirs(OUTPUT, exist_ok=True)
 

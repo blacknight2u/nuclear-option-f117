@@ -1,9 +1,10 @@
 import bpy
 import math
 import os
+from pathlib import Path
 from mathutils import Vector
 
-OUT = r"C:\Users\JEDENSMORE\AppData\Local\Temp\f117_gear_audit"
+OUT = str(Path(__file__).resolve().parents[3] / "artifacts" / "research" / "gear")
 os.makedirs(OUT, exist_ok=True)
 bpy.context.scene.frame_set(218)
 bpy.context.view_layer.update()

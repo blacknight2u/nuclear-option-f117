@@ -1,6 +1,7 @@
 """Render the original wired Blender gear animation at its exact source frames."""
 
 import os
+from pathlib import Path
 
 import bpy
 from mathutils import Vector
@@ -8,7 +9,7 @@ from mathutils import Vector
 
 OUTPUT = os.environ.get(
     "F117_SOURCE_GEAR_AUDIT_OUTPUT",
-    r"C:\Users\JEDENSMORE\NuclearOption-F117\ReferenceAudit\Renders\source-gear",
+    str(Path(__file__).resolve().parents[3] / "artifacts" / "research" / "source-gear"),
 )
 os.makedirs(OUTPUT, exist_ok=True)
 

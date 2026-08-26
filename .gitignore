@@ -1,36 +1,45 @@
-# This repository deliberately tracks the current production source only.
-# Historical experiments, diagnostics, generated bundles, and local installs
-# remain on the workstation but do not belong in source control.
-*
+# .NET
+**/bin/
+**/obj/
 
-!.gitignore
-!.gitattributes
-!README.md
-!DEVELOPMENT.md
-!ASSET_PROVENANCE.md
-!F117_Contract_Validation.txt
-!F117_Production_Master.blend
-!build_ui_sprites.ps1
-!*.py
+# Python
+**/__pycache__/
+*.py[cod]
 
-!Plugin/
-!Plugin/**
-Plugin/bin/
-Plugin/obj/
+# Blender backups
+*.blend1
+*.blend2
+*~
 
-!Tools/
-!Tools/**
-Tools/__pycache__/
-*.pyc
-
-!Package/
-!Package/blacknight2u.f117a.nighthawk/
-!Package/blacknight2u.f117a.nighthawk/README.md
-!Package/blacknight2u.f117a.nighthawk/meta.json
-
-!UnityAuthoring/
-!UnityAuthoring/Assets/
-!UnityAuthoring/Assets/F117/
-!UnityAuthoring/Assets/F117/**
+# Unity-generated aircraft output
 UnityAuthoring/Assets/F117/Generated/
 UnityAuthoring/Assets/F117/Generated.meta
+
+# Release output
+Package/blacknight2u.f117a.nighthawk/F117Nighthawk.dll
+Package/blacknight2u.f117a.nighthawk/*.nobp
+PackStaging-*/
+*.nommpack
+artifacts/
+
+# Local diagnostics and reports
+/tmp/
+*.log
+F117_Contract_Validation.txt
+F117_Full_Component_Inventory.txt
+F117_Bundle_Audit_*.json
+Diagnostics/
+ReferenceAudit/
+BaselineSnapshots/
+NeutralAudit/
+TailCompare/
+
+# Local experiments and previous installs
+Candidate-*/
+InstalledBackup/
+InstalledBackups/
+ModelBackups/
+PluginRollback*/
+Recovered/
+SourceModel-Original/
+Tools/Research/Assets/

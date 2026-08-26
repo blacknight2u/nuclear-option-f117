@@ -133,11 +133,8 @@ internal static class F117AuthoringUtil
         delta.ToAngleAxis(out float angle, out Vector3 axis);
         if (angle > 180f)
         {
-            // Quaternion.ToAngleAxis can return the long 180..360 degree form.
-            // Convert it to the equivalent shortest rotation by reversing the
-            // axis once. Negating both the axis and a signed angle produces the
-            // inverse rotation, which made the F-117 gear fold backward while
-            // still passing an unsigned angle-magnitude check.
+            // Normalize the long 180..360 degree form to the equivalent signed
+            // shortest rotation without inverting the target motion.
             angle = 360f - angle;
             axis = -axis;
         }

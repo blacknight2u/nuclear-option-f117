@@ -1,10 +1,11 @@
 import bpy
 import math
 import os
+from pathlib import Path
 from mathutils import Vector
 
 
-OUTPUT = r"C:\Users\JEDENSMORE\NuclearOption-F117\ReferenceAudit\Renders\animated-parts-v045"
+OUTPUT = str(Path(__file__).resolve().parents[3] / "artifacts" / "audits" / "animated-parts")
 os.makedirs(OUTPUT, exist_ok=True)
 
 

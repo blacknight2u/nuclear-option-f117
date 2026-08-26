@@ -1,6 +1,11 @@
 param(
-    [string]$UiRoot = 'C:\Users\JEDENSMORE\NuclearOption-BroomWitch\UnityProject\Assets\F117\UI'
+    [string]$UiRoot
 )
+
+if ([string]::IsNullOrWhiteSpace($UiRoot)) {
+    $repositoryRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $UiRoot = Join-Path $repositoryRoot 'UnityAuthoring\Assets\F117\UI'
+}
 
 Add-Type -AssemblyName System.Drawing
 

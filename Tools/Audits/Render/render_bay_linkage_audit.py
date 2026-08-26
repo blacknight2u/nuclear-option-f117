@@ -1,12 +1,13 @@
 """Render closed, half-open, and open production bomb-bay linkage poses."""
 
 import os
+from pathlib import Path
 
 import bpy
 from mathutils import Matrix, Vector
 
 
-OUTPUT = r"C:\Users\JEDENSMORE\NuclearOption-F117\ReferenceAudit\Renders\bay-linkages-v0454"
+OUTPUT = str(Path(__file__).resolve().parents[3] / "artifacts" / "audits" / "bay-linkages")
 os.makedirs(OUTPUT, exist_ok=True)
 
 scene = bpy.context.scene

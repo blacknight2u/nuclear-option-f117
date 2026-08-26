@@ -11,10 +11,39 @@ public static class F117ContractValidator
     private const string ModelPath = "Assets/F117/Models/F117_Production.fbx";
     private const string DefinitionPath = "Assets/F117/Generated/F117A_Nighthawk_Definition.asset";
     private const string LiveryPath = "Assets/F117/Generated/F117A_Nighthawk_Livery.asset";
+    private const string ParadeLiveryPath = "Assets/F117/Generated/F117A_ParadeFlag_Livery.asset";
+    private static readonly string[] ParadeLiveryPaths =
+    {
+        ParadeLiveryPath,
+        "Assets/F117/Generated/F117A_ParadeFlag_SilverBlue_Livery.asset",
+        "Assets/F117/Generated/F117A_ParadeFlag_CoolTitanium_Livery.asset",
+        "Assets/F117/Generated/F117A_ParadeFlag_SmokedChrome_Livery.asset",
+        "Assets/F117/Generated/F117A_ParadeFlag_WarmTitanium_Livery.asset"
+    };
+    private static readonly string[] ParadeLiveryDisplayNames =
+    {
+        "Farewell Flag - Pure Chrome",
+        "Farewell Flag - Silver Blue",
+        "Farewell Flag - Cool Titanium",
+        "Farewell Flag - Smoked Chrome",
+        "Farewell Flag - Warm Titanium"
+    };
+    private const string ParadeFlagTexturePath = "Assets/F117/Textures/F117_ParadeFlag.png";
+    private const string ParadeFlagWrapTexturePath = "Assets/F117/Textures/F117_ParadeFlag_Wrap.png";
+    private const string MirrorFinishTexturePath = "Assets/F117/Textures/F117_Mirror_MS.png";
+    private static readonly string[] MatteFinishTextureGuids =
+    {
+        "d7f117a0f1a94f40b5b4cdb16ac5e601", "d7f117a0f1a94f40b5b4cdb16ac5e602",
+        "d7f117a0f1a94f40b5b4cdb16ac5e603", "d7f117a0f1a94f40b5b4cdb16ac5e604",
+        "d7f117a0f1a94f40b5b4cdb16ac5e605", "d7f117a0f1a94f40b5b4cdb16ac5e606",
+        "d7f117a0f1a94f40b5b4cdb16ac5e607"
+    };
+    private const string MirrorFinishTextureGuid = "d7f117a0f1a94f40b5b4cdb16ac5e608";
     private const string StatusPath = "Assets/F117/Generated/F117A_Nighthawk_StatusDisplay.prefab";
     private const string RadarChaffPrefabPath = "Assets/F117/Generated/F117_RadarChaff.prefab";
     private const string ManifestPath = "Assets/F117/Generated/patch_manifest.json";
-    private const string ReportPath = @"C:\Users\JEDENSMORE\NuclearOption-F117\F117_Contract_Validation.txt";
+    private static string ReportPath => Path.Combine(
+        Application.dataPath, "F117", "Generated", "Reports", "F117_Contract_Validation.txt");
 
     [MenuItem("F-117A Nighthawk/Validate Runtime Contract")]
     public static void Validate()
@@ -166,18 +195,25 @@ public static class F117ContractValidator
                     }
                 }
                 SerializedProperty liveries = Property(parameterData, "liveries", parameters.name, failures);
-                Require(liveries != null && liveries.isArray && liveries.arraySize == 1,
-                    "Aircraft has exactly one clean F-117 livery", failures);
-                if (liveries != null && liveries.isArray && liveries.arraySize == 1)
+                int expectedLiveryCount = 1 + ParadeLiveryPaths.Length;
+                Require(liveries != null && liveries.isArray && liveries.arraySize == expectedLiveryCount,
+                    "Aircraft has black plus five photograph-matched farewell-flag finish choices", failures);
+                if (liveries != null && liveries.isArray && liveries.arraySize == expectedLiveryCount)
                 {
-                    SerializedProperty entry = liveries.GetArrayElementAtIndex(0);
-                    Require(entry.FindPropertyRelative("name").stringValue == "Nighthawk Black",
-                        "F-117 livery has its own display name", failures);
-                    SerializedProperty reference = entry.FindPropertyRelative("assetReference");
-                    string expectedGuid = AssetDatabase.AssetPathToGUID(LiveryPath);
-                    Require(reference != null && !string.IsNullOrEmpty(expectedGuid) &&
-                            reference.FindPropertyRelative("m_AssetGUID").stringValue == expectedGuid,
-                        "F-117 livery addressable key matches its generated asset", failures);
+                    string[] names = new[] { "Nighthawk Black" }
+                        .Concat(ParadeLiveryDisplayNames).ToArray();
+                    string[] paths = new[] { LiveryPath }.Concat(ParadeLiveryPaths).ToArray();
+                    for (int index = 0; index < names.Length; index++)
+                    {
+                        SerializedProperty entry = liveries.GetArrayElementAtIndex(index);
+                        Require(entry.FindPropertyRelative("name").stringValue == names[index],
+                            "F-117 livery " + index + " has the expected display name", failures);
+                        SerializedProperty reference = entry.FindPropertyRelative("assetReference");
+                        string expectedGuid = AssetDatabase.AssetPathToGUID(paths[index]);
+                        Require(reference != null && !string.IsNullOrEmpty(expectedGuid) &&
+                                reference.FindPropertyRelative("m_AssetGUID").stringValue == expectedGuid,
+                            "F-117 livery " + index + " addressable key matches its generated asset", failures);
+                    }
                 }
                 SerializedProperty airfoils = Property(parameterData, "airfoils", parameters.name, failures);
                 Require(airfoils != null && airfoils.isArray && airfoils.arraySize == 2,
@@ -191,18 +227,60 @@ public static class F117ContractValidator
                 }
             }
         }
-        UnityEngine.Object liveryAsset = AssetDatabase.LoadMainAssetAtPath(LiveryPath);
-        Require(liveryAsset != null && liveryAsset.GetType().Name == "LiveryData", "Clean F-117 livery asset loads", failures);
-        if (liveryAsset != null)
+        foreach (string liveryPath in new[] { LiveryPath }.Concat(ParadeLiveryPaths))
         {
+            UnityEngine.Object liveryAsset = AssetDatabase.LoadMainAssetAtPath(liveryPath);
+            Require(liveryAsset != null && liveryAsset.GetType().Name == "LiveryData",
+                Path.GetFileNameWithoutExtension(liveryPath) + " livery asset loads", failures);
+            if (liveryAsset == null)
+                continue;
             SerializedObject liveryData = new SerializedObject(liveryAsset);
             SerializedProperty texture = Property(liveryData, "Texture", liveryAsset.name, failures);
             SerializedProperty colors = Property(liveryData, "Colors", liveryAsset.name, failures);
             Require(texture != null && texture.objectReferenceValue == null,
-                "F-117 livery cannot replace production textures with donor artwork", failures);
+                liveryAsset.name + " cannot replace production textures through the incompatible stock UV path",
+                failures);
             Require(colors != null && colors.isArray && colors.arraySize == 0,
-                "F-117 livery contains no donor color table", failures);
+                liveryAsset.name + " contains no donor color table", failures);
         }
+        Texture2D paradeTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(ParadeFlagTexturePath);
+        Require(paradeTexture != null && paradeTexture.width == 4032 && paradeTexture.height == 2688,
+            "Farewell-flag projection texture has the aircraft''s audited 1.500 planform aspect", failures);
+        Texture2D paradeWrapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(ParadeFlagWrapTexturePath);
+        Require(paradeWrapTexture != null && paradeWrapTexture.width == 4032 &&
+                paradeWrapTexture.height == 2688,
+            "Farewell-flag runtime wrap preserves the 4K master resolution and 1.500 aspect", failures);
+        for (int panel = 1; panel <= 7; panel++)
+            ValidateMatteFinishTexture(panel, MatteFinishTextureGuids[panel - 1], failures);
+        ValidateMirrorFinishTexture(failures);
+        Renderer[] paradeOverlays = prefab.GetComponentsInChildren<Renderer>(true)
+            .Where(renderer => renderer.name.StartsWith(F117AircraftAssembler.ParadeFlagOverlayPrefix,
+                StringComparison.Ordinal))
+            .ToArray();
+        Require(paradeOverlays.Length >= 5,
+            "Farewell-flag livery has underside overlays for the shell and moving surfaces", failures);
+        Require(paradeOverlays.All(renderer => !renderer.enabled),
+            "Farewell-flag overlays are disabled for the default black livery", failures);
+        Require(paradeOverlays.All(renderer => renderer.sharedMaterial != null &&
+                AssetDatabase.GetAssetPath(Texture(renderer.sharedMaterial, "_BaseMap")) == ParadeFlagWrapTexturePath),
+            "Every farewell-flag overlay uses the deterministic opaque full-belly wrap", failures);
+        string[] invalidParadeOverlays = paradeOverlays
+            // The overlay generator classifies faces in the production model root's
+            // coordinate system. Validate in that identical space: the donor aircraft
+            // root can retain an import basis that is irrelevant to the F-117 mesh.
+            // Gear-door overlays are authored in the closed pose and correctly rotate
+            // away from downward while the doors are open; they are validated below
+            // after temporarily restoring all five close hinges to identity.
+            .Where(renderer => renderer.name.IndexOf("GearDoor", StringComparison.Ordinal) < 0)
+            .Where(renderer => productionVisual == null || !OverlayFacesDown(renderer, productionVisual))
+            .Select(renderer => renderer.name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        Require(invalidParadeOverlays.Length == 0,
+            "Farewell-flag overlays contain only lower-facing aircraft surfaces" +
+            (invalidParadeOverlays.Length == 0 ? string.Empty :
+                " (invalid: " + string.Join(", ", invalidParadeOverlays) + ")"), failures);
+        ValidateGearDoorOverlays(prefab.transform, productionVisual, failures);
         Require(prefab.GetComponent<Rigidbody>() != null, "Aircraft has Rigidbody", failures);
         if (prefab.GetComponent<Rigidbody>() != null)
             Require(Near(prefab.GetComponent<Rigidbody>().mass, 1f, 0.001f),
@@ -267,18 +345,29 @@ public static class F117ContractValidator
             SerializedProperty sources = Property(powerData, "powerSources", "PowerSupply", failures);
             Require(sources != null && sources.isArray && sources.arraySize == 2,
                 "PowerSupply uses both F-117 engines", failures);
-            Require(Near(Float(powerData, "maxCharge", "PowerSupply", failures), 300f, 0.001f),
-                "PowerSupply base capacity retains the stock 300 kJ bus", failures);
-            Require(Near(Float(powerData, "maxPower", "PowerSupply", failures), 60f, 0.001f),
-                "PowerSupply retains the stock 60-unit power rating", failures);
-            Require(Near(Float(powerData, "chargePerRPM", "PowerSupply", failures), 0.0015f, 0.000001f),
-                "PowerSupply splits the native generator coefficient across two engines", failures);
+            Require(Near(Float(powerData, "maxCharge", "PowerSupply", failures),
+                    F117AircraftAssembler.JammerBusCapacityKj, 0.001f),
+                "PowerSupply has the dedicated 60 kJ jammer-burst capacity", failures);
+            Require(Near(Float(powerData, "maxPower", "PowerSupply", failures),
+                    F117AircraftAssembler.JammerNominalPower, 0.001f),
+                "PowerSupply rating matches the native jammer's 13-unit demand", failures);
+            Require(Near(Float(powerData, "chargePerRPM", "PowerSupply", failures),
+                    F117AircraftAssembler.JammerChargePerEngineRpm, 0.000001f),
+                "PowerSupply uses the slow dedicated jammer recharge coefficient", failures);
         }
         MeshCollider[] authoredMeshColliders = prefab.GetComponentsInChildren<MeshCollider>(true);
-        Require(authoredMeshColliders.Length == 6 && authoredMeshColliders.All(collider =>
-                collider.convex && collider.sharedMesh != null && collider.sharedMesh.vertexCount <= 255 &&
-                collider.GetComponent("ControlSurface") != null),
-            "Only the six low-poly convex control-surface MeshColliders are present", failures);
+        MeshCollider[] controlMeshColliders = authoredMeshColliders
+            .Where(collider => collider.GetComponent("ControlSurface") != null)
+            .ToArray();
+        MeshCollider[] wingMeshColliders = authoredMeshColliders
+            .Where(collider => collider.GetComponent("AeroPart") != null &&
+                collider.name.StartsWith("F117_Wing_", StringComparison.Ordinal))
+            .ToArray();
+        Require(authoredMeshColliders.Length == 8 &&
+                controlMeshColliders.Length == 6 && wingMeshColliders.Length == 2 &&
+                authoredMeshColliders.All(collider => collider.convex &&
+                    collider.sharedMesh != null && collider.sharedMesh.vertexCount <= 255),
+            "Six controls and two wings use low-poly convex, directly damage-routable MeshColliders", failures);
 
         Material[] productionMaterials = prefab.GetComponentsInChildren<Renderer>(true)
             .SelectMany(renderer => renderer.sharedMaterials)
@@ -294,15 +383,21 @@ public static class F117ContractValidator
         Require(renderersWithMissingMaterials.Length == 0,
             "No mesh renderer has a missing material" +
             (renderersWithMissingMaterials.Length == 0 ? string.Empty : ": " + string.Join(", ", renderersWithMissingMaterials)), failures);
-        int albedoCount = productionMaterials.Count(material => Texture(material, "_BaseMap") != null);
-        int compatibilityAlbedoCount = productionMaterials.Count(material => Texture(material, "_MainTex") != null);
-        int normalCount = productionMaterials.Count(material => Texture(material, "_BumpMap") != null);
-        int maskCount = productionMaterials.Count(material => Texture(material, "_MetallicGlossMap") != null);
+        int albedoCount = productionMaterials.Count(material =>
+            Texture(material, "_BaseMap", "_Basecolor") != null);
+        int compatibilityAlbedoCount = productionMaterials.Count(material =>
+            F117AircraftAssembler.UsesAircraftSkin(material.name)
+                ? Texture(material, "_Basecolor") != null
+                : Texture(material, "_BaseMap") == null || Texture(material, "_MainTex") != null);
+        int normalCount = productionMaterials.Count(material =>
+            Texture(material, "_BumpMap", "_Normal") != null);
+        int maskCount = productionMaterials.Count(material =>
+            Texture(material, "_MetallicGlossMap", "_Metallic") != null);
         int emissionCount = productionMaterials.Count(material => Texture(material, "_EmissionMap") != null);
         int bakedLadderTriangleCount = -1;
         Require(albedoCount >= 24, "At least 24 production materials retain albedo textures", failures);
-        Require(compatibilityAlbedoCount == albedoCount,
-            "Every production albedo is bound to the extracted-shader compatibility slot", failures);
+        Require(compatibilityAlbedoCount == productionMaterials.Length,
+            "Every production material uses the texture slot required by its runtime shader", failures);
         Require(normalCount >= 22, "At least 22 production materials retain normal maps", failures);
         Require(maskCount >= 22, "At least 22 production materials retain metallic/smoothness maps", failures);
         Require(emissionCount >= 8, "At least 8 cockpit/light materials retain emission maps", failures);
@@ -314,9 +409,17 @@ public static class F117ContractValidator
         })
         {
             Material material = productionMaterials.FirstOrDefault(item => item.name.EndsWith(name, StringComparison.OrdinalIgnoreCase));
-            Require(material != null && Texture(material, "_BaseMap") != null,
+            Require(material != null && Texture(material, "_BaseMap", "_Basecolor") != null,
                 name + " has a bound production albedo texture", failures);
         }
+        Material tireMaterial = productionMaterials.FirstOrDefault(material =>
+            material.name.EndsWith("F117_Tires", StringComparison.OrdinalIgnoreCase));
+        Require(tireMaterial != null && Texture(tireMaterial, "_MetallicGlossMap") == null &&
+                tireMaterial.GetFloat("_Metallic") <= 0.001f &&
+                tireMaterial.GetFloat("_Smoothness") <= 0.15f &&
+                tireMaterial.GetFloat("_EnvironmentReflections") <= 0.001f &&
+                !tireMaterial.shaderKeywords.Contains("_METALLICSPECGLOSSMAP"),
+            "Tire rubber is explicitly nonmetallic and cannot inherit a chrome fallback", failures);
         Material[] exteriorPanelMaterials = productionMaterials
             .Where(material => material.name.IndexOf("F117_EXTERNAL_", StringComparison.OrdinalIgnoreCase) >= 0)
             .ToArray();
@@ -324,10 +427,30 @@ public static class F117ContractValidator
             "All exterior panel material families are present", failures);
         foreach (Material material in exteriorPanelMaterials)
         {
-            Require(Texture(material, "_BaseMap") != null && Texture(material, "_MainTex") != null &&
-                    Texture(material, "_BumpMap") != null && Texture(material, "_MetallicGlossMap") != null,
+            Require(Texture(material, "_Basecolor") != null &&
+                    Texture(material, "_BasecolorDmg") != null &&
+                    Texture(material, "_Normal") != null && Texture(material, "_Metallic") != null,
                 material.name + " resolves Blender duplicate suffixes and retains every production texture binding",
                 failures);
+        }
+        for (int panel = 1; panel <= 7; panel++)
+        {
+            string family = "F117_EXTERNAL_" + panel;
+            string stem = "f117_ext_" + panel;
+            Material material = exteriorPanelMaterials.FirstOrDefault(item =>
+                item.name.EndsWith(family, StringComparison.OrdinalIgnoreCase));
+            Require(material != null, family + " exact texture contract material exists", failures);
+            if (material == null)
+                continue;
+            RequireTexturePath(material, "_Basecolor", "Assets/F117/Textures/" + stem + "_albedo.png", failures);
+            RequireTexturePath(material, "_BasecolorDmg",
+                "Assets/F117/Generated/Materials/F117_" + family + "_Damage.asset", failures);
+            RequireTexturePath(material, "_Normal", "Assets/F117/Textures/" + stem + "_normal.png", failures);
+            RequireTexturePath(material, "_NormalDmg", "Assets/F117/Textures/" + stem + "_normal.png", failures);
+            RequireTexturePath(material, "_Metallic", "Assets/F117/Textures/" + stem + "_ms.png", failures);
+            RequireTexturePath(material, "_AO", "Assets/F117/Textures/" + stem + "_occlusion.png", failures);
+            RequireTexturePath(material, "_BaseMap", "Assets/F117/Textures/" + stem + "_albedo.png", failures);
+            RequireTexturePath(material, "_MainTex", "Assets/F117/Textures/" + stem + "_albedo.png", failures);
         }
         Require(productionMaterials.All(item =>
                 item.name.IndexOf("FORGOTTOTEXTURE", StringComparison.OrdinalIgnoreCase) < 0),
@@ -338,6 +461,11 @@ public static class F117ContractValidator
                 cockpitFrame.GetColor("_BaseColor").g <= 0.05f &&
                 cockpitFrame.GetColor("_BaseColor").b <= 0.05f,
             "Canopy/cockpit frame uses the authored black material instead of the white fallback", failures);
+        RequireTexturePath(cockpitFrame, "_MetallicGlossMap",
+            "Assets/F117/Textures/metal_paint02_mask.png", failures);
+        Require(cockpitFrame != null &&
+                cockpitFrame.shaderKeywords.Contains("_METALLICSPECGLOSSMAP"),
+            "Canopy frame keeps its authored URP packed-mask keyword for both finish profiles", failures);
         Renderer canopyRenderer = prefab.GetComponentsInChildren<Renderer>(true)
             .FirstOrDefault(renderer => renderer.name == "F117_Canopy_Mesh");
         Material[] canopyMaterials = canopyRenderer == null ? Array.Empty<Material>() : canopyRenderer.sharedMaterials;
@@ -376,6 +504,18 @@ public static class F117ContractValidator
             material.name.IndexOf("hud_front", StringComparison.OrdinalIgnoreCase) >= 0);
         Require(hudFrontGlass != null && hudFrontGlass.GetColor("_BaseColor").a <= 0.08f,
             "Physical HUD combiner glass is clear enough not to block the forward view", failures);
+        Material[] damageSkinMaterials = productionMaterials
+            .Where(material => material != null && F117AircraftAssembler.UsesAircraftSkin(material.name))
+            .Distinct()
+            .ToArray();
+        Require(damageSkinMaterials.Length >= 7,
+            "All seven opaque exterior material families use the native AircraftSkin damage contract", failures);
+        foreach (Material material in damageSkinMaterials)
+            Require(material.shader != null &&
+                    HasSavedMaterialProperty(material, "m_Floats", "_HitPoints") &&
+                    Texture(material, "_Basecolor") != null && Texture(material, "_BasecolorDmg") != null,
+                material.name + " is loadable and has clean/damaged skin textures driven by _HitPoints", failures);
+        ValidateProfileSlotClassification(prefab, failures);
 
         Require(aeroParts.Length == 13, "Exactly 13 aerodynamic/mass parts", failures);
         Component centralPart = productionVisual == null
@@ -384,6 +524,8 @@ public static class F117ContractValidator
         Require(centralPart != null, "F117_CentralBody owns the root AeroPart", failures);
         float mass = 0f;
         float area = 0f;
+        float horizontalLiftArea = 0f;
+        float horizontalLiftMomentZ = 0f;
         Vector3 massMoment = Vector3.zero;
         foreach (Component part in aeroParts)
         {
@@ -409,6 +551,25 @@ public static class F117ContractValidator
                         Near(RelativeFloat(armor, "overpressureLimit", part.name, failures), 5f, 0.001f),
                     part.name + " uses the audited common FastBomber damage profile", failures);
             }
+            bool enginePart = part.name.StartsWith("F117_Engine_", StringComparison.Ordinal);
+            SerializedProperty damageMaterial = Property(data, "damageMaterial", part.name, failures);
+            SerializedProperty damageRenderers = damageMaterial?.FindPropertyRelative("renderers");
+            if (!enginePart)
+            {
+                Require(damageRenderers != null && damageRenderers.isArray && damageRenderers.arraySize > 0,
+                    part.name + " owns at least one visible renderer for native damage and detachment", failures);
+                if (damageRenderers != null && damageRenderers.isArray)
+                    for (int index = 0; index < damageRenderers.arraySize; index++)
+                    {
+                        Renderer renderer = damageRenderers.GetArrayElementAtIndex(index).objectReferenceValue as Renderer;
+                        Component nearestAeroPart = null;
+                        for (Transform current = renderer == null ? null : renderer.transform;
+                             current != null && nearestAeroPart == null; current = current.parent)
+                            nearestAeroPart = current.GetComponent("AeroPart");
+                        Require(renderer != null && nearestAeroPart == part,
+                            part.name + " damage renderer " + index + " belongs to that physical AeroPart", failures);
+                    }
+            }
             float partWingArea = Float(data, "wingArea", part.name, failures);
             Transform serializedLiftNormal = Ref(data, "liftNormal") as Transform;
             bool isControlSurfacePart = part.GetComponent("ControlSurface") != null;
@@ -420,34 +581,69 @@ public static class F117ContractValidator
                 Require(Vector3.Dot(serializedLiftNormal.forward, prefab.transform.forward) > 0.99999f &&
                         Vector3.Dot(serializedLiftNormal.right, prefab.transform.right) > 0.99999f,
                     part.name + " uses the aircraft-aligned fixed lift axis proven by working aircraft", failures);
+            Component partControl = part.GetComponent("ControlSurface");
+            bool pitchSurface = partControl == null;
+            if (partControl != null)
+            {
+                SerializedObject controlData = new SerializedObject(partControl);
+                pitchSurface = Mathf.Abs(Float(controlData, "pitchRange", part.name, failures)) > 0.001f;
+            }
+            if (partWingArea > 0f && serializedLiftNormal != null && pitchSurface)
+            {
+                Vector3 centerOfLift = Property(data, "centerOfLift", part.name, failures)?.vector3Value ??
+                                       Vector3.zero;
+                Vector3 forcePoint = serializedLiftNormal.TransformPoint(centerOfLift);
+                float forcePointZ = prefab.transform.InverseTransformPoint(forcePoint).z;
+                horizontalLiftArea += partWingArea;
+                horizontalLiftMomentZ += forcePointZ * partWingArea;
+            }
             Require(Near(Float(data, "airflowChanneling", part.name, failures), 0f, 0.0001f),
                 part.name + " uses its actual lift-transform angle without artificial airflow alignment", failures);
-            Require(part.GetComponent<Collider>() != null,
-                part.name + " owns a collider on the AeroPart GameObject so UnitPart.Awake can fill collisionSize", failures);
+            Require(part.GetComponent<Collider>() != null &&
+                    part.GetType().GetInterfaces().Any(type => type.Name == "IDamageable"),
+                part.name + " owns a native-damage-routable collider directly on its AeroPart GameObject", failures);
             Collider rootCollider = part.GetComponent<Collider>();
             BoxCollider rootBox = part.GetComponent<BoxCollider>();
+            MeshCollider rootMesh = part.GetComponent<MeshCollider>();
             if (isControlSurfacePart)
             {
-                MeshCollider meshCollider = part.GetComponent<MeshCollider>();
-                Renderer[] renderers = part.GetComponentsInChildren<Renderer>(true);
+                Renderer[] renderers = part.GetComponentsInChildren<Renderer>(true)
+                    .Where(renderer => !renderer.name.StartsWith(
+                        F117AircraftAssembler.ParadeFlagOverlayPrefix, StringComparison.Ordinal))
+                    .ToArray();
                 Bounds geometryBounds = F117AircraftAssembler.CalculateRendererGeometryBounds(part.transform, renderers);
                 Vector3 expectedSize = Vector3.Max(
                     geometryBounds.size * F117AircraftAssembler.ControlSurfaceColliderInset,
                     Vector3.one * F117AircraftAssembler.ControlSurfaceColliderMinSize);
-                Require(rootBox == null && meshCollider != null && meshCollider.convex &&
-                        meshCollider.sharedMesh != null && meshCollider.sharedMesh.vertexCount <= 255 &&
-                        (meshCollider.sharedMesh.bounds.center - geometryBounds.center).sqrMagnitude <= 0.0001f &&
-                        (meshCollider.sharedMesh.bounds.size - expectedSize).sqrMagnitude <= 0.0001f,
+                Require(rootBox == null && rootMesh != null && rootMesh.convex &&
+                        rootMesh.sharedMesh != null && rootMesh.sharedMesh.vertexCount <= 255 &&
+                        (rootMesh.sharedMesh.bounds.center - geometryBounds.center).sqrMagnitude <= 0.0001f &&
+                        (rootMesh.sharedMesh.bounds.size - expectedSize).sqrMagnitude <= 0.0001f,
                     part.name + " uses an inset convex root-space mesh collider like the working Aryx aircraft", failures);
             }
-            else
-                Require(rootBox != null && rootBox.size.x <= 1.01f && rootBox.size.y <= 1.01f && rootBox.size.z <= 1.01f,
-                    part.name + " uses a contained Awake proxy instead of a broad collider envelope", failures);
-            if (part.name.StartsWith("F117_Engine_", StringComparison.Ordinal))
+            else if (part.name.StartsWith("F117_Wing_", StringComparison.Ordinal))
+                Require(rootBox == null && rootMesh != null && rootMesh.convex &&
+                        rootMesh.sharedMesh != null && rootMesh.sharedMesh.vertexCount == 16,
+                    part.name + " owns the two-box wing planform as one direct convex damage collider", failures);
+            else if (part.name.StartsWith("F117_Engine_", StringComparison.Ordinal))
                 Require(rootBox != null &&
                         (rootBox.center - F117AircraftAssembler.EngineDamageColliderCenter).sqrMagnitude <= 0.0001f &&
                         (rootBox.size - F117AircraftAssembler.EngineDamageColliderSize).sqrMagnitude <= 0.0001f,
                     part.name + " uses the authored aft nozzle damage collider outside CentralCollider", failures);
+            else if (part == centralPart)
+                Require(rootBox != null &&
+                        (rootBox.center - new Vector3(0f, 0.08f, 0.4f)).sqrMagnitude <= 0.0001f &&
+                        (rootBox.size - new Vector3(3.4f, 1.05f, 10.2f)).sqrMagnitude <= 0.0001f,
+                    "Central body owns its full direct damage collider", failures);
+            else if (part.name == "F117_Nose")
+                Require(rootBox != null && rootBox.center.sqrMagnitude <= 0.0001f &&
+                        (rootBox.size - new Vector3(2.2f, 0.78f, 4.1f)).sqrMagnitude <= 0.0001f,
+                    "Nose owns its full direct damage collider", failures);
+            else if (part.name == "F117_RearBody")
+                Require(rootBox != null &&
+                        (rootBox.center - new Vector3(0f, 0f, -1.35f)).sqrMagnitude <= 0.0001f &&
+                        (rootBox.size - new Vector3(2.8f, 0.7f, 1.5f)).sqrMagnitude <= 0.0001f,
+                    "Rear body owns its full direct damage collider", failures);
             SerializedProperty joints = Property(data, "joints", part.name, failures);
             if (part == centralPart)
             {
@@ -496,8 +692,24 @@ public static class F117ContractValidator
                 massMoment += prefab.transform.InverseTransformPoint(partCenterOfMass.position) * partMass;
             area += partWingArea;
         }
+        string[] obsoleteChildHitboxes =
+        {
+            "CentralCollider", "NoseCollider", "RearCollider", "InnerCollider", "OuterCollider"
+        };
+        Require(prefab.GetComponentsInChildren<Transform>(true)
+                .All(transform => !obsoleteChildHitboxes.Contains(transform.name)),
+            "No child-only hitbox can absorb bullets or fragments without routing damage to an AeroPart", failures);
         Require(Near(mass, 13380f, 0.1f), "Connected AeroPart graph totals the 13,380 kg dry mass", failures);
         Vector3 runtimeCenterOfMass = mass > 0f ? massMoment / mass : Vector3.zero;
+        float neutralLiftCenterZ = horizontalLiftArea > 0f
+            ? horizontalLiftMomentZ / horizontalLiftArea
+            : float.NaN;
+        Require(Near(horizontalLiftArea, 73f, 0.02f),
+            "Horizontal lifting area totals the established 73.0 m2", failures);
+        Require(Near(runtimeCenterOfMass.z - neutralLiftCenterZ,
+                F117AircraftAssembler.TargetPitchStaticMargin, 0.015f),
+            "Neutral horizontal lift centre is 0.28 m behind dry CG, preserving pitch authority instead of consuming it as trim",
+            failures);
         Transform leftContact = prefab.GetComponentsInChildren<Transform>(true)
             .FirstOrDefault(transform => transform.name == "LOC_Gear_Left_Contact");
         Transform rightContact = prefab.GetComponentsInChildren<Transform>(true)
@@ -1098,7 +1310,9 @@ public static class F117ContractValidator
                     .ToArray();
                 Require(poses.All(pose => pose != null),
                     link.name + " preserves all nine source-derived door-angle poses", failures);
-                Require(link.GetComponentsInChildren<Renderer>(true).Length == 1,
+                Require(link.GetComponentsInChildren<Renderer>(true).Count(renderer =>
+                        !renderer.name.StartsWith(F117AircraftAssembler.ParadeFlagOverlayPrefix,
+                            StringComparison.Ordinal)) == 1,
                     link.name + " owns exactly one separate linkage mesh", failures);
                 if (poses.All(pose => pose != null))
                     Require(Quaternion.Angle(poses[0].localRotation, poses[8].localRotation) > 80f,
@@ -1191,24 +1405,45 @@ public static class F117ContractValidator
                 .FirstOrDefault(renderer => renderer.name == "F117_Cockpit_Mesh");
             Renderer exteriorCanopy = prefab.GetComponentsInChildren<Renderer>(true)
                 .FirstOrDefault(renderer => renderer.name == "F117_Canopy_Mesh");
-            Require(cockpit != null && cockpit.isArray && cockpit.arraySize >= 1 && detailedCockpit != null &&
-                    Enumerable.Range(0, cockpit.arraySize).Any(index =>
-                        cockpit.GetArrayElementAtIndex(index).objectReferenceValue == detailedCockpit),
-                "Cockpit renderer group contains the dedicated F-117 interior", failures);
+            Require(detailedCockpit != null && detailedCockpit.enabled &&
+                    (cockpit == null || !cockpit.isArray ||
+                     !Enumerable.Range(0, cockpit.arraySize).Any(index =>
+                         cockpit.GetArrayElementAtIndex(index).objectReferenceValue == detailedCockpit)),
+                "Detailed F-117 cockpit remains enabled and is never camera-switched off", failures);
             Require(exterior != null && exterior.isArray && exterior.arraySize >= 1 && exteriorCanopy != null &&
                     Enumerable.Range(0, exterior.arraySize).Any(index =>
                         exterior.GetArrayElementAtIndex(index).objectReferenceValue == exteriorCanopy),
                 "Exterior renderer group contains the dedicated F-117 canopy", failures);
-            Renderer mainShell = prefab.GetComponentsInChildren<Renderer>(true)
+            Renderer originalShell = prefab.GetComponentsInChildren<Renderer>(true)
                 .FirstOrDefault(renderer => renderer.name == "F117_Exterior_Mesh");
-            Require(mainShell != null && (exterior == null || !exterior.isArray ||
+            Renderer[] damageShells = prefab.GetComponentsInChildren<Renderer>(true)
+                .Where(renderer => renderer.name.IndexOf("_Skin_", StringComparison.Ordinal) >= 0)
+                .ToArray();
+            Require(originalShell == null && damageShells.Length >= 5,
+                "Monolithic exterior is replaced by AeroPart-owned damage renderers", failures);
+            Require(exterior == null || !exterior.isArray || damageShells.All(shell =>
                     !Enumerable.Range(0, exterior.arraySize).Any(index =>
-                        exterior.GetArrayElementAtIndex(index).objectReferenceValue == mainShell)),
-                "Main airframe shell is never disabled by cockpit camera switching", failures);
-            Mesh exteriorMesh = mainShell == null ? null : mainShell.GetComponent<MeshFilter>()?.sharedMesh;
-            if (exteriorMesh != null)
+                        exterior.GetArrayElementAtIndex(index).objectReferenceValue == shell)),
+                "Damage-part airframe renderers are never disabled by cockpit camera switching", failures);
+            Transform ejectionSeat = prefab.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(transform => transform.name == "EjectionSeat");
+            MeshFilter seatFilter = ejectionSeat == null ? null : ejectionSeat.GetComponent<MeshFilter>();
+            Renderer seatRenderer = ejectionSeat == null ? null : ejectionSeat.GetComponent<Renderer>();
+            string seatManifest = File.Exists(ManifestPath) ? File.ReadAllText(ManifestPath) : string.Empty;
+            bool nativeSeatMeshPatch = seatManifest.Contains("\"locator\": \"ejectionSeat\"") &&
+                seatManifest.Contains("F117_Avionics/Cockpit/pilot/EjectionSeat") &&
+                seatManifest.Contains("UnityEngine.MeshFilter, UnityEngine.CoreModule") &&
+                seatManifest.Contains("\"memberPath\": \"sharedMesh\"");
+            Require(ejectionSeat != null && seatFilter != null &&
+                    (seatFilter.sharedMesh != null || nativeSeatMeshPatch) &&
+                    seatRenderer != null && seatRenderer.enabled && ejectionSeat.gameObject.activeSelf,
+                "Retained pilot hierarchy includes a visible ejection seat with an exact native mesh patch", failures);
+            bakedLadderTriangleCount = 0;
+            foreach (Renderer damageShell in damageShells)
             {
-                bakedLadderTriangleCount = 0;
+                Mesh exteriorMesh = damageShell.GetComponent<MeshFilter>()?.sharedMesh;
+                if (exteriorMesh == null)
+                    continue;
                 Vector3[] vertices = exteriorMesh.vertices;
                 int[] triangles = exteriorMesh.triangles;
                 for (int index = 0; index < triangles.Length; index += 3)
@@ -1216,7 +1451,7 @@ public static class F117ContractValidator
                     Vector3 localCenter = (vertices[triangles[index]] + vertices[triangles[index + 1]] +
                         vertices[triangles[index + 2]]) / 3f;
                     Vector3 rootCenter = prefab.transform.InverseTransformPoint(
-                        mainShell.transform.TransformPoint(localCenter));
+                        damageShell.transform.TransformPoint(localCenter));
                     if (rootCenter.x > 1.75f && rootCenter.z > 5.2f)
                         bakedLadderTriangleCount++;
                 }
@@ -1316,15 +1551,18 @@ public static class F117ContractValidator
         foreach (string asset in new[] { "IRFlare", "flare1", "weaponicon_flares", "weaponicon_radarJammer" })
             Require(manifestJson.Contains("\"locator\": \"" + asset + "\""),
                 "Manifest patches countermeasure asset " + asset, failures);
+        Require(manifestJson.Contains("\"name\": \"Shader Graphs/AircraftSkin\"") &&
+                damageSkinMaterials.All(material => manifestJson.Contains(material.name + "/shader")),
+            "Manifest resolves every F-117 damage skin material to the native AircraftSkin shader", failures);
 
         notes.Add("Validated root: " + prefab.name);
         notes.Add("Components: AeroPart=13, ControlSurface=6, LandingGear=3, Turbojet=2, JetNozzle=2, BayDoor=2, FlareEjector=1, ChaffEjector=1, RadarJammer=0, Radar=0");
         notes.Add("Countermeasures: 16 native flares, 64 native chaff, two central-body ejection points each, visible material-backed RadarChaff payload");
         notes.Add("Active jammer: native JammingPod1 weapon, permanently installed and target-fired; no defensive RadarJammer countermeasure");
-        notes.Add("Electrical: stock 300 kJ bus and two engines share the native 0.003 charge/RPM rate; JammingPod1 retains its native draw");
+        notes.Add("Electrical: dedicated 60 kJ jammer bus; native 13-unit draw gives about 5 s full-charge burst; two engines recharge at up to 1.16 kJ/s (about 52 s empty-to-full)");
         notes.Add("Physics graph: one root AeroPart plus 12 parent-matched, jointed descendants; elevons attach to wings and rudders to rear body");
-        notes.Add("Control collisions: six inset convex mesh colliders matching the working Aryx pattern; full unrelated-part penetration audit passed");
-        notes.Add("Damage model: 13 non-critical, standard 100 HP AeroParts; common FastBomber 20/60 armor, 5x/6x tolerances, -25 structural margin; controls retain 120 kN parent-matched attachments");
+        notes.Add("Hitboxes: all 13 AeroParts directly own their real colliders; native bullets/blast fragments cannot be swallowed by non-damageable child objects; full unrelated-part penetration audit passed");
+        notes.Add("Damage model: 13 non-critical, standard 100 HP AeroParts; fixed airframe and controls own split render geometry, AircraftSkin pockmark textures, status reporting, native fuel fire/leak effects, and physical detachment");
         notes.Add("Elevon neutral: unbiased native servo/aero pivots; measured inner-panel visual corrections isolated below them");
         notes.Add("Mass: dry graph=13380 kg; full internal fuel=21630 kg; MTOW=23814 kg; payload margin=2184 kg; runtime CoM Z=" +
             runtimeCenterOfMass.z.ToString("0.00") + " m");
@@ -1336,6 +1574,8 @@ public static class F117ContractValidator
         notes.Add("Bomb-bay mechanism: two source-derived strut tracks per door, nine door-angle poses each; struts remain independent of rigid panels");
         notes.Add("Materials: albedo=" + albedoCount + ", compatibility albedo=" + compatibilityAlbedoCount +
             ", normal=" + normalCount + ", mask=" + maskCount + ", emission=" + emissionCount);
+        notes.Add("Liveries: Nighthawk Black plus five Farewell Flag metal-finish choices; exact 50-star/13-stripe " +
+            "projection across " + paradeOverlays.Length + " lower-facing render meshes");
         notes.Add("Stealth: clean RCS=0.0001; each bay adds up to 0.04 independently; gear adds up to 0.05 progressively; internal stores remain shielded");
         notes.Add("Sensors: no emitting search Radar; passive EOTS=15 km/3x, passive RadarLocator retained; optical visibility=2.5 km");
         notes.Add("Infrared: two forward-aligned sources, 0.5 idle to 2.2 full dry thrust; no afterburner, vapor, or global contrail components");
@@ -1347,7 +1587,10 @@ public static class F117ContractValidator
         notes.Add("Canopy: upward 40 degree ejection opening");
         notes.Add("Landing gear: aircraft-forward tire-physics frames, full authored suspension travel before BreakWheel, false-positive skid audio muted");
         notes.Add("Rear controls: model-measured elevon area, 15 pitch + 7.5 roll travel; both rudders use coordinated -18 yaw on local-Z visual hinges");
-        notes.Add("Fixed lift: aircraft-aligned native axes; removed the erroneous 9-degree nose-up aerodynamic incidence proven by v0.4.47 telemetry");
+        notes.Add("Pitch balance: neutral horizontal lift centre is " +
+            (runtimeCenterOfMass.z - neutralLiftCenterZ).ToString("0.00") +
+            " m behind dry CG; controller retains elevon travel for pilot pitch authority");
+        notes.Add("Fixed lift: aircraft-aligned native axes with zero artificial aerodynamic incidence");
         notes.Add("Stability: constant aero areas in every gear state; pitch damping 2.8; yaw tightness 1.0; no synthetic weathervaning");
         notes.Add("Flight controls: +6 g, 18 deg alpha, 0.45 rad/s pitch, 1.75 rad/s roll, 72 m/s takeoff schedule");
         Finish(failures, notes);
@@ -1365,8 +1608,11 @@ public static class F117ContractValidator
                 : GetPath(prefab.transform, component.transform) + " | " + component.GetType().FullName)
             .OrderBy(line => line, StringComparer.Ordinal)
             .ToArray();
-        File.WriteAllLines(@"C:\Users\JEDENSMORE\NuclearOption-F117\F117_Full_Component_Inventory.txt", lines);
-        Debug.Log("F-117 full component inventory written: " + lines.Length + " entries.");
+        string path = Path.Combine(
+            Application.dataPath, "F117", "Generated", "Reports", "F117_Full_Component_Inventory.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        File.WriteAllLines(path, lines);
+        Debug.Log("F-117 full component inventory written to " + path + ": " + lines.Length + " entries.");
     }
 
     private static string GetPath(Transform root, Transform item)
@@ -1382,9 +1628,379 @@ public static class F117ContractValidator
         return string.Join("/", names);
     }
 
-    private static Texture Texture(Material material, string property)
+    private static void ValidateProfileSlotClassification(GameObject prefab, List<string> failures)
     {
-        return material != null && material.HasProperty(property) ? material.GetTexture(property) : null;
+        var bodyFamilies = new HashSet<string>(StringComparer.Ordinal);
+        int bodySlots = 0;
+        int frameSlots = 0;
+        int staticAccessorySlots = 0;
+        int tireSlots = 0;
+        var invalidTargets = new List<string>();
+        foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
+        {
+            bool excluded = ProfileHierarchyExcluded(renderer.transform) ||
+                renderer.name.StartsWith(F117AircraftAssembler.ParadeFlagOverlayPrefix,
+                    StringComparison.Ordinal);
+            bool staticAccessory = ProfileStaticAccessory(renderer.transform);
+            foreach (Material material in renderer.sharedMaterials)
+            {
+                string canonical = CanonicalProfileMaterialName(material == null ? null : material.name);
+                bool frame = renderer.name == "F117_Canopy_Mesh" && canonical == "INT_CockpitFrame";
+                bool tire = canonical == "F117_Tires";
+                bool exterior = canonical != null && canonical.StartsWith("F117_EXTERNAL_", StringComparison.Ordinal) &&
+                    canonical.Length == "F117_EXTERNAL_1".Length &&
+                    canonical[canonical.Length - 1] >= '1' && canonical[canonical.Length - 1] <= '7';
+                bool body = exterior && !excluded && !staticAccessory;
+                if (body)
+                {
+                    bodySlots++;
+                    bodyFamilies.Add(canonical);
+                    if (ProfileHierarchyExcluded(renderer.transform) || staticAccessory)
+                        invalidTargets.Add(GetPath(prefab.transform, renderer.transform));
+                }
+                if (exterior && staticAccessory)
+                    staticAccessorySlots++;
+                if (tire)
+                    tireSlots++;
+                if (frame)
+                    frameSlots++;
+            }
+        }
+        Require(bodySlots >= 7 && bodyFamilies.Count == 7,
+            "Profile classification includes all seven AircraftSkin exterior families", failures);
+        Require(frameSlots == 1,
+            "Profile classification includes exactly the canopy-frame INT_CockpitFrame slot", failures);
+        Require(staticAccessorySlots >= 40 && tireSlots == 3 && invalidTargets.Count == 0,
+            "Profile classification isolates gear, gear doors, bay linkages, drag chute, and all three tire renderers from body tint",
+            failures);
+    }
+
+    private static bool ProfileStaticAccessory(Transform transform)
+    {
+        for (Transform current = transform; current != null; current = current.parent)
+        {
+            string name = current.name ?? string.Empty;
+            if (name.StartsWith("F117_Gear", StringComparison.OrdinalIgnoreCase) ||
+                name.IndexOf("_BayLink_", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("_BayPart_", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.StartsWith("F117_DragChute", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool ProfileHierarchyExcluded(Transform transform)
+    {
+        for (Transform current = transform; current != null; current = current.parent)
+        {
+            string name = current.name ?? string.Empty;
+            if (name.StartsWith("F117_Gear", StringComparison.OrdinalIgnoreCase) ||
+                name.IndexOf("Cockpit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("Canopy", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("pilot", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("Weapon", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("Hardpoint", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+        }
+        return false;
+    }
+
+    private static string CanonicalProfileMaterialName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return name;
+        string result = name;
+        if (result.Length > 3 && char.IsDigit(result[0]) && char.IsDigit(result[1]) && result[2] == '_')
+            result = result.Substring(3);
+        if (result.Length > 4)
+        {
+            int suffix = result.Length - 4;
+            if ((result[suffix] == '.' || result[suffix] == '_') &&
+                char.IsDigit(result[suffix + 1]) && char.IsDigit(result[suffix + 2]) &&
+                char.IsDigit(result[suffix + 3]))
+                result = result.Substring(0, suffix);
+        }
+        return result;
+    }
+
+    private static void ValidateMatteFinishTexture(int panel, string expectedGuid, List<string> failures)
+    {
+        string sourcePath = "Assets/F117/Textures/f117_ext_" + panel + "_comp.png";
+        string finishPath = "Assets/F117/Textures/f117_ext_" + panel + "_ms.png";
+        Texture2D imported = AssetDatabase.LoadAssetAtPath<Texture2D>(finishPath);
+        TextureImporter importer = AssetImporter.GetAtPath(finishPath) as TextureImporter;
+        Require(imported != null && importer != null &&
+                AssetDatabase.AssetPathToGUID(finishPath) == expectedGuid,
+            "Panel " + panel + " matte MS loads from its exact path and GUID", failures);
+        Require(importer != null && importer.textureType == TextureImporterType.Sprite &&
+                importer.sRGBTexture && importer.alphaIsTransparency && importer.mipmapEnabled &&
+                importer.npotScale == TextureImporterNPOTScale.None && importer.filterMode == FilterMode.Bilinear &&
+                importer.anisoLevel == 1 && importer.wrapModeU == TextureWrapMode.Repeat &&
+                importer.wrapModeV == TextureWrapMode.Repeat && importer.maxTextureSize == 2048,
+            "Panel " + panel + " matte MS matches Aryx_F16M_Skin_MS color-space and sampling", failures);
+
+        Texture2D source = LoadRawPng(sourcePath);
+        Texture2D finish = LoadRawPng(finishPath);
+        try
+        {
+            Require(source != null && finish != null && source.width == finish.width &&
+                    source.height == finish.height && imported != null &&
+                    imported.width == source.width && imported.height == source.height,
+                "Panel " + panel + " matte MS preserves source resolution", failures);
+            if (source == null || finish == null || source.width != finish.width || source.height != finish.height)
+                return;
+            Color32[] sourcePixels = source.GetPixels32();
+            Color32[] finishPixels = finish.GetPixels32();
+            int invalid = 0;
+            for (int index = 0; index < sourcePixels.Length; index++)
+            {
+                byte metallic = sourcePixels[index].b;
+                byte smoothness = (byte)(255 - sourcePixels[index].g);
+                Color32 actual = finishPixels[index];
+                if (actual.r != metallic || actual.g != metallic || actual.b != metallic ||
+                    actual.a != smoothness)
+                    invalid++;
+            }
+            Require(invalid == 0,
+                "Panel " + panel + " matte MS packs RGB=source metallic B and A=1-source roughness G" +
+                (invalid == 0 ? string.Empty : " (invalid pixels: " + invalid + ")"), failures);
+        }
+        finally
+        {
+            if (source != null)
+                UnityEngine.Object.DestroyImmediate(source);
+            if (finish != null)
+                UnityEngine.Object.DestroyImmediate(finish);
+        }
+    }
+
+    private static void ValidateMirrorFinishTexture(List<string> failures)
+    {
+        Texture2D imported = AssetDatabase.LoadAssetAtPath<Texture2D>(MirrorFinishTexturePath);
+        Texture2D raw = LoadRawPng(MirrorFinishTexturePath);
+        try
+        {
+            Color32 pixel = raw == null ? default : raw.GetPixel(0, 0);
+            Require(imported != null && raw != null && raw.width == 1 && raw.height == 1 &&
+                    pixel.r == 255 && pixel.g == 255 && pixel.b == 255 && pixel.a == 240 &&
+                    AssetDatabase.AssetPathToGUID(MirrorFinishTexturePath) == MirrorFinishTextureGuid,
+                "Bundled mirror MS is exact RGBA=(1,1,1,0.94) at its fixed path and GUID", failures);
+        }
+        finally
+        {
+            if (raw != null)
+                UnityEngine.Object.DestroyImmediate(raw);
+        }
+    }
+
+    private static Texture2D LoadRawPng(string assetPath)
+    {
+        string path = Path.GetFullPath(Path.Combine(Application.dataPath, "..", assetPath));
+        if (!File.Exists(path))
+            return null;
+        Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+        if (texture.LoadImage(File.ReadAllBytes(path), false))
+            return texture;
+        UnityEngine.Object.DestroyImmediate(texture);
+        return null;
+    }
+
+    private static void ValidateGearDoorOverlays(Transform prefabRoot, Transform visualRoot,
+        List<string> failures)
+    {
+        if (visualRoot == null)
+            return;
+        string[] hingeNames =
+        {
+            "F117_GearDoor_Nose_CloseHinge",
+            "F117_GearDoor_Left_Outer_CloseHinge", "F117_GearDoor_Left_Inner_CloseHinge",
+            "F117_GearDoor_Right_Outer_CloseHinge", "F117_GearDoor_Right_Inner_CloseHinge"
+        };
+        Transform[] hinges = hingeNames.Select(name => F117AuthoringUtil.FindDeep(prefabRoot, name)).ToArray();
+        Require(hinges.All(hinge => hinge != null),
+            "All five gear-door hinges are available for closed-pose flag validation", failures);
+        if (hinges.Any(hinge => hinge == null))
+            return;
+        Quaternion[] rotations = hinges.Select(hinge => hinge.localRotation).ToArray();
+        try
+        {
+            foreach (Transform hinge in hinges)
+                hinge.localRotation = Quaternion.identity;
+            foreach (Transform hinge in hinges)
+            {
+                MeshFilter source = hinge.GetComponentsInChildren<MeshFilter>(true)
+                    .FirstOrDefault(filter => !filter.name.StartsWith(
+                        F117AircraftAssembler.ParadeFlagOverlayPrefix, StringComparison.Ordinal) &&
+                        filter.sharedMesh != null && filter.sharedMesh.name.StartsWith(
+                            "F117_GearDoor_", StringComparison.Ordinal));
+                MeshFilter[] overlays = hinge.GetComponentsInChildren<MeshFilter>(true)
+                    .Where(filter => filter.name.StartsWith(
+                        F117AircraftAssembler.ParadeFlagOverlayPrefix, StringComparison.Ordinal))
+                    .ToArray();
+                Require(source != null && overlays.Length == 1 && overlays[0].transform.IsChildOf(hinge),
+                    hinge.name + " owns exactly one moving closed-pose flag overlay", failures);
+                if (source == null || overlays.Length != 1)
+                    continue;
+                SurfaceStats expected = SelectedDownwardStats(source, visualRoot);
+                SurfaceStats actual = AllTriangleStats(overlays[0], visualRoot);
+                float areaError = expected.Area <= 0f
+                    ? float.PositiveInfinity
+                    : Mathf.Abs(actual.Area - expected.Area) / expected.Area;
+                Require(expected.Triangles > 0 && actual.Triangles == expected.Triangles && areaError <= 0.01f,
+                    hinge.name + " overlay reproduces every eligible closed-pose downward triangle within 1% area" +
+                    " (expected " + expected.Triangles + "/" + expected.Area.ToString("0.000") +
+                    ", actual " + actual.Triangles + "/" + actual.Area.ToString("0.000") + ")", failures);
+            }
+        }
+        finally
+        {
+            for (int index = 0; index < hinges.Length; index++)
+                hinges[index].localRotation = rotations[index];
+        }
+    }
+
+    private readonly struct SurfaceStats
+    {
+        internal readonly int Triangles;
+        internal readonly float Area;
+
+        internal SurfaceStats(int triangles, float area)
+        {
+            Triangles = triangles;
+            Area = area;
+        }
+    }
+
+    private static SurfaceStats SelectedDownwardStats(MeshFilter filter, Transform visualRoot)
+    {
+        Mesh mesh = filter.sharedMesh;
+        Vector3[] vertices = mesh.vertices;
+        Vector3[] normals = mesh.normals;
+        bool hasNormals = normals != null && normals.Length == vertices.Length;
+        int count = 0;
+        float area = 0f;
+        for (int subMesh = 0; subMesh < mesh.subMeshCount; subMesh++)
+        {
+            int[] triangles = mesh.GetTriangles(subMesh);
+            for (int index = 0; index + 2 < triangles.Length; index += 3)
+            {
+                int a = triangles[index];
+                int b = triangles[index + 1];
+                int c = triangles[index + 2];
+                Vector3 face = Vector3.Cross(vertices[b] - vertices[a], vertices[c] - vertices[a]).normalized;
+                Vector3 selection = hasNormals ? (normals[a] + normals[b] + normals[c]).normalized : face;
+                Vector3 rootNormal = visualRoot.InverseTransformDirection(
+                    filter.transform.TransformDirection(selection)).normalized;
+                if (Vector3.Dot(rootNormal, Vector3.down) < 0.35f)
+                    continue;
+                area += RootTriangleArea(filter.transform, visualRoot, vertices[a], vertices[b], vertices[c]);
+                count++;
+            }
+        }
+        return new SurfaceStats(count, area);
+    }
+
+    private static SurfaceStats AllTriangleStats(MeshFilter filter, Transform visualRoot)
+    {
+        Mesh mesh = filter.sharedMesh;
+        Vector3[] vertices = mesh.vertices;
+        int[] triangles = mesh.triangles;
+        float area = 0f;
+        for (int index = 0; index + 2 < triangles.Length; index += 3)
+            area += RootTriangleArea(filter.transform, visualRoot,
+                vertices[triangles[index]], vertices[triangles[index + 1]], vertices[triangles[index + 2]]);
+        return new SurfaceStats(triangles.Length / 3, area);
+    }
+
+    private static float RootTriangleArea(Transform source, Transform root,
+        Vector3 a, Vector3 b, Vector3 c)
+    {
+        a = root.InverseTransformPoint(source.TransformPoint(a));
+        b = root.InverseTransformPoint(source.TransformPoint(b));
+        c = root.InverseTransformPoint(source.TransformPoint(c));
+        return Vector3.Cross(b - a, c - a).magnitude * 0.5f;
+    }
+
+    private static bool OverlayFacesDown(Renderer renderer, Transform aircraftRoot)
+    {
+        MeshFilter filter = renderer == null ? null : renderer.GetComponent<MeshFilter>();
+        Mesh mesh = filter == null ? null : filter.sharedMesh;
+        if (mesh == null || mesh.normals == null || mesh.normals.Length != mesh.vertexCount)
+            return false;
+        Vector3[] normals = mesh.normals;
+        int[] triangles = mesh.triangles;
+        if (triangles.Length == 0)
+            return false;
+        for (int index = 0; index + 2 < triangles.Length; index += 3)
+        {
+            Vector3 normal = (normals[triangles[index]] + normals[triangles[index + 1]] +
+                normals[triangles[index + 2]]).normalized;
+            Vector3 rootNormal = aircraftRoot.InverseTransformDirection(
+                renderer.transform.TransformDirection(normal)).normalized;
+            if (Vector3.Dot(rootNormal, Vector3.down) < 0.34f)
+                return false;
+        }
+        return true;
+    }
+
+    private static Texture Texture(Material material, params string[] properties)
+    {
+        if (material == null)
+            return null;
+        foreach (string property in properties)
+        {
+            if (material.HasProperty(property))
+            {
+                Texture texture = material.GetTexture(property);
+                if (texture != null)
+                    return texture;
+            }
+            SerializedProperty entries = new SerializedObject(material)
+                .FindProperty("m_SavedProperties.m_TexEnvs");
+            if (entries == null || !entries.isArray)
+                continue;
+            for (int index = 0; index < entries.arraySize; index++)
+            {
+                SerializedProperty entry = entries.GetArrayElementAtIndex(index);
+                SerializedProperty key = entry.FindPropertyRelative("first");
+                SerializedProperty value = entry.FindPropertyRelative("second.m_Texture");
+                if (key != null && value != null && key.stringValue == property &&
+                    value.objectReferenceValue is Texture savedTexture)
+                    return savedTexture;
+            }
+        }
+        return null;
+    }
+
+    private static bool HasSavedMaterialProperty(Material material, string collection, string property)
+    {
+        if (material == null)
+            return false;
+        if (material.HasProperty(property))
+            return true;
+        SerializedProperty entries = new SerializedObject(material)
+            .FindProperty("m_SavedProperties." + collection);
+        if (entries == null || !entries.isArray)
+            return false;
+        for (int index = 0; index < entries.arraySize; index++)
+        {
+            SerializedProperty key = entries.GetArrayElementAtIndex(index).FindPropertyRelative("first");
+            if (key != null && key.stringValue == property)
+                return true;
+        }
+        return false;
+    }
+
+    private static void RequireTexturePath(Material material, string property, string expectedPath,
+        List<string> failures)
+    {
+        Texture texture = Texture(material, property);
+        string actualPath = texture == null ? string.Empty : AssetDatabase.GetAssetPath(texture);
+        Require(string.Equals(actualPath, expectedPath, StringComparison.Ordinal),
+            (material == null ? "<missing material>" : material.name) + "." + property +
+            " resolves exactly to " + expectedPath +
+            (string.IsNullOrEmpty(actualPath) ? " (actual: null)" : " (actual: " + actualPath + ")"),
+            failures);
     }
 
     private static Component[] OfType(Component[] components, string typeName) =>
@@ -1689,6 +2305,7 @@ public static class F117ContractValidator
             report.Add("Failures:");
             report.AddRange(failures.Select(failure => "- " + failure));
         }
+        Directory.CreateDirectory(Path.GetDirectoryName(ReportPath));
         File.WriteAllLines(ReportPath, report);
         if (failures.Count > 0)
             throw new InvalidOperationException("F-117 runtime contract validation failed:\n" + string.Join("\n", failures));

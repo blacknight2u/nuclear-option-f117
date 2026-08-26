@@ -1,8 +1,9 @@
 import bpy
 import os
+from pathlib import Path
 from mathutils import Vector
 
-OUT = r"C:\Users\JEDENSMORE\AppData\Local\Temp\f117_ladder_audit"
+OUT = str(Path(__file__).resolve().parents[3] / "artifacts" / "research" / "ladder")
 os.makedirs(OUT, exist_ok=True)
 scene = bpy.context.scene
 scene.frame_set(1)

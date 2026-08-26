@@ -14,6 +14,11 @@ from typing import Any
 
 import UnityPy
 
+# Nuclear Option's local Addressables bundles omit the Unity version header.
+# Match the editor/runtime version used by the current game build so UnityPy
+# can decode those stock bundles as well as self-describing mod bundles.
+UnityPy.config.FALLBACK_UNITY_VERSION = "2022.3.62f3"
+
 
 FLIGHT_SCRIPTS = {
     "Aircraft",

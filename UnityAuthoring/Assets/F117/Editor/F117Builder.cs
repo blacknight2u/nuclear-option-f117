@@ -16,12 +16,54 @@ public static class F117Builder
     private const string IconPath = "Assets/F117/UI/F117_Icon.png";
     private const string DamagePath = "Assets/F117/UI/F117_Damage.png";
     private const string TexturesRoot = "Assets/F117/Textures";
+    private static readonly string[] FinishTexturePaths = Enumerable.Range(1, 7)
+        .Select(index => TexturesRoot + "/f117_ext_" + index + "_ms.png")
+        .Concat(new[] { TexturesRoot + "/F117_Mirror_MS.png" })
+        .ToArray();
+    private static readonly string[] ExteriorSourceTexturePaths = Enumerable.Range(1, 7)
+        .SelectMany(index => new[]
+        {
+            TexturesRoot + "/f117_ext_" + index + "_albedo.png",
+            TexturesRoot + "/f117_ext_" + index + "_normal.png",
+            TexturesRoot + "/f117_ext_" + index + "_occlusion.png"
+        })
+        .ToArray();
     private const string GeneratedRoot = "Assets/F117/Generated";
     private const string MaterialsRoot = GeneratedRoot + "/Materials";
+    private static readonly string[] RuntimeProfileTexturePaths = ExteriorSourceTexturePaths
+        .Concat(FinishTexturePaths)
+        .Concat(Enumerable.Range(1, 7).Select(index => MaterialsRoot +
+            "/F117_F117_EXTERNAL_" + index + "_Damage.asset"))
+        .ToArray();
     private const string PrefabPath = GeneratedRoot + "/F117A_Nighthawk.prefab";
     private const string DefinitionPath = GeneratedRoot + "/F117A_Nighthawk_Definition.asset";
     private const string ParametersPath = GeneratedRoot + "/F117A_Nighthawk_Parameters.asset";
     private const string LiveryPath = GeneratedRoot + "/F117A_Nighthawk_Livery.asset";
+    private const string ParadeLiveryPath = GeneratedRoot + "/F117A_ParadeFlag_Livery.asset";
+    private static readonly string[] ParadeLiveryPaths =
+    {
+        ParadeLiveryPath,
+        GeneratedRoot + "/F117A_ParadeFlag_SilverBlue_Livery.asset",
+        GeneratedRoot + "/F117A_ParadeFlag_CoolTitanium_Livery.asset",
+        GeneratedRoot + "/F117A_ParadeFlag_SmokedChrome_Livery.asset",
+        GeneratedRoot + "/F117A_ParadeFlag_WarmTitanium_Livery.asset"
+    };
+    private static readonly string[] ParadeLiveryAssetNames =
+    {
+        "F117A_ParadeFlag_Livery",
+        "F117A_ParadeFlag_SilverBlue_Livery",
+        "F117A_ParadeFlag_CoolTitanium_Livery",
+        "F117A_ParadeFlag_SmokedChrome_Livery",
+        "F117A_ParadeFlag_WarmTitanium_Livery"
+    };
+    private static readonly string[] ParadeLiveryDisplayNames =
+    {
+        "Farewell Flag - Pure Chrome",
+        "Farewell Flag - Silver Blue",
+        "Farewell Flag - Cool Titanium",
+        "Farewell Flag - Smoked Chrome",
+        "Farewell Flag - Warm Titanium"
+    };
     private const string StatusPath = GeneratedRoot + "/F117A_Nighthawk_StatusDisplay.prefab";
     private const string RuntimeUiFallbackPath = GeneratedRoot + "/F117_RuntimeUI_Fallback.prefab";
     private const string ManifestPath = GeneratedRoot + "/patch_manifest.json";
@@ -29,7 +71,7 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.4.65";
+    private const string Version = "0.4.83";
     private const string FixedJammerAsset = "JammingPod1";
     private static readonly string[] WeaponAssets =
     {
@@ -106,9 +148,12 @@ public static class F117Builder
             throw new InvalidOperationException("Unity failed to save the F-117 aircraft prefab.");
 
         Sprite icon = AssetDatabase.LoadAssetAtPath<Sprite>(IconPath);
-        UnityEngine.Object livery = CreateLivery();
+        UnityEngine.Object livery = CreateLivery(LiveryPath, "F117A_Nighthawk_Livery");
+        UnityEngine.Object[] paradeLiveries = Enumerable.Range(0, ParadeLiveryPaths.Length)
+            .Select(index => CreateLivery(ParadeLiveryPaths[index], ParadeLiveryAssetNames[index]))
+            .ToArray();
         GameObject status = CreateStatusDisplay();
-        UnityEngine.Object parameters = CreateParameters(status, livery, runtimeUiFallback);
+        UnityEngine.Object parameters = CreateParameters(status, livery, paradeLiveries, runtimeUiFallback);
         UnityEngine.Object definition = CreateDefinition(prefab, parameters, icon, assembled.VisualBounds);
         FinalizePrefab(definition);
         CreateManifest();
@@ -121,10 +166,10 @@ public static class F117Builder
 
     private static void EnsureAssets()
     {
-        string[] required =
+        string[] required = new[]
         {
             SourcePrefabPath, SourceManifestPath, ModelPath, IconPath, DamagePath, TexturesRoot
-        };
+        }.Concat(ExteriorSourceTexturePaths).Concat(FinishTexturePaths).ToArray();
         string[] missing = required.Where(path => !File.Exists(path) && !Directory.Exists(path)).ToArray();
         if (missing.Length > 0)
             throw new FileNotFoundException("F-117 authoring assets are missing: " + string.Join(", ", missing));
@@ -172,18 +217,39 @@ public static class F117Builder
             string stem = Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
             bool normal = stem.EndsWith("_normal", StringComparison.Ordinal) || stem.EndsWith("_norm", StringComparison.Ordinal);
             bool decal = stem.IndexOf("decal", StringComparison.Ordinal) >= 0;
+            bool paradeFlag = stem.StartsWith("f117_paradeflag", StringComparison.Ordinal);
+            bool aircraftFinish = stem.EndsWith("_ms", StringComparison.Ordinal);
             bool data = normal || stem.EndsWith("_comp", StringComparison.Ordinal) ||
                 stem.EndsWith("_mask", StringComparison.Ordinal) || stem.EndsWith("_occlusion", StringComparison.Ordinal);
-            importer.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            importer.textureType = normal
+                ? TextureImporterType.NormalMap
+                : aircraftFinish ? TextureImporterType.Sprite : TextureImporterType.Default;
+            if (aircraftFinish)
+                importer.spriteImportMode = SpriteImportMode.Single;
             importer.sRGBTexture = !data;
             importer.alphaIsTransparency = !data;
+            if (paradeFlag || aircraftFinish)
+            {
+                importer.npotScale = TextureImporterNPOTScale.None;
+                importer.filterMode = aircraftFinish ? FilterMode.Bilinear : FilterMode.Trilinear;
+                importer.anisoLevel = aircraftFinish ? 1 : 16;
+            }
             // Tiny stencil lettering was being blurred/censored by alpha mipmaps and
             // block compression even though the source texture and UVs are correct.
             importer.mipmapEnabled = !decal;
-            importer.maxTextureSize = 1024;
-            importer.textureCompression = decal
+            importer.maxTextureSize = paradeFlag ? 4096 : aircraftFinish ? 2048 : 1024;
+            importer.npotScale = paradeFlag || aircraftFinish
+                ? TextureImporterNPOTScale.None
+                : TextureImporterNPOTScale.ToNearest;
+            importer.textureCompression = decal || paradeFlag
                 ? TextureImporterCompression.Uncompressed
                 : TextureImporterCompression.CompressedHQ;
+            if (aircraftFinish)
+            {
+                importer.wrapModeU = TextureWrapMode.Repeat;
+                importer.wrapModeV = TextureWrapMode.Repeat;
+                importer.wrapModeW = TextureWrapMode.Repeat;
+            }
             importer.SaveAndReimport();
         }
     }
@@ -240,19 +306,19 @@ public static class F117Builder
         return prefab;
     }
 
-    private static UnityEngine.Object CreateLivery()
+    private static UnityEngine.Object CreateLivery(string path, string assetName)
     {
         Type liveryType = FindType("LiveryData");
         if (!typeof(ScriptableObject).IsAssignableFrom(liveryType))
             throw new InvalidOperationException("LiveryData is not a ScriptableObject type.");
         ScriptableObject livery = ScriptableObject.CreateInstance(liveryType);
-        livery.name = "F117A_Nighthawk_Livery";
+        livery.name = assetName;
         SerializedObject data = new SerializedObject(livery);
         Set(data, "Texture", null);
         Set(data, "Glossiness", 0f);
         Size(data, "Colors", 0);
         data.ApplyModifiedPropertiesWithoutUndo();
-        AssetDatabase.CreateAsset(livery, LiveryPath);
+        AssetDatabase.CreateAsset(livery, path);
         return livery;
     }
 
@@ -278,7 +344,7 @@ public static class F117Builder
 
 
     private static UnityEngine.Object CreateParameters(GameObject status, UnityEngine.Object livery,
-        GameObject runtimeUiFallback)
+        UnityEngine.Object[] paradeLiveries, GameObject runtimeUiFallback)
     {
         Type parametersType = FindType("AircraftParameters");
         ScriptableObject parameters = ScriptableObject.CreateInstance(parametersType);
@@ -319,20 +385,11 @@ public static class F117Builder
         Set(data, "groundTurningRadius", 18f);
 
         SerializedProperty liveries = Require(data, "liveries");
-        liveries.arraySize = 1;
-        SerializedProperty liveryEntry = liveries.GetArrayElementAtIndex(0);
-        SetString(liveryEntry, "name", "Nighthawk Black");
-        Set(liveryEntry, "faction", null);
-        SerializedProperty assetReference = Require(liveryEntry, "assetReference");
-        string liveryPath = AssetDatabase.GetAssetPath(livery);
-        if (!string.Equals(liveryPath, LiveryPath, StringComparison.Ordinal))
-            throw new InvalidOperationException("The generated livery asset is not at the audited bundle path.");
-        string liveryGuid = AssetDatabase.AssetPathToGUID(liveryPath);
-        if (string.IsNullOrEmpty(liveryGuid))
-            throw new InvalidOperationException("The generated F-117 livery has no asset GUID.");
-        Require(assetReference, "m_AssetGUID").stringValue = liveryGuid;
-        Require(assetReference, "m_SubObjectName").stringValue = string.Empty;
-        Require(assetReference, "m_SubObjectType").stringValue = string.Empty;
+        liveries.arraySize = 1 + paradeLiveries.Length;
+        ConfigureLiveryEntry(liveries.GetArrayElementAtIndex(0), livery, LiveryPath, "Nighthawk Black");
+        for (int index = 0; index < paradeLiveries.Length; index++)
+            ConfigureLiveryEntry(liveries.GetArrayElementAtIndex(index + 1), paradeLiveries[index],
+                ParadeLiveryPaths[index], ParadeLiveryDisplayNames[index]);
 
         SerializedProperty loadouts = Require(data, "loadouts");
         loadouts.arraySize = WeaponAssets.Length;
@@ -352,6 +409,23 @@ public static class F117Builder
         data.ApplyModifiedPropertiesWithoutUndo();
         AssetDatabase.CreateAsset(parameters, ParametersPath);
         return parameters;
+    }
+
+    private static void ConfigureLiveryEntry(SerializedProperty liveryEntry, UnityEngine.Object livery,
+        string expectedPath, string displayName)
+    {
+        SetString(liveryEntry, "name", displayName);
+        Set(liveryEntry, "faction", null);
+        SerializedProperty assetReference = Require(liveryEntry, "assetReference");
+        string liveryPath = AssetDatabase.GetAssetPath(livery);
+        if (!string.Equals(liveryPath, expectedPath, StringComparison.Ordinal))
+            throw new InvalidOperationException("The generated livery asset is not at the audited bundle path.");
+        string liveryGuid = AssetDatabase.AssetPathToGUID(liveryPath);
+        if (string.IsNullOrEmpty(liveryGuid))
+            throw new InvalidOperationException("The generated F-117 livery has no asset GUID.");
+        Require(assetReference, "m_AssetGUID").stringValue = liveryGuid;
+        Require(assetReference, "m_SubObjectName").stringValue = string.Empty;
+        Require(assetReference, "m_SubObjectType").stringValue = string.Empty;
     }
 
     private static void ConfigureAirfoils(SerializedObject data)
@@ -524,8 +598,20 @@ public static class F117Builder
             subObjectType = string.Empty,
             BundleAsset = BundleAsset(LiveryPath, "F117A_Nighthawk_Livery", "LiveryData, Assembly-CSharp")
         });
+        for (int index = 0; index < ParadeLiveryPaths.Length; index++)
+        {
+            output.Addressables.Add(new AddressableOverride
+            {
+                guid = AssetDatabase.AssetPathToGUID(ParadeLiveryPaths[index]),
+                subObjectName = string.Empty,
+                subObjectType = string.Empty,
+                BundleAsset = BundleAsset(ParadeLiveryPaths[index], ParadeLiveryAssetNames[index],
+                    "LiveryData, Assembly-CSharp")
+            });
+        }
 
         AddAuditedReferencePatches(output, source);
+        AddAircraftSkinShaderPatches(output, source);
         AddCountermeasureAssetPatches(output, source);
 
         AddEngineAssetPatch(output, source, "revoker_turbine", "UnityEngine.AudioClip, UnityEngine.AudioModule",
@@ -592,6 +678,10 @@ public static class F117Builder
         AddReferenceAssetPatch(output, source, "ejectionSeat",
             "UnityEngine.AudioClip, UnityEngine.AudioModule",
             AircraftLocation("F117_Avionics/F117_CanopySystems/Canopy", "Canopy, Assembly-CSharp", 0, "ejectSound"));
+        AddReferenceAssetPatch(output, source, "ejectionSeat",
+            "UnityEngine.Mesh, UnityEngine.CoreModule",
+            AircraftLocation("F117_Avionics/Cockpit/pilot/EjectionSeat",
+                "UnityEngine.MeshFilter, UnityEngine.CoreModule", 0, "sharedMesh"));
 
         const string pilotModel = "F117_Avionics/Cockpit/pilot/pilot/pilot";
         const string pilotAnimator = "F117_Avionics/Cockpit/pilot/pilot";
@@ -624,6 +714,42 @@ public static class F117Builder
         AddReferenceAssetPatch(output, source, "weaponicon_radarJammer",
             "UnityEngine.Sprite, UnityEngine.CoreModule",
             AircraftLocation(string.Empty, "ChaffEjector, Assembly-CSharp", 0, "displayImage"));
+    }
+
+    private static void AddAircraftSkinShaderPatches(PatchManifest output, PatchManifest source)
+    {
+        LocationRef[] locations = FindAircraftSkinMaterialPaths()
+            .Select(path =>
+            {
+                Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                return new LocationRef
+                {
+                    id = material.name + "/shader",
+                    asset = BundleAsset(path, material.name, "UnityEngine.Material, UnityEngine.CoreModule"),
+                    hierarchyPath = string.Empty,
+                    componentType = string.Empty,
+                    componentIndex = 0,
+                    memberPath = "shader"
+                };
+            })
+            .ToArray();
+        if (locations.Length == 0)
+            throw new InvalidOperationException("No generated F-117 AircraftSkin materials were found.");
+        AddReferenceAssetPatch(output, source, "Shader Graphs/AircraftSkin",
+            "UnityEngine.Shader, UnityEngine.CoreModule", locations);
+    }
+
+    private static string[] FindAircraftSkinMaterialPaths()
+    {
+        return AssetDatabase.FindAssets("t:Material", new[] { MaterialsRoot })
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Where(path =>
+            {
+                Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                return material != null && F117AircraftAssembler.UsesAircraftSkin(material.name);
+            })
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
     }
 
 
@@ -813,20 +939,57 @@ public static class F117Builder
     {
         string output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../artifacts/Blueprinter"));
         Directory.CreateDirectory(output);
+        string[] shaderPatchMaterials = FindAircraftSkinMaterialPaths();
+        if (shaderPatchMaterials.Length == 0)
+            throw new InvalidOperationException("No F-117 AircraftSkin materials were available for bundle export.");
+        string[] bundleAssetNames = new[]
+        {
+            PrefabPath, DefinitionPath, ParametersPath, LiveryPath,
+            StatusPath, ManifestPath,
+            IconPath, DamagePath
+        }
+            .Concat(ParadeLiveryPaths)
+            .Concat(shaderPatchMaterials)
+            .Concat(RuntimeProfileTexturePaths)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
         AssetBundleBuild build = new AssetBundleBuild
         {
             assetBundleName = BundleName,
-            assetNames = new[]
-            {
-                PrefabPath, DefinitionPath, ParametersPath, LiveryPath, StatusPath, ManifestPath,
-                IconPath, DamagePath
-            }
+            assetNames = bundleAssetNames
         };
         AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(output, new[] { build },
             BuildAssetBundleOptions.UncompressedAssetBundle, BuildTarget.StandaloneWindows64);
         string bundlePath = Path.Combine(output, BundleName);
         if (manifest == null || !File.Exists(bundlePath))
             throw new InvalidOperationException("Unity did not produce the F-117 .nobp bundle.");
+        AssetBundle probe = AssetBundle.LoadFromFile(bundlePath);
+        if (probe == null)
+            throw new InvalidOperationException("Unity could not reopen the completed F-117 bundle.");
+        var exportedNames = new HashSet<string>(probe.GetAllAssetNames(), StringComparer.OrdinalIgnoreCase);
+        string[] missingPatchMaterials = shaderPatchMaterials
+            .Where(path => !exportedNames.Contains(path))
+            .ToArray();
+        string[] unloadablePatchMaterials = shaderPatchMaterials
+            .Where(path => probe.LoadAsset<Material>(path) == null)
+            .ToArray();
+        string[] missingProfileTextures = RuntimeProfileTexturePaths
+            .Where(path => !exportedNames.Contains(path))
+            .ToArray();
+        string[] unloadableProfileTextures = RuntimeProfileTexturePaths
+            .Where(path => probe.LoadAsset<Texture2D>(path) == null)
+            .ToArray();
+        probe.Unload(true);
+        if (missingPatchMaterials.Length > 0)
+            throw new InvalidOperationException("AircraftSkin patch materials are missing from the bundle: " +
+                string.Join(", ", missingPatchMaterials));
+        if (unloadablePatchMaterials.Length > 0)
+            throw new InvalidOperationException("AircraftSkin patch materials are present but cannot be loaded: " +
+                string.Join(", ", unloadablePatchMaterials));
+        if (missingProfileTextures.Length > 0 || unloadableProfileTextures.Length > 0)
+            throw new InvalidOperationException("Exact bundled AircraftSkin texture contract failed. Missing: " +
+                string.Join(", ", missingProfileTextures) + "; unloadable: " +
+                string.Join(", ", unloadableProfileTextures));
         int coreReferences = ReplaceAscii(bundlePath, "BroomGameCoreXX", "Assembly-CSharp");
         ReplaceAscii(bundlePath, "BroomGameFirstpassRuntime", "Assembly-CSharp-firstpass");
         byte[] normalized = File.ReadAllBytes(bundlePath);

@@ -1,7 +1,7 @@
 {
   "id": "blacknight2u.f117a.nighthawk",
   "displayName": "F-117A Nighthawk",
-  "description": "An extreme-low-observable F-117A stealth attack aircraft with realistic subsonic performance, twin non-afterburning F404 engines, retractable tricycle gear, two animated internal weapon bays, the vanilla JammingPod1 installed as fixed onboard equipment, and a broad selection of compatible bomb and missile loadouts. Closed internal stores remain radar-shielded while open bays or lowered gear increase RCS.",
+  "description": "A stealth-focused F-117A attack aircraft with subsonic performance, twin non-afterburning engines, animated internal weapon bays and landing gear, dynamic radar signature, compatible precision-weapon loadouts, a fixed game-native jammer, and selectable black or Farewell Flag liveries.",
   "tags": [
     "aircraft",
     "blueprinter",
@@ -15,12 +15,12 @@
   ],
   "artifact": {
     "fileName": "F117Nighthawk.dll",
-    "version": "0.4.65",
+    "version": "0.4.83",
     "category": "prerelease",
     "type": "plugin",
     "gameVersion": "0.34.1",
     "downloadUrl": "",
-    "hash": "sha256:95a0195de24e7f8e8f148b5eef2774e05cecdb174c6bd8584264f3ecc7ea7d6b",
+    "hash": "sha256:54453322b503e40aca4180f135a3114d0a0fdc77b57cca8a80411d38a1a966d1",
     "extends": null,
     "dependencies": [
       {

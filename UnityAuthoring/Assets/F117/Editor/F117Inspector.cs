@@ -16,6 +16,11 @@ public static class F117Inspector
     private const string BuiltParameters = "Assets/F117/Generated/F117A_Nighthawk_Parameters.asset";
     private const string BuiltStatus = "Assets/F117/Generated/F117A_Nighthawk_StatusDisplay.prefab";
 
+    private static string ReportPath(string fileName)
+    {
+        return Path.Combine(Application.dataPath, "F117", "Generated", "Reports", fileName);
+    }
+
     public static void Dump()
     {
         var report = new StringBuilder(256 * 1024);
@@ -26,7 +31,7 @@ public static class F117Inspector
         DumpAsset(BuiltDefinition, report);
         DumpAsset(BuiltParameters, report);
 
-        string path = Path.GetFullPath(Path.Combine(Application.dataPath, "../../../NuclearOption-F117/Unity_Audit.txt"));
+        string path = ReportPath("Unity_Audit.txt");
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         File.WriteAllText(path, report.ToString());
         Debug.Log("F-117 Unity audit written to " + path);
@@ -89,11 +94,46 @@ public static class F117Inspector
                 DumpProjectedCockpitIslands(renderer, filter.sharedMesh, eye, report);
         }
 
-        string path = Path.GetFullPath(Path.Combine(Application.dataPath,
-            "../../../NuclearOption-F117/Diagnostics/Unity_Cockpit_Display_Geometry.txt"));
+        string path = ReportPath("Unity_Cockpit_Display_Geometry.txt");
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         File.WriteAllText(path, report.ToString());
         Debug.Log("F-117 cockpit display geometry written to " + path);
+    }
+
+    public static void DumpParadeOverlayGeometry()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BuiltPrefab);
+        if (prefab == null)
+            throw new InvalidOperationException("Missing asset: " + BuiltPrefab);
+        var report = new StringBuilder(32 * 1024);
+        foreach (MeshRenderer renderer in prefab.GetComponentsInChildren<MeshRenderer>(true)
+            .Where(item => item.name.StartsWith(F117AircraftAssembler.ParadeFlagOverlayPrefix,
+                StringComparison.Ordinal)).OrderBy(item => item.name, StringComparer.Ordinal))
+        {
+            Mesh mesh = renderer.GetComponent<MeshFilter>()?.sharedMesh;
+            if (mesh == null)
+                continue;
+            Bounds bounds = new Bounds();
+            bool initialized = false;
+            foreach (Vector3 vertex in mesh.vertices)
+            {
+                Vector3 point = prefab.transform.InverseTransformPoint(renderer.transform.TransformPoint(vertex));
+                if (!initialized)
+                {
+                    bounds = new Bounds(point, Vector3.zero);
+                    initialized = true;
+                }
+                else
+                    bounds.Encapsulate(point);
+            }
+            report.AppendLine(renderer.name + " parent=" + renderer.transform.parent.name +
+                " triangles=" + mesh.triangles.Length / 3 + " center=" + Format(bounds.center) +
+                " size=" + Format(bounds.size) + " min=" + Format(bounds.min) + " max=" + Format(bounds.max));
+        }
+        string path = ReportPath("F117_Parade_Overlay_Geometry.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        File.WriteAllText(path, report.ToString());
+        Debug.Log("F-117 parade overlay geometry written to " + path);
     }
 
     private static void DumpProjectedCockpitIslands(MeshRenderer renderer, Mesh mesh, Transform eye, StringBuilder report)

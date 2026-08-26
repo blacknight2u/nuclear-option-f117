@@ -1,11 +1,12 @@
 import math
 import os
+from pathlib import Path
 
 import bpy
 from mathutils import Vector
 
 
-OUTPUT_DIR = r"C:\Users\JEDENSMORE\NuclearOption-F117\ProductionRenders"
+OUTPUT_DIR = str(Path(__file__).resolve().parents[3] / "artifacts" / "research" / "production-views")
 
 
 def look_at(camera, target):

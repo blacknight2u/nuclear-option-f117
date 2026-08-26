@@ -5,7 +5,8 @@ import bpy
 import numpy as np
 
 
-OUTPUT = Path(r"C:\Users\JEDENSMORE\NuclearOption-BroomWitch\UnityProject\Assets\F117\Textures")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+OUTPUT = REPOSITORY_ROOT / "UnityAuthoring" / "Assets" / "F117" / "Textures"
 
 
 def safe_name(value):

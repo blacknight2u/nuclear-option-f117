@@ -1,35 +1,81 @@
-# F-117A Nighthawk development
+# Development
 
-This private repository contains the production Blender model, the BepInEx runtime plugin,
-the F-117 Unity authoring source, and the scripts used to build and validate the NOMM package.
-Generated bundles, compiled DLLs, diagnostics, old model revisions, and installed copies are
-intentionally excluded.
+## Source layout
 
-## Canonical sources
+- `F117_Production_Master.blend` is the canonical model.
+- `UnityAuthoring/Assets/F117/Models/F117_Production.fbx` is the Unity export.
+- `UnityAuthoring/Assets/F117/Textures` and `UnityAuthoring/Assets/F117/UI`
+  contain authored source assets.
+- `UnityAuthoring/Assets/F117/Editor` contains the assembler, builder, inspector,
+  and runtime-contract validator.
+- `Plugin` contains the aircraft-scoped BepInEx runtime integration.
+- `Package/blacknight2u.f117a.nighthawk` contains release metadata and the
+  user-facing package README. Compiled artifacts are intentionally ignored.
+- `Tools` separates the maintained release workflow from source-model research.
 
-- `F117_Production_Master.blend` is the authoritative model.
-- `Plugin/Plugin.cs` contains the runtime integration and corrections.
-- `UnityAuthoring/Assets/F117/Editor` contains the aircraft assembler, builder, and contract
-  validator.
-- `UnityAuthoring/Assets/F117/Models`, `Textures`, and `UI` contain Unity-importable source assets.
-- `Tools/fix_mfd_uvs_and_export.py` authors the stock Cricket display-atlas layout before FBX export.
+Clone with Git LFS enabled so the Blender and FBX assets are materialized.
 
-The active development Unity project lives outside this repository at
-`NuclearOption-BroomWitch/UnityProject`. Before building, sync `UnityAuthoring/Assets/F117` into that
-project's `Assets/F117` directory. Do not commit the project's copied game assemblies or stock
-Blueprinter donor assets.
+## Local requirements
 
-## Build and validation
+- Blender with Python support
+- Unity `2022.3.62f3`
+- A local Nuclear Option installation
+- A Blueprinter authoring project containing its required game-owned assets
+- A .NET SDK capable of building `net471`
 
-The current project targets Unity `2022.3.62f3` and .NET for the runtime plugin.
+Game assemblies and Blueprinter/game-owned prefabs are local build dependencies
+and are not part of this repository.
 
-1. Export the production FBX from the canonical Blender file using the relevant tool in `Tools/`.
-2. Build `Plugin/F117Nighthawk.csproj` in Release mode.
-3. Run Unity method `F117Builder.BuildFromCommandLine` against the configured authoring project.
-4. Run Unity method `F117ContractValidator.Validate` and require a `PASS` report.
-5. Put the generated `.nobp`, Release DLL, `meta.json`, and package README under
-   `mods/blacknight2u.f117a.nighthawk/`, with `modlist.nomm.json` at the archive root.
+## Export the model
 
-Version 0.4.65 preserves the upright center camera/radar display and applies the visual inverse to
-only the two clockwise side instruments: physical up maps toward decreasing atlas U and physical
-right toward increasing V. Validation locks those exact imported UV-axis signs.
+Run Blender from the repository root:
+
+```powershell
+blender --background F117_Production_Master.blend --python Tools/Export/export_f117.py -- --output UnityAuthoring/Assets/F117/Models/F117_Production.fbx
+```
+
+The exporter validates and reapplies the three cockpit-display UV regions before
+writing the FBX. It refuses to modify any Blender file other than the canonical
+master.
+
+## Build the runtime plugin
+
+`GameDir` defaults to Steam's standard Windows installation path and may be
+overridden:
+
+```powershell
+dotnet build Plugin/F117Nighthawk.csproj -c Release -p:GameDir="D:\Games\Nuclear Option"
+```
+
+The build consumes only game assemblies, BepInEx, and the in-repository damage
+silhouette.
+
+## Build and validate the Blueprinter bundle
+
+Copy or link `UnityAuthoring/Assets/F117` into `Assets/F117` in a configured
+Blueprinter authoring project. Then run:
+
+1. `F117Builder.BuildFromCommandLine`
+2. `F117ContractValidator.Validate`
+
+Validation must report `PASS`. Generated prefabs, bundles, inventories, and
+reports belong under `Assets/F117/Generated` and must not be committed.
+
+## Release package
+
+The NOMM archive layout is:
+
+```text
+modlist.nomm.json
+mods/
+  blacknight2u.f117a.nighthawk/
+    blacknight2u.f117a.nighthawk.nobp
+    F117Nighthawk.dll
+    meta.json
+    README.md
+```
+
+Before packaging, synchronize the version across `Plugin/Plugin.cs`,
+`Plugin/F117Nighthawk.csproj`, the Blueprinter definition, and `meta.json`.
+Update the DLL hash in `meta.json`, validate the final bundle, inspect the
+archive contents, and test installation through NOMM.

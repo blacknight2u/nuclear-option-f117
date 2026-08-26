@@ -104,7 +104,7 @@ namespace Blacknight2u.F117Nighthawk
                 redStatusThreshold = RedStatusThreshold
             });
             AircraftBackgroundField.SetValue(__instance, background);
-            Plugin.Log.LogInfo("F-117 status display repaired before HUD initialization.");
+            Plugin.Log.LogDebug("F-117 status display repaired before HUD initialization.");
         }
 
         private static Image EnsureImage(GameObject target, Sprite sprite, Color color)

@@ -14,13 +14,17 @@ physical aspect ratio, so the image is not stretched.  All non-MFD UVs and
 geometry remain untouched.
 """
 
+import argparse
 import os
+import sys
+from pathlib import Path
 
 import bpy
 
 
-MASTER_PATH = r"C:\Users\JEDENSMORE\NuclearOption-F117\F117_Production_Master.blend"
-FBX_PATH = r"C:\Users\JEDENSMORE\NuclearOption-BroomWitch\UnityProject\Assets\F117\Models\F117_Production.fbx"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+MASTER_PATH = REPOSITORY_ROOT / "F117_Production_Master.blend"
+DEFAULT_FBX_PATH = REPOSITORY_ROOT / "UnityAuthoring" / "Assets" / "F117" / "Models" / "F117_Production.fbx"
 EXPORT_ROOT = "F117_Production"
 COCKPIT_MESH = "F117_Cockpit_Mesh"
 ATLAS_PIXEL_ASPECT = 2.0  # 1024 x 512, verified from the installed game asset.
@@ -191,7 +195,7 @@ def author_display_uvs():
     cockpit.data.update()
 
 
-def export_fbx():
+def export_fbx(output_path):
     root = required(EXPORT_ROOT)
     bpy.ops.object.select_all(action="DESELECT")
     root.select_set(True)
@@ -199,7 +203,7 @@ def export_fbx():
         item.select_set(True)
     bpy.context.view_layer.objects.active = root
     bpy.ops.export_scene.fbx(
-        filepath=FBX_PATH,
+        filepath=os.fspath(output_path),
         use_selection=True,
         apply_unit_scale=True,
         apply_scale_options="FBX_SCALE_UNITS",
@@ -215,14 +219,25 @@ def export_fbx():
     )
 
 
+def arguments():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=DEFAULT_FBX_PATH)
+    values = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    return parser.parse_args(values)
+
+
 def main():
-    if os.path.normcase(os.path.abspath(bpy.data.filepath)) != os.path.normcase(os.path.abspath(MASTER_PATH)):
+    options = arguments()
+    loaded_file = Path(bpy.data.filepath).resolve()
+    if os.path.normcase(os.fspath(loaded_file)) != os.path.normcase(os.fspath(MASTER_PATH.resolve())):
         raise RuntimeError(f"Refusing to modify unexpected Blender file: {bpy.data.filepath}")
+    output_path = options.output.resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     author_display_uvs()
-    bpy.ops.wm.save_as_mainfile(filepath=MASTER_PATH)
-    export_fbx()
+    bpy.ops.wm.save_as_mainfile(filepath=os.fspath(MASTER_PATH))
+    export_fbx(output_path)
     print(f"SAVED_BLEND={MASTER_PATH}")
-    print(f"EXPORTED_FBX={FBX_PATH}")
+    print(f"EXPORTED_FBX={output_path}")
 
 
 main()
