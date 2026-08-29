@@ -69,7 +69,7 @@ public static class F117ContractValidator
         float groundSpawnHeight = 0f;
         var expectedRuntimeCounts = new Dictionary<string, int>
         {
-            { "Aircraft", 1 }, { "AutopilotPlane", 1 }, { "AeroPart", 13 }, { "BayDoor", 2 },
+            { "Aircraft", 1 }, { "AutopilotPlane", 1 }, { "AeroPart", 17 }, { "BayDoor", 2 },
             { "Canopy", 1 }, { "Cockpit", 1 }, { "ControlsFilter", 1 }, { "ControlSurface", 6 },
             { "ChaffEjector", 1 }, { "FlareEjector", 1 }, { "FuelTank", 1 }, { "JetNozzle", 2 },
             { "LandingGear", 3 }, { "LaserDesignator", 1 },
@@ -142,12 +142,14 @@ public static class F117ContractValidator
                 groundSpawnHeight = spawnOffset.vector3Value.y;
             Require(Near(groundSpawnHeight, F117AircraftAssembler.GroundSpawnHeight, 0.001f),
                 "Ground spawn height clears the frame-81 deployed main-tire plane", failures);
-            Require(Near(Float(definitionData, "radarSize", definition.name, failures), 0.0001f, 0.000001f),
-                "Closed clean-aircraft definition has the nonzero 0.0001 radar return", failures);
+            Require(Near(Float(definitionData, "radarSize", definition.name, failures), 0.0000005f, 0.00000001f),
+                "Closed clean-aircraft definition has the nonzero 0.0000005 radar return", failures);
             Require(Near(Float(definitionData, "visibleRange", definition.name, failures), 2500f, 0.01f),
                 "Aircraft optical visibility is 2.5 km", failures);
             Require(Near(Float(definitionData, "mass", definition.name, failures), 13380f, 0.1f),
                 "Simple-physics mass is the 13,380 kg dry weight", failures);
+            Require(Near(Float(definitionData, "value", definition.name, failures), 120f, 0.001f),
+                "Aircraft purchase price is $120 million", failures);
             SerializedProperty aircraftInfo = Property(definitionData, "aircraftInfo", definition.name, failures);
             if (aircraftInfo != null)
             {
@@ -165,6 +167,9 @@ public static class F117ContractValidator
             if (parameters != null)
             {
                 SerializedObject parameterData = new SerializedObject(parameters);
+                SerializedProperty rankRequired = Property(parameterData, "rankRequired", parameters.name, failures);
+                Require(rankRequired != null && rankRequired.intValue == 4,
+                    "Aircraft requires rank 4", failures);
                 RequireRef(parameterData, "HUDExtras", parameters.name, failures);
                 RequireArray(parameterData, "loadouts", F117Builder.WeaponLoadoutCount, parameters.name, failures);
                 SerializedProperty loadouts = Property(parameterData, "loadouts", parameters.name, failures);
@@ -172,12 +177,12 @@ public static class F117ContractValidator
                     for (int index = 0; index < loadouts.arraySize; index++)
                     {
                         SerializedProperty weapons = loadouts.GetArrayElementAtIndex(index).FindPropertyRelative("weapons");
-                        Require(weapons != null && weapons.arraySize == 2,
-                            "Loadout " + index + " contains payload plus fixed active jammer", failures);
+                        Require(weapons != null && weapons.arraySize == 3,
+                            "Loadout " + index + " covers independent left/right bays and the fixed jammer", failures);
                     }
                 SerializedProperty standards = Property(parameterData, "StandardLoadouts", parameters.name, failures);
                 Require(standards != null && standards.isArray && standards.arraySize == F117Builder.WeaponLoadoutCount,
-                    "Aircraft has one named loadout for every supported internal rack", failures);
+                    "Aircraft has one named loadout for every supported internal payload", failures);
                 if (standards != null && standards.isArray)
                 {
                     for (int index = 0; index < standards.arraySize; index++)
@@ -190,8 +195,9 @@ public static class F117ContractValidator
                             "Standard loadout " + index + " has no historical grouping label", failures);
                         SerializedProperty standardWeapons = standards.GetArrayElementAtIndex(index)
                             .FindPropertyRelative("loadout")?.FindPropertyRelative("weapons");
-                        Require(standardWeapons != null && standardWeapons.arraySize == 2,
-                            "Standard loadout " + index + " contains payload plus fixed active jammer", failures);
+                        Require(standardWeapons != null && standardWeapons.arraySize == 3,
+                            "Standard loadout " + index +
+                            " covers independent left/right bays and the fixed jammer", failures);
                     }
                 }
                 SerializedProperty liveries = Property(parameterData, "liveries", parameters.name, failures);
@@ -264,6 +270,12 @@ public static class F117ContractValidator
         Require(paradeOverlays.All(renderer => renderer.sharedMaterial != null &&
                 AssetDatabase.GetAssetPath(Texture(renderer.sharedMaterial, "_BaseMap")) == ParadeFlagWrapTexturePath),
             "Every farewell-flag overlay uses the deterministic opaque full-belly wrap", failures);
+        Renderer[] damageSkinOverlays = paradeOverlays
+            .Where(renderer => renderer.name.IndexOf("_Skin_", StringComparison.Ordinal) >= 0)
+            .ToArray();
+        Require(damageSkinOverlays.Length >= 9 && damageSkinOverlays.All(renderer =>
+            renderer.transform.parent != null && renderer.transform.parent.GetComponent("AeroPart") != null),
+            "Every fixed-skin flag overlay is parented directly to its detachable AeroPart", failures);
         string[] invalidParadeOverlays = paradeOverlays
             // The overlay generator classifies faces in the production model root's
             // coordinate system. Validate in that identical space: the donor aircraft
@@ -307,7 +319,7 @@ public static class F117ContractValidator
                 continue;
             SerializedObject data = new SerializedObject(ejector);
             SerializedProperty ammo = Property(data, "ammo", ejectorType, failures);
-            int expectedAmmo = ejectorType == "FlareEjector" ? 16 : 64;
+            int expectedAmmo = ejectorType == "FlareEjector" ? 32 : 64;
             Require(ammo != null && ammo.intValue == expectedAmmo,
                 ejectorType + " carries " + expectedAmmo + " rounds", failures);
             Require(Ref(data, "aircraft") == aircraft, ejectorType + " is owned by the F-117 Aircraft", failures);
@@ -363,11 +375,11 @@ public static class F117ContractValidator
             .Where(collider => collider.GetComponent("AeroPart") != null &&
                 collider.name.StartsWith("F117_Wing_", StringComparison.Ordinal))
             .ToArray();
-        Require(authoredMeshColliders.Length == 8 &&
-                controlMeshColliders.Length == 6 && wingMeshColliders.Length == 2 &&
+        Require(authoredMeshColliders.Length == 12 &&
+                controlMeshColliders.Length == 6 && wingMeshColliders.Length == 6 &&
                 authoredMeshColliders.All(collider => collider.convex &&
                     collider.sharedMesh != null && collider.sharedMesh.vertexCount <= 255),
-            "Six controls and two wings use low-poly convex, directly damage-routable MeshColliders", failures);
+            "Six controls and six wing sections use low-poly convex, directly damage-routable MeshColliders", failures);
 
         Material[] productionMaterials = prefab.GetComponentsInChildren<Renderer>(true)
             .SelectMany(renderer => renderer.sharedMaterials)
@@ -517,7 +529,7 @@ public static class F117ContractValidator
                 material.name + " is loadable and has clean/damaged skin textures driven by _HitPoints", failures);
         ValidateProfileSlotClassification(prefab, failures);
 
-        Require(aeroParts.Length == 13, "Exactly 13 aerodynamic/mass parts", failures);
+        Require(aeroParts.Length == 17, "Exactly 17 aerodynamic/mass parts", failures);
         Component centralPart = productionVisual == null
             ? null
             : aeroParts.FirstOrDefault(part => part.transform == productionVisual);
@@ -622,9 +634,60 @@ public static class F117ContractValidator
                     part.name + " uses an inset convex root-space mesh collider like the working Aryx aircraft", failures);
             }
             else if (part.name.StartsWith("F117_Wing_", StringComparison.Ordinal))
+            {
                 Require(rootBox == null && rootMesh != null && rootMesh.convex &&
-                        rootMesh.sharedMesh != null && rootMesh.sharedMesh.vertexCount == 16,
-                    part.name + " owns the two-box wing planform as one direct convex damage collider", failures);
+                        rootMesh.sharedMesh != null && rootMesh.sharedMesh.vertexCount >= 6 &&
+                        rootMesh.sharedMesh.vertexCount <= 128 && rootMesh.sharedMesh.vertexCount % 2 == 0,
+                    part.name + " owns a mesh-derived inset planform damage collider", failures);
+                Renderer[] ownedRenderers = damageRenderers == null || !damageRenderers.isArray
+                    ? Array.Empty<Renderer>()
+                    : Enumerable.Range(0, damageRenderers.arraySize)
+                        .Select(index => damageRenderers.GetArrayElementAtIndex(index).objectReferenceValue as Renderer)
+                        .Where(renderer => renderer != null)
+                        .ToArray();
+                Bounds geometry = F117AircraftAssembler.CalculateRendererGeometryBounds(
+                    prefab.transform, ownedRenderers);
+                float sideSign = part.name.IndexOf("_Left_", StringComparison.Ordinal) >= 0 ? -1f : 1f;
+                Vector3[] geometryVertices = ownedRenderers
+                    .SelectMany(renderer =>
+                    {
+                        MeshFilter filter = renderer.GetComponent<MeshFilter>();
+                        return filter == null || filter.sharedMesh == null
+                            ? Array.Empty<Vector3>()
+                            : filter.sharedMesh.vertices.Select(vertex =>
+                                prefab.transform.InverseTransformPoint(
+                                    renderer.transform.TransformPoint(vertex)));
+                    })
+                    .ToArray();
+                float[] rootMetrics = geometryVertices.Select(vertex =>
+                    sideSign * vertex.x - F117AircraftAssembler.WingRootSweep * vertex.z).ToArray();
+                float[] outerMetrics = geometryVertices.Select(vertex =>
+                    sideSign * vertex.x - F117AircraftAssembler.WingOuterSweep * vertex.z).ToArray();
+                Vector3 partCenter = prefab.transform.InverseTransformPoint(part.transform.position);
+                Vector3 colliderCenter = prefab.transform.InverseTransformPoint(
+                    part.transform.TransformPoint(rootMesh.sharedMesh.bounds.center));
+                Require(ownedRenderers.Length > 0 && geometry.center.x * sideSign > 0f &&
+                        partCenter.x * sideSign > 0f && colliderCenter.x * sideSign > 0f,
+                    part.name + " physical body, collider and visible damage skin are on the same authored side", failures);
+                bool correctBoundary = geometryVertices.Length > 0 &&
+                    (part.name.EndsWith("_Root", StringComparison.Ordinal)
+                        ? Near(rootMetrics.Max(), F117AircraftAssembler.WingRootMetricCut, 0.025f)
+                        : part.name.EndsWith("_Inner", StringComparison.Ordinal)
+                            ? Near(rootMetrics.Min(), F117AircraftAssembler.WingRootMetricCut, 0.025f) &&
+                              Near(outerMetrics.Max(), F117AircraftAssembler.WingOuterMetricCut, 0.025f)
+                            : Near(outerMetrics.Min(), F117AircraftAssembler.WingOuterMetricCut, 0.025f));
+                Require(correctBoundary,
+                    part.name + " visible skin is geometrically clipped to its measured swept seam", failures);
+                float expectedFraction = part.name.EndsWith("_Root", StringComparison.Ordinal)
+                    ? F117AircraftAssembler.WingRootAreaFraction
+                    : part.name.EndsWith("_Inner", StringComparison.Ordinal)
+                        ? F117AircraftAssembler.WingInnerAreaFraction
+                        : F117AircraftAssembler.WingOuterAreaFraction;
+                Require(Near(Float(data, "mass", part.name, failures), 785f * expectedFraction, 0.1f) &&
+                        Near(Float(data, "wingArea", part.name, failures),
+                            F117AircraftAssembler.MainWingLiftArea * expectedFraction, 0.001f),
+                    part.name + " preserves its measured share of whole-wing mass and lift", failures);
+            }
             else if (part.name.StartsWith("F117_Engine_", StringComparison.Ordinal))
                 Require(rootBox != null &&
                         (rootBox.center - F117AircraftAssembler.EngineDamageColliderCenter).sqrMagnitude <= 0.0001f &&
@@ -659,6 +722,19 @@ public static class F117ContractValidator
                     : part.transform.parent.GetComponent("AeroPart");
                 Require(physicalParent != null,
                     part.name + " is directly parented to another AeroPart", failures);
+                if (part.name.StartsWith("F117_Wing_", StringComparison.Ordinal))
+                {
+                    string side = part.name.IndexOf("_Left_", StringComparison.Ordinal) >= 0
+                        ? "Left"
+                        : "Right";
+                    string expectedParent = part.name.EndsWith("_Root", StringComparison.Ordinal)
+                        ? "F117_CentralBody"
+                        : part.name.EndsWith("_Inner", StringComparison.Ordinal)
+                            ? "F117_Wing_" + side + "_Root"
+                            : "F117_Wing_" + side + "_Inner";
+                    Require(physicalParent != null && physicalParent.name == expectedParent,
+                        part.name + " follows the stock root -> inner -> outer structural chain", failures);
+                }
                 Require(joints != null && joints.isArray && joints.arraySize >= 1,
                     part.name + " has a serialized attachment joint", failures);
                 bool linkedToPhysicalParent = false;
@@ -760,6 +836,17 @@ public static class F117ContractValidator
             Require(centerOfLift.sqrMagnitude >= 0.01f,
                 control.name + " has a non-zero, model-derived aerodynamic moment arm", failures);
             bool rudder = control.name.IndexOf("Rudder", StringComparison.Ordinal) >= 0;
+            if (!rudder && attachedSurface != null)
+            {
+                Component structuralParent = attachedSurface.transform.parent == null
+                    ? null
+                    : attachedSurface.transform.parent.GetComponent("AeroPart");
+                string side = control.name.IndexOf("_L_", StringComparison.Ordinal) >= 0 ? "Left" : "Right";
+                string section = control.name.IndexOf("_Inner", StringComparison.Ordinal) >= 0 ? "Inner" : "Outer";
+                Require(structuralParent != null &&
+                        structuralParent.name == "F117_Wing_" + side + "_" + section,
+                    control.name + " is attached to its matching structural wing section", failures);
+            }
             Vector3 animatedAxis = visibleMesh == null
                 ? Vector3.zero
                 : visibleMesh.transform.localRotation * Vector3.right;
@@ -888,7 +975,8 @@ public static class F117ContractValidator
                     out Vector3 _, out float distance);
                 Require(!penetrates || distance <= 0.0001f,
                     leftOwner.name + "/" + left.name + " does not penetrate unrelated " +
-                    rightOwner.name + "/" + right.name + " at spawn", failures);
+                    rightOwner.name + "/" + right.name + " at spawn (depth=" +
+                    distance.ToString("0.0000") + " m)", failures);
             }
         }
         if (collisionAuditInstance != null)
@@ -1324,45 +1412,53 @@ public static class F117ContractValidator
             SerializedObject data = new SerializedObject(manager);
             RequireRef(data, "aircraft", manager.name, failures);
             SerializedProperty sets = Property(data, "hardpointSets", manager.name, failures);
-            Require(sets != null && sets.isArray && sets.arraySize == 2,
-                "One internal store rack plus one fixed active-jammer station", failures);
-            if (sets != null && sets.isArray && sets.arraySize == 2)
+            Require(sets != null && sets.isArray && sets.arraySize == 3,
+                "Independent left/right payload bays and one fixed jammer", failures);
+            if (sets != null && sets.isArray && sets.arraySize == 3)
             {
-                SerializedProperty set = sets.GetArrayElementAtIndex(0);
-                SerializedProperty options = set.FindPropertyRelative("weaponOptions");
-                SerializedProperty hardpoints = set.FindPropertyRelative("hardpoints");
-                Require(options != null && options.arraySize == F117Builder.WeaponOptionCount,
-                    "Internal rack exposes empty plus every supported multi-store option", failures);
-                Require(hardpoints != null && hardpoints.arraySize == 1, "Internal bay has one center rack socket", failures);
-                if (hardpoints != null)
+                for (int setIndex = 0; setIndex < 2; setIndex++)
                 {
-                    for (int index = 0; index < hardpoints.arraySize; index++)
+                    string side = setIndex == 0 ? "Left" : "Right";
+                    SerializedProperty baySet = sets.GetArrayElementAtIndex(setIndex);
+                    Require(baySet.FindPropertyRelative("name")?.stringValue == side + " Weapon Bay",
+                        side + " bay has a clear independent station name", failures);
+                    SerializedProperty options = baySet.FindPropertyRelative("weaponOptions");
+                    Require(options != null && options.arraySize == F117Builder.WeaponOptionCount,
+                        side + " bay exposes empty plus every supported payload option", failures);
+                    SerializedProperty preclusions = baySet.FindPropertyRelative("precludingHardpointSets");
+                    Require(preclusions != null && preclusions.arraySize == 0,
+                        side + " bay remains independently selectable", failures);
+                    SerializedProperty hardpoints = baySet.FindPropertyRelative("hardpoints");
+                    Require(hardpoints != null && hardpoints.arraySize == 1,
+                        side + " bay has exactly one physical socket", failures);
+                    if (hardpoints != null && hardpoints.arraySize == 1)
                     {
-                        SerializedProperty hardpoint = hardpoints.GetArrayElementAtIndex(index);
-                        RequireRelativeRef(hardpoint, "transform", "Hardpoint " + index, failures);
+                        SerializedProperty hardpoint = hardpoints.GetArrayElementAtIndex(0);
+                        RequireRelativeRef(hardpoint, "transform", side + " hardpoint", failures);
                         Transform socket = hardpoint.FindPropertyRelative("transform")?.objectReferenceValue as Transform;
                         Require(socket != null &&
                                 Near(prefab.transform.InverseTransformPoint(socket.position).y,
                                     F117AircraftAssembler.InternalStoreMountHeight, 0.01f),
-                            "Hardpoint " + index + " is on the audited internal bay mount plane", failures);
-                        Require(socket != null && socket.name == "F117_InternalRackSocket" &&
-                                Near(prefab.transform.InverseTransformPoint(socket.position).x, 0f, 0.01f),
-                            "Hardpoint " + index + " uses the centered F-117 internal rack socket", failures);
-                        RequireRelativeRef(hardpoint, "part", "Hardpoint " + index, failures);
+                            side + " hardpoint is on the audited internal bay mount plane", failures);
+                        Require(socket != null && socket.name == "LOC_Weapon_" + side,
+                            side + " hardpoint uses its authored physical bay locator", failures);
+                        RequireRelativeRef(hardpoint, "part", side + " hardpoint", failures);
                         SerializedProperty bayDoors = hardpoint.FindPropertyRelative("bayDoors");
-                        Require(bayDoors != null && bayDoors.arraySize == 2 &&
-                                bayDoors.GetArrayElementAtIndex(0).objectReferenceValue != null &&
-                                bayDoors.GetArrayElementAtIndex(1).objectReferenceValue != null,
-                            "Hardpoint " + index + " opens both internal bay doors", failures);
+                        Component linkedDoor = bayDoors != null && bayDoors.arraySize == 1
+                            ? bayDoors.GetArrayElementAtIndex(0).objectReferenceValue as Component
+                            : null;
+                        Require(linkedDoor != null &&
+                                linkedDoor.gameObject.name == "F117_BayDoor_" + side + "_Hinge",
+                            side + " hardpoint opens only its matching bay door", failures);
                         SerializedProperty doorOpenDuration = hardpoint.FindPropertyRelative("doorOpenDuration");
                         Require(doorOpenDuration != null && Near(doorOpenDuration.floatValue, 1.2f, 0.001f),
-                            "Hardpoint " + index + " keeps both bays open for 1.2 seconds after the final release", failures);
-                        RequireRelativeArray(hardpoint, "BuiltInWeapons", 0, "Hardpoint " + index, failures);
-                        RequireRelativeArray(hardpoint, "BuiltInTurrets", 0, "Hardpoint " + index, failures);
+                            side + " bay stays open for 1.2 seconds after its final release", failures);
+                        RequireRelativeArray(hardpoint, "BuiltInWeapons", 0, side + " hardpoint", failures);
+                        RequireRelativeArray(hardpoint, "BuiltInTurrets", 0, side + " hardpoint", failures);
                     }
                 }
 
-                SerializedProperty jammerSet = sets.GetArrayElementAtIndex(1);
+                SerializedProperty jammerSet = sets.GetArrayElementAtIndex(2);
                 Require(jammerSet.FindPropertyRelative("name")?.stringValue == "JammingPod1",
                     "Fixed station retains the native JammingPod1 name", failures);
                 SerializedProperty jammerOptions = jammerSet.FindPropertyRelative("weaponOptions");
@@ -1439,6 +1535,7 @@ public static class F117ContractValidator
                     seatRenderer != null && seatRenderer.enabled && ejectionSeat.gameObject.activeSelf,
                 "Retained pilot hierarchy includes a visible ejection seat with an exact native mesh patch", failures);
             bakedLadderTriangleCount = 0;
+            var bakedLadderCandidates = new List<string>();
             foreach (Renderer damageShell in damageShells)
             {
                 Mesh exteriorMesh = damageShell.GetComponent<MeshFilter>()?.sharedMesh;
@@ -1452,12 +1549,23 @@ public static class F117ContractValidator
                         vertices[triangles[index + 2]]) / 3f;
                     Vector3 rootCenter = prefab.transform.InverseTransformPoint(
                         damageShell.transform.TransformPoint(localCenter));
-                    if (rootCenter.x > 1.75f && rootCenter.z > 5.2f)
+                    // The removed boarding ladder occupied this forward-side region
+                    // below the airframe. True geometric section clipping creates one
+                    // legitimate nose-skin triangle at its old X/Z threshold, so also
+                    // require the protruding below-belly Y position that distinguished
+                    // the ladder from the aircraft shell.
+                    if (rootCenter.x > 1.75f && rootCenter.z > 5.2f && rootCenter.y < -0.25f)
+                    {
                         bakedLadderTriangleCount++;
+                        bakedLadderCandidates.Add(damageShell.name + "@" + rootCenter.ToString("F3"));
+                    }
                 }
             }
             Require(bakedLadderTriangleCount == 0,
-                "Production exterior contains no baked boarding-ladder geometry", failures);
+                "Production exterior contains no baked boarding-ladder geometry " +
+                "(candidate triangles=" + bakedLadderTriangleCount +
+                (bakedLadderCandidates.Count == 0 ? string.Empty : ": " +
+                    string.Join(", ", bakedLadderCandidates)) + ")", failures);
             Transform cockpitViewPoint = Ref(data, "cockpitViewPoint") as Transform;
             Transform authoredCockpitPoint = prefab.GetComponentsInChildren<Transform>(true)
                 .FirstOrDefault(transform => transform.name == "LOC_CockpitCamera");
@@ -1470,8 +1578,8 @@ public static class F117ContractValidator
                     Vector3.Dot(cockpitViewPoint.forward, prefab.transform.forward) > 0.999f &&
                     Vector3.Dot(cockpitViewPoint.up, prefab.transform.up) > 0.999f,
                 "Cockpit camera is root-aligned, at the 1.39 m eye line, and aligned to the pilot seat", failures);
-            Require(Near(Float(data, "RCS", aircraft.name, failures), 0.0001f, 0.000001f),
-                "Prefab fallback RCS is the clean 0.0001 baseline before the runtime bay/gear controller attaches", failures);
+            Require(Near(Float(data, "RCS", aircraft.name, failures), 0.0000005f, 0.00000001f),
+                "Prefab fallback RCS is the clean 0.0000005 baseline before the runtime bay/gear controller attaches", failures);
         }
 
         GameObject statusPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(StatusPath);
@@ -1538,9 +1646,9 @@ public static class F117ContractValidator
         Require(manifestJson.IndexOf("\"componentType\": \"RadarJammer, Assembly-CSharp\"", StringComparison.Ordinal) < 0,
             "Manifest contains no defensive RadarJammer countermeasure patch", failures);
         Require(manifestJson.Contains("\"locator\": \"JammingPod1\"") &&
-                manifestJson.Contains("hardpointSets[1].weaponOptions[0]") &&
-                manifestJson.Contains("loadouts[0].weapons[1]") &&
-                manifestJson.Contains("StandardLoadouts[0].loadout.weapons[1]"),
+                manifestJson.Contains("hardpointSets[2].weaponOptions[0]") &&
+                manifestJson.Contains("loadouts[0].weapons[2]") &&
+                manifestJson.Contains("StandardLoadouts[0].loadout.weapons[2]"),
             "Manifest installs native JammingPod1 on the fixed active-jammer station and every loadout", failures);
         foreach (string side in new[] { "Left", "Right" })
             Require(manifestJson.Contains("F117_CentralBody/F117_RearBody/F117_Engine_" + side),
@@ -1556,27 +1664,29 @@ public static class F117ContractValidator
             "Manifest resolves every F-117 damage skin material to the native AircraftSkin shader", failures);
 
         notes.Add("Validated root: " + prefab.name);
-        notes.Add("Components: AeroPart=13, ControlSurface=6, LandingGear=3, Turbojet=2, JetNozzle=2, BayDoor=2, FlareEjector=1, ChaffEjector=1, RadarJammer=0, Radar=0");
-        notes.Add("Countermeasures: 16 native flares, 64 native chaff, two central-body ejection points each, visible material-backed RadarChaff payload");
+        notes.Add("Components: AeroPart=17, ControlSurface=6, LandingGear=3, Turbojet=2, JetNozzle=2, BayDoor=2, FlareEjector=1, ChaffEjector=1, RadarJammer=0, Radar=0");
+        notes.Add("Countermeasures: 32 native flares, 64 native chaff, two central-body ejection points each, visible material-backed RadarChaff payload");
         notes.Add("Active jammer: native JammingPod1 weapon, permanently installed and target-fired; no defensive RadarJammer countermeasure");
         notes.Add("Electrical: dedicated 60 kJ jammer bus; native 13-unit draw gives about 5 s full-charge burst; two engines recharge at up to 1.16 kJ/s (about 52 s empty-to-full)");
-        notes.Add("Physics graph: one root AeroPart plus 12 parent-matched, jointed descendants; elevons attach to wings and rudders to rear body");
-        notes.Add("Hitboxes: all 13 AeroParts directly own their real colliders; native bullets/blast fragments cannot be swallowed by non-damageable child objects; full unrelated-part penetration audit passed");
-        notes.Add("Damage model: 13 non-critical, standard 100 HP AeroParts; fixed airframe and controls own split render geometry, AircraftSkin pockmark textures, status reporting, native fuel fire/leak effects, and physical detachment");
+        notes.Add("Physics graph: one root AeroPart plus 16 parent-matched, jointed descendants; each wing uses stock-style root -> inner -> outer structure, elevons attach to matching panels, and rudders attach to rear body");
+        notes.Add("Hitboxes: all 17 AeroParts directly own their real colliders; six wing colliders are generated from their clipped planforms; native bullets/blast fragments cannot be swallowed by non-damageable child objects; full unrelated-part penetration audit passed");
+        notes.Add("Damage model: 17 non-critical, standard 100 HP AeroParts; fixed airframe triangles are geometrically clipped at section boundaries and controls own their render geometry, AircraftSkin pockmark textures, status reporting, native fuel fire/leak effects, and physical detachment");
         notes.Add("Elevon neutral: unbiased native servo/aero pivots; measured inner-panel visual corrections isolated below them");
         notes.Add("Mass: dry graph=13380 kg; full internal fuel=21630 kg; MTOW=23814 kg; payload margin=2184 kg; runtime CoM Z=" +
             runtimeCenterOfMass.z.ToString("0.00") + " m");
         notes.Add("Aerodynamic area: 77.449 m^2 total (62.180 m^2 fixed + 10.820 m^2 measured elevons + 4.449 m^2 full vertical tails)");
         notes.Add("Engine thrust: 2 x 47150 N");
-        notes.Add("Weapons: 1 centered native multi-store rack at Y=" + F117AircraftAssembler.InternalStoreMountHeight.ToString("0.00") +
-            " m, " + F117Builder.WeaponOptionCount + " option slots (empty + " + F117Builder.WeaponLoadoutCount +
-            " racks), both bay doors linked; store counts span 6/4/2/1; a second hidden station permanently mounts JammingPod1");
+        notes.Add("Weapons: independent left/right native racks at Y=" +
+            F117AircraftAssembler.InternalStoreMountHeight.ToString("0.00") + " m, " +
+            F117Builder.WeaponOptionCount + " options per bay; " + F117Builder.WeaponLoadoutCount +
+            " standard maximum-capacity loadouts spanning 8/4/2 stores; either bay may be cleared or mixed independently; " +
+            "a third hidden station permanently mounts JammingPod1");
         notes.Add("Bomb-bay mechanism: two source-derived strut tracks per door, nine door-angle poses each; struts remain independent of rigid panels");
         notes.Add("Materials: albedo=" + albedoCount + ", compatibility albedo=" + compatibilityAlbedoCount +
             ", normal=" + normalCount + ", mask=" + maskCount + ", emission=" + emissionCount);
         notes.Add("Liveries: Nighthawk Black plus five Farewell Flag metal-finish choices; exact 50-star/13-stripe " +
             "projection across " + paradeOverlays.Length + " lower-facing render meshes");
-        notes.Add("Stealth: clean RCS=0.0001; each bay adds up to 0.04 independently; gear adds up to 0.05 progressively; internal stores remain shielded");
+        notes.Add("Stealth: clean RCS=0.0000005; each bay adds up to 0.04 independently; gear adds up to 0.05 progressively; internal stores remain shielded");
         notes.Add("Sensors: no emitting search Radar; passive EOTS=15 km/3x, passive RadarLocator retained; optical visibility=2.5 km");
         notes.Add("Infrared: two forward-aligned sources, 0.5 idle to 2.2 full dry thrust; no afterburner, vapor, or global contrail components");
         notes.Add("Status HUD: retail bottom-right 260 px layout; plugin wires embedded F-117 damage Images before initialization");

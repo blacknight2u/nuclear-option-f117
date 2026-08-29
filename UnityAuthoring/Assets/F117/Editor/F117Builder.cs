@@ -71,42 +71,50 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.4.84";
+    private const string Version = "0.4.88";
     private const string FixedJammerAsset = "JammingPod1";
-    private static readonly string[] WeaponAssets =
+
+    private sealed class WeaponLoadoutSpec
     {
-        "bomb_125_internalx6",
-        "bomb_glide1_quad_internal",
-        "AGM1_quad_internal",
-        "bomb_250_internalx2",
-        "bomb_500_internalx2",
-        "bomb_penetrator1_internalx2",
-        "AGM_heavy_internalx2",
-        "ARM1_internalx2",
-        "AAM1_double_internal",
-        "AAM2_double_internal",
-        "CruiseMissile1_internal",
-        "nuclearBomb1_internal"
-    };
-    private static readonly string[] WeaponLoadoutLabels =
+        internal readonly string AssetName;
+        internal readonly string DisplayName;
+        internal readonly float FuelRatio;
+
+        internal WeaponLoadoutSpec(string assetName, string displayName, float fuelRatio = 1f)
+        {
+            AssetName = assetName;
+            DisplayName = displayName;
+            FuelRatio = fuelRatio;
+        }
+    }
+
+    private static readonly WeaponLoadoutSpec[] WeaponLoadouts =
     {
-        "6× 125 kg Bomb",
-        "4× Small Glide Bomb",
-        "4× Lightweight Air-to-Ground Missile",
-        "2× 250 kg Bomb",
-        "2× 500 kg Bomb",
-        "2× Penetrator Bomb",
-        "2× Heavy Air-to-Ground Missile",
-        "2× Anti-Radiation Missile",
-        "2× Short-Range IR Missile",
-        "2× Medium-Range Radar Missile",
-        "1× Cruise Missile",
-        "1× Nuclear Bomb"
+        new WeaponLoadoutSpec("bomb_125_internalx4", "8× PAB-125"),
+        new WeaponLoadoutSpec("bomb_glide1_quad_internal", "8× PAB-80LR"),
+        new WeaponLoadoutSpec("AGM1_quad_internal", "8× AGM-48"),
+        new WeaponLoadoutSpec("bomb_250_internalx2", "4× PAB-250"),
+        new WeaponLoadoutSpec("bomb_500_internal", "2× GPO-500"),
+        new WeaponLoadoutSpec("bomb_penetrator1", "2× GPO-2P Auger", 0.96f),
+        new WeaponLoadoutSpec("AGM_heavy_internal", "2× AGM-68"),
+        new WeaponLoadoutSpec("ARM1_single", "2× ARAD-116"),
+        new WeaponLoadoutSpec("AAM1_double_internal", "4× MMR-S3"),
+        new WeaponLoadoutSpec("AAM2_double_internal", "4× AAM-29 Scythe"),
+        new WeaponLoadoutSpec("CruiseMissile1_internal", "2× ALM-C450", fuelRatio: 0.98f),
+        new WeaponLoadoutSpec("nuclearBomb1_internal", "2× GPO-N (1.5 kt)"),
+        new WeaponLoadoutSpec("bomb_250_glide_internalx2", "4× PAB-250LR"),
+        new WeaponLoadoutSpec("bomb_500_glide_internalx1", "2× GBM-500LR"),
+        new WeaponLoadoutSpec("bomb_cluster1_single_internal", "2× CBO-400"),
+        new WeaponLoadoutSpec("ARM2_single_internal", "2× ARAD-45"),
+        new WeaponLoadoutSpec("AShM2_internal_single", "2× AGM-99"),
+        new WeaponLoadoutSpec("AShM3_single", "2× Tusko-B"),
+        new WeaponLoadoutSpec("nuclearBomb1_strategic_internal", "2× GPO-N (250 kt)")
     };
 
-    internal static int WeaponOptionCount => WeaponAssets.Length + 1;
-    internal static int WeaponLoadoutCount => WeaponAssets.Length;
-    internal static IReadOnlyList<string> WeaponAssetNames => WeaponAssets;
+    internal static int WeaponOptionCount => WeaponLoadouts.Length + 1;
+    internal static int WeaponLoadoutCount => WeaponLoadouts.Length;
+    internal static IReadOnlyList<string> WeaponAssetNames =>
+        WeaponLoadouts.Select(spec => spec.AssetName).ToArray();
 
     public static void BuildFromCommandLine()
     {
@@ -351,7 +359,7 @@ public static class F117Builder
         parameters.name = "F117A_Nighthawk_Parameters";
         SerializedObject data = new SerializedObject(parameters);
         SetString(data, "aircraftName", AircraftName);
-        Set(data, "rankRequired", 0);
+        Set(data, "rankRequired", 4);
         ConfigureAirfoils(data);
         Set(data, "DefaultFuelLevel", 1f);
         Set(data, "StatusDisplay", status);
@@ -392,18 +400,18 @@ public static class F117Builder
                 ParadeLiveryPaths[index], ParadeLiveryDisplayNames[index]);
 
         SerializedProperty loadouts = Require(data, "loadouts");
-        loadouts.arraySize = WeaponAssets.Length;
+        loadouts.arraySize = WeaponLoadouts.Length;
         for (int index = 0; index < loadouts.arraySize; index++)
             ConfigureLoadout(loadouts.GetArrayElementAtIndex(index));
 
         SerializedProperty standards = Require(data, "StandardLoadouts");
-        standards.arraySize = WeaponLoadoutLabels.Length;
-        for (int index = 0; index < WeaponLoadoutLabels.Length; index++)
+        standards.arraySize = WeaponLoadouts.Length;
+        for (int index = 0; index < WeaponLoadouts.Length; index++)
         {
             SerializedProperty standard = standards.GetArrayElementAtIndex(index);
             Set(standard, "disabled", false);
-            SetString(standard, "Name", WeaponLoadoutLabels[index]);
-            Set(standard, "FuelRatio", 1f);
+            SetString(standard, "Name", WeaponLoadouts[index].DisplayName);
+            Set(standard, "FuelRatio", WeaponLoadouts[index].FuelRatio);
             ConfigureLoadout(Require(standard, "loadout"));
         }
         data.ApplyModifiedPropertiesWithoutUndo();
@@ -474,9 +482,9 @@ public static class F117Builder
     private static void ConfigureLoadout(SerializedProperty loadout)
     {
         SerializedProperty weapons = Require(loadout, "weapons");
-        weapons.arraySize = 2;
-        weapons.GetArrayElementAtIndex(0).objectReferenceValue = null;
-        weapons.GetArrayElementAtIndex(1).objectReferenceValue = null;
+        weapons.arraySize = 3;
+        for (int index = 0; index < weapons.arraySize; index++)
+            weapons.GetArrayElementAtIndex(index).objectReferenceValue = null;
     }
     private static UnityEngine.Object CreateDefinition(GameObject prefab, UnityEngine.Object parameters, Sprite icon, Bounds bounds)
     {
@@ -502,7 +510,7 @@ public static class F117Builder
         SetString(data, "description", Description());
         Set(data, "visibleRange", 2500f);
         Set(data, "iconRange", 1f);
-        Set(data, "radarSize", 0.0001f);
+        Set(data, "radarSize", 0.0000005f);
         Set(data, "mapOrient", true);
         Set(data, "IsObstacle", true);
         Set(data, "iconSize", 1f);
@@ -513,7 +521,7 @@ public static class F117Builder
         Set(data, "length", 20.09f);
         Set(data, "width", 13.21f);
         Set(data, "height", 3.78f);
-        Set(data, "value", 95f);
+        Set(data, "value", 120f);
         Set(data, "mass", 13380f);
         Set(data, "manpower", 1f);
         Set(data, "armorTier", 0f);
@@ -625,8 +633,8 @@ public static class F117Builder
         AddEngineAssetPatch(output, source, "turbineFIre", "UnityEngine.GameObject, UnityEngine.CoreModule",
             "JetNozzle, Assembly-CSharp", 0, "failureEffect");
 
-        for (int index = 0; index < WeaponAssets.Length; index++)
-            AddWeaponPatch(output, WeaponAssets[index], index + 1, index);
+        for (int index = 0; index < WeaponLoadouts.Length; index++)
+            AddWeaponPatch(output, WeaponLoadouts[index], index + 1, index);
         AddFixedJammerPatch(output);
 
         AssetRef definition = BundleAsset(DefinitionPath, "F117A_Nighthawk_Definition", "AircraftDefinition, Assembly-CSharp");
@@ -823,8 +831,19 @@ public static class F117Builder
         return type.GetField(root, flags) != null || type.GetProperty(root, flags) != null;
     }
 
-    private static void AddWeaponPatch(PatchManifest manifest, string weaponName, int optionIndex, int loadoutIndex)
+    private static void AddWeaponPatch(PatchManifest manifest, WeaponLoadoutSpec spec,
+        int optionIndex, int loadoutIndex)
     {
+        string weaponName = spec.AssetName;
+        var locations = new List<LocationRef>
+        {
+            PrefabLocation("hardpointSets[0].weaponOptions[" + optionIndex + "]"),
+            PrefabLocation("hardpointSets[1].weaponOptions[" + optionIndex + "]"),
+            ParametersLocation("loadouts[" + loadoutIndex + "].weapons[0]"),
+            ParametersLocation("loadouts[" + loadoutIndex + "].weapons[1]"),
+            ParametersLocation("StandardLoadouts[" + loadoutIndex + "].loadout.weapons[0]"),
+            ParametersLocation("StandardLoadouts[" + loadoutIndex + "].loadout.weapons[1]")
+        };
         manifest.Patches.Add(new AssetPatch
         {
             GameAsset = new LocationRef
@@ -835,12 +854,7 @@ public static class F117Builder
                 componentType = string.Empty,
                 memberPath = string.Empty
             },
-            PatchLocations = new List<LocationRef>
-            {
-                PrefabLocation("hardpointSets[0].weaponOptions[" + optionIndex + "]"),
-                ParametersLocation("loadouts[" + loadoutIndex + "].weapons[0]"),
-                ParametersLocation("StandardLoadouts[" + loadoutIndex + "].loadout.weapons[0]")
-            }
+            PatchLocations = locations
         });
     }
 
@@ -848,12 +862,12 @@ public static class F117Builder
     {
         var locations = new List<LocationRef>
         {
-            PrefabLocation("hardpointSets[1].weaponOptions[0]")
+            PrefabLocation("hardpointSets[2].weaponOptions[0]")
         };
         for (int index = 0; index < WeaponLoadoutCount; index++)
         {
-            locations.Add(ParametersLocation("loadouts[" + index + "].weapons[1]"));
-            locations.Add(ParametersLocation("StandardLoadouts[" + index + "].loadout.weapons[1]"));
+            locations.Add(ParametersLocation("loadouts[" + index + "].weapons[2]"));
+            locations.Add(ParametersLocation("StandardLoadouts[" + index + "].loadout.weapons[2]"));
         }
         manifest.Patches.Add(new AssetPatch
         {

@@ -7,6 +7,7 @@ using System.Text;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using NuclearOption.Networking;
 using NuclearOption.SavedMission;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -19,10 +20,15 @@ namespace Blacknight2u.F117Nighthawk
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.4.84";
+        public const string PluginVersion = "0.4.88";
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
         internal const string LightweightAgmMountKey = "AGM1_quad_internal";
+        internal const string SingleAugerMountKey = "bomb_penetrator1_mount";
+        internal const string SingleAradMountKey = "ARM1_single";
+        internal const string SingleTuskoMountKey = "AShM3_single";
+        internal const string Cbo400MountKey = "bomb_cluster1_single_internal";
+        internal const string Arad45MountKey = "ARM2_single_internal";
         internal const string ParadeFlagLiveryName = "F117A_ParadeFlag_Livery";
         internal const string ParadeFlagSilverBlueLiveryName =
             "F117A_ParadeFlag_SilverBlue_Livery";
@@ -81,6 +87,10 @@ namespace Blacknight2u.F117Nighthawk
         private static bool loggedFixedJammer;
         private static bool warnedFixedJammerUnavailable;
         private static bool loggedLightweightAgmAdapter;
+        private static readonly HashSet<string> LoggedInternalSingleAdapters =
+            new HashSet<string>(StringComparer.Ordinal);
+        private static readonly HashSet<string> LoggedUnlockedStockMounts =
+            new HashSet<string>(StringComparer.Ordinal);
 
         private Harmony harmony;
         internal static ManualLogSource Log { get; private set; }
@@ -345,7 +355,11 @@ namespace Blacknight2u.F117Nighthawk
 
         internal static void EnforceFixedJammer(Aircraft aircraft, Loadout loadout)
         {
-            if (!IsF117(aircraft) || loadout == null)
+            if (!IsF117(aircraft) || loadout == null || aircraft.weaponManager == null ||
+                aircraft.weaponManager.hardpointSets == null)
+                return;
+            int jammerSetIndex = Array.FindIndex(aircraft.weaponManager.hardpointSets, IsFixedJammerSet);
+            if (jammerSetIndex < 0)
                 return;
             WeaponMount jammer = FindFixedJammerMount(aircraft);
             if (jammer == null)
@@ -357,9 +371,9 @@ namespace Blacknight2u.F117Nighthawk
                 }
                 return;
             }
-            while (loadout.weapons.Count < 2)
+            while (loadout.weapons.Count <= jammerSetIndex)
                 loadout.weapons.Add(null);
-            loadout.weapons[1] = jammer;
+            loadout.weapons[jammerSetIndex] = jammer;
         }
 
         internal static void ConcealInstalledJammer(Aircraft aircraft)
@@ -388,29 +402,119 @@ namespace Blacknight2u.F117Nighthawk
             }
         }
 
-        internal static void ConfigureLightweightAgmBayRelease(
-            MountedMissile missile, Aircraft aircraft, WeaponMount mount)
+        private static bool MountMatches(WeaponMount mount, params string[] identities)
         {
-            if (missile == null || !IsF117(aircraft))
+            if (mount == null)
+                return false;
+            return identities.Any(identity =>
+                string.Equals(mount.jsonKey, identity, StringComparison.Ordinal) ||
+                string.Equals(mount.name, identity, StringComparison.Ordinal));
+        }
+
+        internal static bool IsF117UnlockedStockMount(WeaponMount mount)
+        {
+            return MountMatches(mount, Cbo400MountKey, Arad45MountKey);
+        }
+
+        internal static bool IsF117InternalWeaponSet(HardpointSet set)
+        {
+            if (set == null ||
+                !string.Equals(set.name, "Left Weapon Bay", StringComparison.Ordinal) &&
+                !string.Equals(set.name, "Right Weapon Bay", StringComparison.Ordinal) ||
+                set.hardpoints == null || set.hardpoints.Count != 1)
+                return false;
+
+            Hardpoint hardpoint = set.hardpoints[0];
+            if (hardpoint == null || hardpoint.transform == null ||
+                !string.Equals(hardpoint.transform.name, "LOC_Weapon_Left", StringComparison.Ordinal) &&
+                !string.Equals(hardpoint.transform.name, "LOC_Weapon_Right", StringComparison.Ordinal))
+                return false;
+
+            Aircraft owner = hardpoint.part == null ? null : hardpoint.part.parentUnit as Aircraft;
+            if (owner != null)
+                return IsF117(owner);
+            Transform root = hardpoint.transform.root;
+            return root != null && root.name.StartsWith("F117A_Nighthawk", StringComparison.Ordinal);
+        }
+
+        internal static void LogUnlockedStockMount(WeaponMount mount)
+        {
+            string identity = mount == null ? string.Empty : mount.jsonKey ?? mount.name;
+            if (!string.IsNullOrEmpty(identity) && LoggedUnlockedStockMounts.Add(identity))
+                Log.LogDebug("F-117 exposed stock-disabled internal mount '" + identity +
+                    "' without changing its native weapon behavior or other aircraft.");
+        }
+
+        private static bool TryGetInternalSinglePosition(WeaponMount mount, out Vector3 position)
+        {
+            if (MountMatches(mount, SingleAugerMountKey, "bomb_penetrator1"))
+            {
+                position = Vector3.zero;
+                return true;
+            }
+            if (MountMatches(mount, SingleAradMountKey))
+            {
+                position = new Vector3(0f, -0.174f, -0.03f);
+                return true;
+            }
+            if (MountMatches(mount, SingleTuskoMountKey))
+            {
+                position = new Vector3(0f, -0.3f, 0f);
+                return true;
+            }
+            position = Vector3.zero;
+            return false;
+        }
+
+        internal static void InternalizeSingleStore(
+            Weapon weapon, Aircraft aircraft, Hardpoint hardpoint, WeaponMount mount)
+        {
+            if (weapon == null || !IsF117(aircraft) || hardpoint == null ||
+                hardpoint.bayDoors == null || hardpoint.bayDoors.Length == 0 ||
+                !TryGetInternalSinglePosition(mount, out Vector3 position))
                 return;
 
-            if (mount == null ||
-                (!string.Equals(mount.jsonKey, LightweightAgmMountKey, StringComparison.Ordinal) &&
-                 !string.Equals(mount.name, LightweightAgmMountKey, StringComparison.Ordinal)))
+            // These are the game's native one-store mounts. Their weapon behavior,
+            // network identity, mass, and damage remain stock. Only the external
+            // mounting hardware and donor-aircraft placement are adapted for the
+            // F-117's authored internal bay.
+            weapon.transform.localPosition = position;
+            foreach (Transform item in hardpoint.transform.GetComponentsInChildren<Transform>(true))
+            {
+                if (!string.Equals(item.name, "pylon", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                foreach (Renderer renderer in item.GetComponentsInChildren<Renderer>(true))
+                    renderer.enabled = false;
+                foreach (Collider collider in item.GetComponentsInChildren<Collider>(true))
+                    collider.enabled = false;
+            }
+
+            string identity = mount.jsonKey ?? mount.name;
+            if (LoggedInternalSingleAdapters.Add(identity))
+                Log.LogDebug("F-117 internalized native single-store mount '" + identity + "'.");
+        }
+
+        internal static void ConfigureBayMissileRelease(
+            MountedMissile missile, Aircraft aircraft, Hardpoint hardpoint, WeaponMount mount)
+        {
+            if (missile == null || !IsF117(aircraft) || hardpoint == null ||
+                hardpoint.bayDoors == null || hardpoint.bayDoors.Length == 0)
                 return;
 
-            // AGM1_quad_internal is the only compatible stock bay rack that performs a
-            // zero-distance forward launch. That is valid for its donor installation but
-            // spawns the missile inside the F-117's fuselage. Use the unchanged native
-            // AGM_heavy_internalx2 release motion on this aircraft's cloned rack: while
-            // the doors open at 2 normalized units/second, lower the store 2 m at 4 m/s.
-            // The live missile therefore spawns below the aircraft after the same 0.5 s.
+            bool lightweightAgm = MountMatches(mount, LightweightAgmMountKey);
+            bool internalizedSingle = TryGetInternalSinglePosition(mount, out _);
+            if (!lightweightAgm && !internalizedSingle)
+                return;
+
+            // External single mounts and AGM1_quad_internal use donor-aircraft launch
+            // paths. On an internal F-117 hardpoint they use the stock heavy internal
+            // release motion: lower 2 m at 4 m/s while the matching bay door opens.
             MissileRailDirection.SetValue(missile, MountedMissile.RailDirection.Down);
             MissileRailLength.SetValue(missile, 2f);
             MissileRailSpeed.SetValue(missile, 4f);
             MissileRailDelay.SetValue(missile, 0f);
 
-            if (!loggedLightweightAgmAdapter)
+            if (lightweightAgm && !loggedLightweightAgmAdapter)
             {
                 loggedLightweightAgmAdapter = true;
                 Log.LogDebug("F-117 adapted AGM1_quad_internal to the native 2 m downward bay-release path.");
@@ -1137,15 +1241,29 @@ namespace Blacknight2u.F117Nighthawk
     }
 
     [HarmonyPatch(typeof(MountedMissile), nameof(MountedMissile.AttachToHardpoint))]
-    internal static class F117LightweightAgmBayReleasePatch
+    internal static class F117BayMissileReleasePatch
     {
         [HarmonyPrefix]
         private static void Prefix(
-            MountedMissile __instance, Aircraft aircraft, WeaponMount weaponMount)
+            MountedMissile __instance, Aircraft aircraft, Hardpoint hardpoint,
+            WeaponMount weaponMount)
         {
             // AttachToHardpoint derives its cached rail vector inside the original method,
             // so the direction must be set before that calculation runs.
-            Plugin.ConfigureLightweightAgmBayRelease(__instance, aircraft, weaponMount);
+            Plugin.ConfigureBayMissileRelease(__instance, aircraft, hardpoint, weaponMount);
+        }
+    }
+
+    [HarmonyPatch(typeof(Weapon), nameof(Weapon.AttachToHardpoint))]
+    internal static class F117InternalSingleStorePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(
+            Weapon __instance, Aircraft aircraft, Hardpoint hardpoint, WeaponMount weaponMount)
+        {
+            // Derived stock weapons call this base method before caching their mounted
+            // position, so the normalized bay placement remains authoritative.
+            Plugin.InternalizeSingleStore(__instance, aircraft, hardpoint, weaponMount);
         }
     }
 
@@ -1158,6 +1276,80 @@ namespace Blacknight2u.F117Nighthawk
         private static void Postfix(LoadoutSelector __instance, ref Loadout __result)
         {
             Plugin.EnforceFixedJammer(AircraftField?.GetValue(__instance) as Aircraft, __result);
+        }
+    }
+
+    [HarmonyPatch(typeof(WeaponChecker), nameof(WeaponChecker.GetAvailableWeaponsNonAlloc))]
+    internal static class F117DisabledWeaponOptionsPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(Player player, HardpointSet hardpointSet, Airbase airbase,
+            FactionHQ hq, bool allowEmpty, List<WeaponMount> outAvailable)
+        {
+            if (!Plugin.IsF117InternalWeaponSet(hardpointSet) ||
+                hardpointSet.weaponOptions == null || outAvailable == null)
+                return;
+
+            bool added = false;
+            foreach (WeaponMount mount in hardpointSet.weaponOptions)
+            {
+                if (!Plugin.IsF117UnlockedStockMount(mount) || outAvailable.Contains(mount) ||
+                    hq != null && hq.restrictedWeapons != null && hq.restrictedWeapons.Contains(mount.name) ||
+                    !WeaponChecker.MountAllowedAirbase(mount, airbase) ||
+                    !WeaponChecker.MountAllowedNuclear(mount, hardpointSet, airbase, player, hq))
+                    continue;
+                outAvailable.Add(mount);
+                Plugin.LogUnlockedStockMount(mount);
+                added = true;
+            }
+            if (added && allowEmpty && outAvailable.Count > 1)
+                outAvailable.RemoveAll(mount => mount == null);
+        }
+    }
+
+    [HarmonyPatch(typeof(WeaponChecker), nameof(WeaponChecker.VetWeapon))]
+    internal static class F117DisabledWeaponValidationPatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(ref float budget, WeaponMount requestedMount,
+            HardpointSet hardpointSet, Loadout requestedLoadout, Player player,
+            FactionHQ hq, Airbase airbase, ref string failReason, ref int failCost,
+            ref bool __result)
+        {
+            if (!Plugin.IsF117InternalWeaponSet(hardpointSet) ||
+                !Plugin.IsF117UnlockedStockMount(requestedMount))
+                return true;
+
+            if (!WeaponChecker.MountAllowedConflict(hardpointSet, requestedLoadout))
+                return Fail("Mount has conflict", ref failReason, ref failCost, ref __result);
+            if (hq != null && hq.restrictedWeapons != null &&
+                hq.restrictedWeapons.Contains(requestedMount.name))
+                return Fail("Mount is restricted by faction", ref failReason, ref failCost, ref __result);
+            if (!WeaponChecker.MountAllowedAirbase(requestedMount, airbase))
+                return Fail("Mount unavailable at airbase", ref failReason, ref failCost, ref __result);
+            if (!WeaponChecker.MountAllowedHardpoint(requestedMount, hardpointSet))
+                return Fail("Mount is not in hardpointSet's options", ref failReason, ref failCost,
+                    ref __result, 5);
+            if (!WeaponChecker.MountAllowedCost(requestedMount, hardpointSet, ref budget))
+                return Fail("Mount exceeds player budget", ref failReason, ref failCost, ref __result);
+            if (!WeaponChecker.MountAllowedNuclear(requestedMount, hardpointSet, airbase, player, hq))
+                return Fail("Mount fails nuclear restrictions or warhead supply", ref failReason,
+                    ref failCost, ref __result);
+
+            failReason = null;
+            failCost = 0;
+            __result = true;
+            Plugin.LogUnlockedStockMount(requestedMount);
+            return false;
+        }
+
+        private static bool Fail(string reason, ref string failReason, ref int failCost,
+            ref bool result, int cost = 1)
+        {
+            failReason = reason;
+            failCost = cost;
+            result = false;
+            return false;
         }
     }
 
@@ -1616,7 +1808,7 @@ namespace Blacknight2u.F117Nighthawk
         // Keep the clean aircraft exceptionally difficult, but not mathematically impossible, to
         // detect. Each bay and the landing gear contribute independently and continuously so the
         // signature follows the actual native animation instead of switching between magic states.
-        private const float CleanRcs = 0.0001f;
+        private const float CleanRcs = 0.0000005f;
         private const float FullyOpenBayRcsPerDoor = 0.04f;
         private const float FullyDeployedGearRcs = 0.05f;
         private static readonly FieldInfo BayOpenAmount = AccessTools.Field(typeof(BayDoor), "openAmount");
@@ -1707,7 +1899,7 @@ namespace Blacknight2u.F117Nighthawk
             if (stealthAvailable)
             {
                 UpdateStealthSignature();
-                Plugin.Log.LogDebug("F-117 low-observable controller active: clean RCS " + CleanRcs.ToString("0.0000") +
+                Plugin.Log.LogDebug("F-117 low-observable controller active: clean RCS " + CleanRcs.ToString("0.########") +
                     ", each fully open bay +" + FullyOpenBayRcsPerDoor.ToString("0.00") +
                     ", fully deployed gear +" + FullyDeployedGearRcs.ToString("0.00") + ".");
             }
@@ -2081,14 +2273,18 @@ namespace Blacknight2u.F117Nighthawk
     }
 
     [HarmonyPatch(typeof(Hardpoint), nameof(Hardpoint.ModifyDrag))]
-    internal static class FixedJammerDragPatch
+    internal static class InternalStoreDragPatch
     {
         [HarmonyPrefix]
         private static bool Prefix(Hardpoint __instance)
         {
-            // JammingPod1 itself remains untouched. Only its external-pod mounting
-            // penalty is suppressed because this installation is wholly internal.
-            return !Plugin.IsFixedJammerHardpoint(__instance);
+            Aircraft aircraft = __instance != null && __instance.part != null
+                ? __instance.part.parentUnit as Aircraft
+                : null;
+            bool internalF117Station = Plugin.IsF117(aircraft) &&
+                ((__instance.bayDoors != null && __instance.bayDoors.Length > 0) ||
+                 Plugin.IsFixedJammerHardpoint(__instance));
+            return !internalF117Station;
         }
     }
 

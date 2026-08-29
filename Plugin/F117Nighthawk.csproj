@@ -6,7 +6,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>F117Nighthawk</AssemblyName>
     <RootNamespace>Blacknight2u.F117Nighthawk</RootNamespace>
-    <Version>0.4.84</Version>
+    <Version>0.4.88</Version>
     <Authors>blacknight2u</Authors>
     <Description>Runtime flight-system support for the F-117A Nighthawk aircraft mod.</Description>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>

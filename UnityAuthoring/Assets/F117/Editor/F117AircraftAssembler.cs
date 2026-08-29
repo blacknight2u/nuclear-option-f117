@@ -43,6 +43,17 @@ internal static class F117AircraftAssembler
     // moving share to its measured geometry subtracts the same area from the fixed
     // wing share, so this restores control authority without inventing lift area.
     internal const float MainWingLiftArea = 24.25654f;
+    // The production exterior uses several very large wing polygons. Damage sections
+    // must therefore be cut geometrically at these measured span stations rather than
+    // assigning whole triangles by centroid. Unity's FBX conversion mirrors Blender X,
+    // so the imported model's authored left side is negative X and right is positive X.
+    internal const float WingRootSweep = 0.4383f;
+    internal const float WingRootMetricCut = 4.1f;
+    internal const float WingOuterSweep = 1.394f;
+    internal const float WingOuterMetricCut = 11.82f;
+    internal const float WingRootAreaFraction = 0.5487673f;
+    internal const float WingInnerAreaFraction = 0.3027565f;
+    internal const float WingOuterAreaFraction = 0.1484762f;
     // Keep the neutral horizontal lift centre a small, explicit distance behind
     // the dry centre of mass. The 0.28 m target is five percent of the aircraft's
     // approximately 5.6 m reference mean chord: stable enough for the native FBW,
@@ -175,7 +186,7 @@ internal static class F117AircraftAssembler
         Set(aircraftData, "weaponManager", weaponManager);
         Set(aircraftData, "cockpit", centralPart);
         Set(aircraftData, "fuelCapacity", 8250f);
-        Set(aircraftData, "RCS", 0.0001f);
+        Set(aircraftData, "RCS", 0.0000005f);
         Size(aircraftData, "groundEquipment", 0);
         aircraftData.ApplyModifiedPropertiesWithoutUndo();
 
@@ -637,8 +648,10 @@ internal static class F117AircraftAssembler
         Vector3[] sourceVertices = source.vertices;
         Vector3[] sourceNormals = source.normals;
         bool hasNormals = sourceNormals != null && sourceNormals.Length == sourceVertices.Length;
-        bool anchorToVisualRoot = source.name.IndexOf("_Skin_", StringComparison.Ordinal) >= 0 ||
-            source.name.StartsWith("F117_Exterior_Mesh", StringComparison.Ordinal);
+        // Damage skins are already parented to their owning AeroPart. Keep their flag
+        // overlay on that same moving section so a detached wing does not leave an
+        // intact flag-shaped ghost attached to the fuselage.
+        bool anchorToVisualRoot = source.name.StartsWith("F117_Exterior_Mesh", StringComparison.Ordinal);
         Transform movingAnchor = filter.transform.parent != null ? filter.transform.parent : filter.transform;
         var vertices = new List<Vector3>();
         var normals = new List<Vector3>();
@@ -1157,21 +1170,36 @@ internal static class F117AircraftAssembler
         AddDirectBoxCollider(rear, new Vector3(0f, 0f, -1.35f),
             new Vector3(2.8f, 0.7f, 1.5f));
 
-        Component leftWing = AddPart(central.transform, "F117_Wing_Left", new Vector3(-3.7f, -0.02f, -0.6f),
-            785f, MainWingLiftArea, 0.08f, 0, aircraft, rigidbody, central, 360000f);
-        // Keep wing rigidbodies on their own side of the centreline; sibling
-        // FixedJoints do not suppress collisions between overlapping colliders.
-        AddDirectCompoundBoxCollider(leftWing, "F117_Wing_Left_DamageCollider",
-            new[] { new Vector3(-0.8f, 0f, 0.8f), new Vector3(-1.3f, 0f, -0.9f) },
-            new[] { new Vector3(4f, 0.28f, 3.8f), new Vector3(4.3f, 0.24f, 3.3f) },
-            new[] { -31f, -44f });
+        // Match the stock aircraft pattern: a strongly attached wing root carries an
+        // inner panel, which carries a replaceable outer panel/tip. The measured mass,
+        // lift and drag fractions preserve the established whole-wing totals exactly.
+        // Part origins use the projected planform centroids, giving detached sections
+        // physically meaningful mass points instead of one point for the entire wing.
+        Component leftWingRoot = AddPart(central.transform, "F117_Wing_Left_Root",
+            new Vector3(-2.40313f, -0.02f, -0.33696f), 785f * WingRootAreaFraction,
+            MainWingLiftArea * WingRootAreaFraction, 0.08f * WingRootAreaFraction,
+            0, aircraft, rigidbody, central, 360000f);
+        Component leftWingInner = AddPart(leftWingRoot.transform, "F117_Wing_Left_Inner",
+            new Vector3(-1.71257f, 0f, -2.96440f), 785f * WingInnerAreaFraction,
+            MainWingLiftArea * WingInnerAreaFraction, 0.08f * WingInnerAreaFraction,
+            0, aircraft, rigidbody, leftWingRoot, 360000f);
+        Component leftWingOuter = AddPart(leftWingInner.transform, "F117_Wing_Left_Outer",
+            new Vector3(-1.61712f, 0f, -2.78229f), 785f * WingOuterAreaFraction,
+            MainWingLiftArea * WingOuterAreaFraction, 0.08f * WingOuterAreaFraction,
+            0, aircraft, rigidbody, leftWingInner, 360000f);
 
-        Component rightWing = AddPart(central.transform, "F117_Wing_Right", new Vector3(3.7f, -0.02f, -0.6f),
-            785f, MainWingLiftArea, 0.08f, 0, aircraft, rigidbody, central, 360000f);
-        AddDirectCompoundBoxCollider(rightWing, "F117_Wing_Right_DamageCollider",
-            new[] { new Vector3(0.8f, 0f, 0.8f), new Vector3(1.3f, 0f, -0.9f) },
-            new[] { new Vector3(4f, 0.28f, 3.8f), new Vector3(4.3f, 0.24f, 3.3f) },
-            new[] { 31f, 44f });
+        Component rightWingRoot = AddPart(central.transform, "F117_Wing_Right_Root",
+            new Vector3(2.40313f, -0.02f, -0.33696f), 785f * WingRootAreaFraction,
+            MainWingLiftArea * WingRootAreaFraction, 0.08f * WingRootAreaFraction,
+            0, aircraft, rigidbody, central, 360000f);
+        Component rightWingInner = AddPart(rightWingRoot.transform, "F117_Wing_Right_Inner",
+            new Vector3(1.71257f, 0f, -2.96440f), 785f * WingInnerAreaFraction,
+            MainWingLiftArea * WingInnerAreaFraction, 0.08f * WingInnerAreaFraction,
+            0, aircraft, rigidbody, rightWingRoot, 360000f);
+        Component rightWingOuter = AddPart(rightWingInner.transform, "F117_Wing_Right_Outer",
+            new Vector3(1.61712f, 0f, -2.78229f), 785f * WingOuterAreaFraction,
+            MainWingLiftArea * WingOuterAreaFraction, 0.08f * WingOuterAreaFraction,
+            0, aircraft, rigidbody, rightWingInner, 360000f);
 
         // The F-117 is a blended lifting body. Preserve the proven total lifting area and
         // aerodynamic centroid, but distribute it across the forebody, center body, rear
@@ -1180,24 +1208,32 @@ internal static class F117AircraftAssembler
         BindFixedLiftAxis(central, visual.transform);
         BindFixedLiftAxis(nose, visual.transform);
         BindFixedLiftAxis(rear, visual.transform);
-        BindFixedLiftAxis(leftWing, visual.transform);
-        BindFixedLiftAxis(rightWing, visual.transform);
+        Component[] fixedLiftParts =
+        {
+            central, nose, rear,
+            leftWingRoot, leftWingInner, leftWingOuter,
+            rightWingRoot, rightWingInner, rightWingOuter
+        };
+        foreach (Component fixedLiftPart in fixedLiftParts)
+            BindFixedLiftAxis(fixedLiftPart, visual.transform);
 
         // The source fixed exterior is one renderer. Leaving it on CentralBody makes
         // detached noses, wings and tails physically real but visually invisible.
         // Split every triangle once and parent each compact renderer to its owning
         // AeroPart, matching the working aircraft damage graph.
-        PartitionExteriorForDamage(visual, central, nose, rear, leftWing, rightWing);
+        PartitionExteriorForDamage(visual, central, nose, rear,
+            leftWingRoot, leftWingInner, leftWingOuter,
+            rightWingRoot, rightWingInner, rightWingOuter);
 
         // The source animation's smaller neutral-to-stop travel is +22.5323 degrees.
         // ControlSurface adds pitch and roll without a final combined clamp, so keep
         // their absolute sum at that geometric limit instead of allowing 33-40 degrees.
-        AddControlSurface(visual, "F117_Elevon_L_Inner", 40f, InnerElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWing, false,
+        AddControlSurface(visual, "F117_Elevon_L_Inner", 40f, InnerElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWingInner, false,
             InnerElevonLeftNeutralCorrection);
-        AddControlSurface(visual, "F117_Elevon_R_Inner", 40f, InnerElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWing, false,
+        AddControlSurface(visual, "F117_Elevon_R_Inner", 40f, InnerElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWingInner, false,
             InnerElevonRightNeutralCorrection);
-        AddControlSurface(visual, "F117_Elevon_L_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWing, false, 0f);
-        AddControlSurface(visual, "F117_Elevon_R_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWing, false, 0f);
+        AddControlSurface(visual, "F117_Elevon_L_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWingOuter, false, 0f);
+        AddControlSurface(visual, "F117_Elevon_R_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWingOuter, false, 0f);
         // Both source rudder drivers use the same signed local-Z hinge axis, so their
         // ranges must keep the same sign. Runtime telemetry also proves the global sign:
         // positive yaw rate makes ControlsFilter request negative yaw, and negative
@@ -1215,8 +1251,7 @@ internal static class F117AircraftAssembler
         ConfigureEngines(rear.transform, visual, aircraft, rigidbody, rear);
         ConfigureLandingGear(visual, aircraft, central, gearDustMaterial);
         float dryCenterOfMassZ = BalanceDryCenterOfMass(visual, central);
-        BalancePitchStaticMargin(visual, dryCenterOfMassZ,
-            new[] { central, nose, rear, leftWing, rightWing });
+        BalancePitchStaticMargin(visual, dryCenterOfMassZ, fixedLiftParts);
         // Native bullets and explosions use collider.gameObject.GetComponent<IDamageable>();
         // they do not walk to a parent AeroPart. Every physical part must therefore own
         // its actual hitbox directly, which also gives UnitPart.Awake a finite collisionSize.
@@ -1398,8 +1433,8 @@ internal static class F117AircraftAssembler
         Set(data, "structuralThreshold", -25f);
         Set(data, "integrityThreshold", float.MinValue);
         SerializedProperty armor = Require(data, "armorProperties");
-        // Exact common FastBomber1 structural profile. The F-117 has only 13 AeroParts
-        // versus the donor's 35, so this restores stock-scale survivability without
+        // Exact common FastBomber1 structural profile. The F-117 uses 17 coherent
+        // AeroParts versus the donor's 35, so this restores stock-scale survivability without
         // inventing extra hit points or making the aircraft unusually armored.
         Set(armor, "pierceArmor", 20f);
         Set(armor, "blastArmor", 60f);
@@ -1514,8 +1549,181 @@ internal static class F117AircraftAssembler
         return collider;
     }
 
+    private sealed class DamageVertex
+    {
+        internal Vector3 Position;
+        internal Vector3 Normal;
+        internal Vector4 Tangent;
+        internal Color Color;
+        internal readonly Vector4[] Uvs = new Vector4[8];
+
+        internal static DamageVertex Lerp(DamageVertex first, DamageVertex second, float amount)
+        {
+            Vector3 tangent = Vector3.Lerp(
+                new Vector3(first.Tangent.x, first.Tangent.y, first.Tangent.z),
+                new Vector3(second.Tangent.x, second.Tangent.y, second.Tangent.z), amount).normalized;
+            var result = new DamageVertex
+            {
+                Position = Vector3.Lerp(first.Position, second.Position, amount),
+                Normal = Vector3.Lerp(first.Normal, second.Normal, amount).normalized,
+                Tangent = new Vector4(tangent.x, tangent.y, tangent.z,
+                    amount < 0.5f ? first.Tangent.w : second.Tangent.w),
+                Color = UnityEngine.Color.Lerp(first.Color, second.Color, amount)
+            };
+            for (int channel = 0; channel < result.Uvs.Length; channel++)
+                result.Uvs[channel] = Vector4.Lerp(first.Uvs[channel], second.Uvs[channel], amount);
+            return result;
+        }
+    }
+
+    private sealed class DamageMeshBuilder
+    {
+        private sealed class VertexComparer : IEqualityComparer<DamageVertex>
+        {
+            private readonly bool hasNormals;
+            private readonly bool hasTangents;
+            private readonly bool hasColors;
+            private readonly bool[] hasUvs;
+
+            internal VertexComparer(bool hasNormals, bool hasTangents, bool hasColors, bool[] hasUvs)
+            {
+                this.hasNormals = hasNormals;
+                this.hasTangents = hasTangents;
+                this.hasColors = hasColors;
+                this.hasUvs = hasUvs;
+            }
+
+            public bool Equals(DamageVertex first, DamageVertex second)
+            {
+                if (ReferenceEquals(first, second))
+                    return true;
+                if (first == null || second == null || !first.Position.Equals(second.Position) ||
+                    hasNormals && !first.Normal.Equals(second.Normal) ||
+                    hasTangents && !first.Tangent.Equals(second.Tangent) ||
+                    hasColors && !first.Color.Equals(second.Color))
+                    return false;
+                for (int channel = 0; channel < hasUvs.Length; channel++)
+                    if (hasUvs[channel] && !first.Uvs[channel].Equals(second.Uvs[channel]))
+                        return false;
+                return true;
+            }
+
+            public int GetHashCode(DamageVertex vertex)
+            {
+                unchecked
+                {
+                    int hash = vertex.Position.GetHashCode();
+                    if (hasNormals)
+                        hash = hash * 397 ^ vertex.Normal.GetHashCode();
+                    if (hasTangents)
+                        hash = hash * 397 ^ vertex.Tangent.GetHashCode();
+                    if (hasColors)
+                        hash = hash * 397 ^ vertex.Color.GetHashCode();
+                    for (int channel = 0; channel < hasUvs.Length; channel++)
+                        if (hasUvs[channel])
+                            hash = hash * 397 ^ vertex.Uvs[channel].GetHashCode();
+                    return hash;
+                }
+            }
+        }
+
+        private readonly Transform owner;
+        private readonly Transform visual;
+        private readonly bool hasNormals;
+        private readonly bool hasTangents;
+        private readonly bool hasColors;
+        private readonly bool[] hasUvs;
+        private readonly List<Vector3> vertices = new List<Vector3>();
+        private readonly List<Vector3> normals = new List<Vector3>();
+        private readonly List<Vector4> tangents = new List<Vector4>();
+        private readonly List<Color> colors = new List<Color>();
+        private readonly List<Vector4>[] uvs = Enumerable.Range(0, 8).Select(_ => new List<Vector4>()).ToArray();
+        private readonly List<int> triangles = new List<int>();
+        private readonly Dictionary<DamageVertex, int> vertexIndices;
+
+        internal DamageMeshBuilder(Transform owner, Transform visual, bool hasNormals,
+            bool hasTangents, bool hasColors, bool[] hasUvs)
+        {
+            this.owner = owner;
+            this.visual = visual;
+            this.hasNormals = hasNormals;
+            this.hasTangents = hasTangents;
+            this.hasColors = hasColors;
+            this.hasUvs = hasUvs;
+            vertexIndices = new Dictionary<DamageVertex, int>(
+                new VertexComparer(hasNormals, hasTangents, hasColors, hasUvs));
+        }
+
+        internal bool IsEmpty => triangles.Count == 0;
+
+        internal void AddPolygon(IReadOnlyList<DamageVertex> polygon)
+        {
+            if (polygon == null || polygon.Count < 3)
+                return;
+            for (int triangle = 1; triangle < polygon.Count - 1; triangle++)
+            {
+                AddVertex(polygon[0]);
+                AddVertex(polygon[triangle]);
+                AddVertex(polygon[triangle + 1]);
+            }
+        }
+
+        private void AddVertex(DamageVertex vertex)
+        {
+            if (vertexIndices.TryGetValue(vertex, out int existingIndex))
+            {
+                triangles.Add(existingIndex);
+                return;
+            }
+            int index = vertices.Count;
+            vertexIndices.Add(vertex, index);
+            Vector3 worldPoint = visual.TransformPoint(vertex.Position);
+            vertices.Add(owner.InverseTransformPoint(worldPoint));
+            if (hasNormals)
+                normals.Add(owner.InverseTransformDirection(
+                    visual.TransformDirection(vertex.Normal)).normalized);
+            if (hasTangents)
+            {
+                Vector3 tangent = owner.InverseTransformDirection(visual.TransformDirection(
+                    new Vector3(vertex.Tangent.x, vertex.Tangent.y, vertex.Tangent.z))).normalized;
+                tangents.Add(new Vector4(tangent.x, tangent.y, tangent.z, vertex.Tangent.w));
+            }
+            if (hasColors)
+                colors.Add(vertex.Color);
+            for (int channel = 0; channel < hasUvs.Length; channel++)
+                if (hasUvs[channel])
+                    uvs[channel].Add(vertex.Uvs[channel]);
+            triangles.Add(index);
+        }
+
+        internal Mesh Build(string name)
+        {
+            var mesh = new Mesh
+            {
+                name = name,
+                indexFormat = vertices.Count > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16
+            };
+            mesh.SetVertices(vertices);
+            if (hasNormals)
+                mesh.SetNormals(normals);
+            if (hasTangents)
+                mesh.SetTangents(tangents);
+            if (hasColors)
+                mesh.SetColors(colors);
+            for (int channel = 0; channel < hasUvs.Length; channel++)
+                if (hasUvs[channel])
+                    mesh.SetUVs(channel, uvs[channel]);
+            mesh.SetTriangles(triangles, 0, true);
+            if (!hasNormals)
+                mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+    }
+
     private static void PartitionExteriorForDamage(GameObject visual, Component central, Component nose,
-        Component rear, Component leftWing, Component rightWing)
+        Component rear, Component leftRoot, Component leftInner, Component leftOuter,
+        Component rightRoot, Component rightInner, Component rightOuter)
     {
         Transform sourceTransform = FindDeep(visual.transform, "F117_Exterior_Mesh");
         MeshFilter sourceFilter = sourceTransform == null ? null : sourceTransform.GetComponent<MeshFilter>();
@@ -1525,47 +1733,91 @@ internal static class F117AircraftAssembler
 
         Directory.CreateDirectory(DamageMeshRoot);
         Mesh sourceMesh = sourceFilter.sharedMesh;
-        Vector3[] vertices = sourceMesh.vertices;
+        Vector3[] sourceVertices = sourceMesh.vertices;
+        Vector3[] sourceNormals = sourceMesh.normals;
+        Vector4[] sourceTangents = sourceMesh.tangents;
+        Color[] sourceColors = sourceMesh.colors;
+        var sourceUvs = new List<Vector4>[8];
+        bool[] hasUvs = new bool[8];
+        for (int channel = 0; channel < sourceUvs.Length; channel++)
+        {
+            sourceUvs[channel] = new List<Vector4>();
+            sourceMesh.GetUVs(channel, sourceUvs[channel]);
+            hasUvs[channel] = sourceUvs[channel].Count == sourceMesh.vertexCount;
+        }
+        bool hasNormals = sourceNormals.Length == sourceMesh.vertexCount;
+        bool hasTangents = sourceTangents.Length == sourceMesh.vertexCount;
+        bool hasColors = sourceColors.Length == sourceMesh.vertexCount;
         Material[] materials = sourceRenderer.sharedMaterials;
-        Component[] owners = { central, nose, rear, leftWing, rightWing };
+        Component[] owners =
+        {
+            central, nose, rear,
+            leftRoot, leftInner, leftOuter,
+            rightRoot, rightInner, rightOuter
+        };
         var renderersByOwner = owners.ToDictionary(owner => owner, owner => new List<Renderer>());
         int sourceTriangleCount = 0;
-        int assignedTriangleCount = 0;
+        float sourceArea = 0f;
+        float assignedArea = 0f;
+
+        DamageVertex SourceVertex(int index)
+        {
+            var vertex = new DamageVertex
+            {
+                Position = visual.transform.InverseTransformPoint(
+                    sourceTransform.TransformPoint(sourceVertices[index])),
+                Normal = hasNormals
+                    ? visual.transform.InverseTransformDirection(
+                        sourceTransform.TransformDirection(sourceNormals[index])).normalized
+                    : Vector3.up,
+                Tangent = hasTangents ? sourceTangents[index] : new Vector4(1f, 0f, 0f, 1f),
+                Color = hasColors ? sourceColors[index] : UnityEngine.Color.white
+            };
+            if (hasTangents)
+            {
+                Vector3 tangent = visual.transform.InverseTransformDirection(
+                    sourceTransform.TransformDirection(new Vector3(
+                        sourceTangents[index].x, sourceTangents[index].y, sourceTangents[index].z))).normalized;
+                vertex.Tangent = new Vector4(tangent.x, tangent.y, tangent.z, sourceTangents[index].w);
+            }
+            for (int channel = 0; channel < sourceUvs.Length; channel++)
+                if (hasUvs[channel])
+                    vertex.Uvs[channel] = sourceUvs[channel][index];
+            return vertex;
+        }
 
         for (int subMesh = 0; subMesh < sourceMesh.subMeshCount; subMesh++)
         {
             int[] triangles = sourceMesh.GetTriangles(subMesh);
             sourceTriangleCount += triangles.Length / 3;
-            var trianglesByOwner = owners.ToDictionary(owner => owner, owner => new List<int>());
+            var builders = owners.ToDictionary(owner => owner,
+                owner => new DamageMeshBuilder(owner.transform, visual.transform,
+                    hasNormals, hasTangents, hasColors, hasUvs));
             for (int index = 0; index < triangles.Length; index += 3)
             {
-                Vector3 centroid = (vertices[triangles[index]] + vertices[triangles[index + 1]] +
-                    vertices[triangles[index + 2]]) / 3f;
-                Vector3 local = visual.transform.InverseTransformPoint(sourceTransform.TransformPoint(centroid));
-                Component owner = DamageOwner(local, central, nose, rear, leftWing, rightWing);
-                trianglesByOwner[owner].Add(triangles[index]);
-                trianglesByOwner[owner].Add(triangles[index + 1]);
-                trianglesByOwner[owner].Add(triangles[index + 2]);
-                assignedTriangleCount++;
+                var triangle = new List<DamageVertex>
+                {
+                    SourceVertex(triangles[index]),
+                    SourceVertex(triangles[index + 1]),
+                    SourceVertex(triangles[index + 2])
+                };
+                sourceArea += DamagePolygonArea(triangle);
+                assignedArea += AssignDamagePolygon(triangle, builders, central, nose, rear,
+                    leftRoot, leftInner, leftOuter, rightRoot, rightInner, rightOuter);
             }
 
             foreach (Component owner in owners)
             {
-                List<int> ownedTriangles = trianglesByOwner[owner];
-                if (ownedTriangles.Count == 0)
+                DamageMeshBuilder builder = builders[owner];
+                if (builder.IsEmpty)
                     continue;
 
-                Mesh mesh = CreateCompactMesh(sourceMesh, ownedTriangles,
-                    owner.name + "_Skin_" + subMesh.ToString("D2"));
+                Mesh mesh = builder.Build(owner.name + "_Skin_" + subMesh.ToString("D2"));
                 AssetDatabase.CreateAsset(mesh, DamageMeshRoot + "/" + mesh.name + ".asset");
 
                 GameObject piece = new GameObject(mesh.name);
                 piece.layer = sourceTransform.gameObject.layer;
-                piece.transform.SetParent(sourceTransform.parent, false);
-                piece.transform.localPosition = sourceTransform.localPosition;
-                piece.transform.localRotation = sourceTransform.localRotation;
-                piece.transform.localScale = sourceTransform.localScale;
-                piece.transform.SetParent(owner.transform, true);
+                piece.transform.SetParent(owner.transform, false);
                 piece.AddComponent<MeshFilter>().sharedMesh = mesh;
                 MeshRenderer renderer = piece.AddComponent<MeshRenderer>();
                 renderer.sharedMaterial = subMesh < materials.Length ? materials[subMesh] : null;
@@ -1579,7 +1831,8 @@ internal static class F117AircraftAssembler
             }
         }
 
-        if (sourceTriangleCount == 0 || assignedTriangleCount != sourceTriangleCount)
+        if (sourceTriangleCount == 0 || sourceArea <= 0f ||
+            Mathf.Abs(assignedArea - sourceArea) > sourceArea * 0.0001f)
             throw new InvalidOperationException("Exterior damage partition lost production mesh triangles.");
         foreach (Component owner in owners)
         {
@@ -1587,72 +1840,247 @@ internal static class F117AircraftAssembler
                 throw new InvalidOperationException(owner.name + " received no exterior damage renderer.");
             ConfigureDamageRenderers(owner, renderersByOwner[owner]);
         }
+        foreach (Component wingSection in new[]
+                 {
+                     leftRoot, leftInner, leftOuter,
+                     rightRoot, rightInner, rightOuter
+                 })
+            AddDirectPlanformDamageCollider(wingSection, renderersByOwner[wingSection]);
 
         UnityEngine.Object.DestroyImmediate(sourceRenderer, true);
         UnityEngine.Object.DestroyImmediate(sourceFilter, true);
     }
 
-    private static Mesh CreateCompactMesh(Mesh source, IReadOnlyList<int> sourceTriangles, string name)
+    private static float AssignDamagePolygon(List<DamageVertex> polygon,
+        Dictionary<Component, DamageMeshBuilder> builders, Component central, Component nose,
+        Component rear, Component leftRoot, Component leftInner, Component leftOuter,
+        Component rightRoot, Component rightInner, Component rightOuter)
     {
-        var remap = new Dictionary<int, int>();
-        var oldIndices = new List<int>();
-        int[] triangles = new int[sourceTriangles.Count];
-        for (int index = 0; index < sourceTriangles.Count; index++)
-        {
-            int oldIndex = sourceTriangles[index];
-            if (!remap.TryGetValue(oldIndex, out int newIndex))
-            {
-                newIndex = oldIndices.Count;
-                remap.Add(oldIndex, newIndex);
-                oldIndices.Add(oldIndex);
-            }
-            triangles[index] = newIndex;
-        }
+        float assignedArea = 0f;
+        SplitDamagePolygon(polygon, 2, 4.2f, out List<DamageVertex> belowNose,
+            out List<DamageVertex> nosePolygon);
+        assignedArea += AddDamagePolygon(builders[nose], nosePolygon);
 
-        Mesh mesh = new Mesh
-        {
-            name = name,
-            indexFormat = oldIndices.Count > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16
-        };
-        Vector3[] sourceVertices = source.vertices;
-        mesh.vertices = oldIndices.Select(index => sourceVertices[index]).ToArray();
-        Vector3[] normals = source.normals;
-        if (normals.Length == source.vertexCount)
-            mesh.normals = oldIndices.Select(index => normals[index]).ToArray();
-        Vector4[] tangents = source.tangents;
-        if (tangents.Length == source.vertexCount)
-            mesh.tangents = oldIndices.Select(index => tangents[index]).ToArray();
-        Color32[] colors = source.colors32;
-        if (colors.Length == source.vertexCount)
-            mesh.colors32 = oldIndices.Select(index => colors[index]).ToArray();
-        for (int channel = 0; channel < 8; channel++)
-        {
-            var sourceUv = new List<Vector4>();
-            source.GetUVs(channel, sourceUv);
-            if (sourceUv.Count == source.vertexCount)
-                mesh.SetUVs(channel, oldIndices.Select(index => sourceUv[index]).ToList());
-        }
-        BoneWeight[] boneWeights = source.boneWeights;
-        if (boneWeights.Length == source.vertexCount)
-            mesh.boneWeights = oldIndices.Select(index => boneWeights[index]).ToArray();
-        mesh.bindposes = source.bindposes;
-        mesh.triangles = triangles;
-        mesh.RecalculateBounds();
-        return mesh;
+        SplitDamagePolygon(belowNose, 2, 3.6f, out List<DamageVertex> wingBand,
+            out List<DamageVertex> centerBand);
+        SplitDamagePolygon(wingBand, 0, 1.65f, out List<DamageVertex> nonPositive,
+            out List<DamageVertex> positiveWing);
+        SplitDamagePolygon(nonPositive, 0, -1.65f, out List<DamageVertex> negativeWing,
+            out List<DamageVertex> centerStrip);
+
+        SplitDamagePolygon(positiveWing, new Vector3(1f, 0f, -WingRootSweep), WingRootMetricCut,
+            out List<DamageVertex> positiveRootPolygon,
+            out List<DamageVertex> positiveBeyondRoot);
+        SplitDamagePolygon(positiveBeyondRoot, new Vector3(1f, 0f, -WingOuterSweep), WingOuterMetricCut,
+            out List<DamageVertex> positiveInnerPolygon,
+            out List<DamageVertex> positiveOuterPolygon);
+        // Unity mirrors the FBX X axis: positive is the authored right wing.
+        assignedArea += AddDamagePolygon(builders[rightRoot], positiveRootPolygon);
+        assignedArea += AddDamagePolygon(builders[rightInner], positiveInnerPolygon);
+        assignedArea += AddDamagePolygon(builders[rightOuter], positiveOuterPolygon);
+
+        SplitDamagePolygon(negativeWing, new Vector3(-1f, 0f, -WingRootSweep), WingRootMetricCut,
+            out List<DamageVertex> negativeRootPolygon, out List<DamageVertex> negativeBeyondRoot);
+        SplitDamagePolygon(negativeBeyondRoot, new Vector3(-1f, 0f, -WingOuterSweep), WingOuterMetricCut,
+            out List<DamageVertex> negativeInnerPolygon, out List<DamageVertex> negativeOuterPolygon);
+        assignedArea += AddDamagePolygon(builders[leftRoot], negativeRootPolygon);
+        assignedArea += AddDamagePolygon(builders[leftInner], negativeInnerPolygon);
+        assignedArea += AddDamagePolygon(builders[leftOuter], negativeOuterPolygon);
+
+        assignedArea += AssignBodyDamagePolygon(centerBand, builders[central], builders[rear]);
+        assignedArea += AssignBodyDamagePolygon(centerStrip, builders[central], builders[rear]);
+        return assignedArea;
     }
 
-    private static Component DamageOwner(Vector3 local, Component central, Component nose, Component rear,
-        Component leftWing, Component rightWing)
+    private static float AssignBodyDamagePolygon(List<DamageVertex> polygon,
+        DamageMeshBuilder central, DamageMeshBuilder rear)
     {
-        if (local.z > 4.2f)
-            return nose;
-        if (local.x > 1.65f && local.z < 3.6f)
-            return leftWing;
-        if (local.x < -1.65f && local.z < 3.6f)
-            return rightWing;
-        if (local.z < -4.35f)
-            return rear;
-        return central;
+        SplitDamagePolygon(polygon, 2, -4.35f, out List<DamageVertex> rearPolygon,
+            out List<DamageVertex> centralPolygon);
+        return AddDamagePolygon(rear, rearPolygon) + AddDamagePolygon(central, centralPolygon);
+    }
+
+    private static float AddDamagePolygon(DamageMeshBuilder builder, List<DamageVertex> polygon)
+    {
+        if (polygon == null || polygon.Count < 3)
+            return 0f;
+        builder.AddPolygon(polygon);
+        return DamagePolygonArea(polygon);
+    }
+
+    private static float DamagePolygonArea(IReadOnlyList<DamageVertex> polygon)
+    {
+        if (polygon == null || polygon.Count < 3)
+            return 0f;
+        float area = 0f;
+        for (int index = 1; index < polygon.Count - 1; index++)
+            area += Vector3.Cross(polygon[index].Position - polygon[0].Position,
+                polygon[index + 1].Position - polygon[0].Position).magnitude * 0.5f;
+        return area;
+    }
+
+    private static void SplitDamagePolygon(List<DamageVertex> polygon, int axis, float threshold,
+        out List<DamageVertex> low, out List<DamageVertex> high)
+    {
+        Vector3 normal = axis == 0 ? Vector3.right : axis == 1 ? Vector3.up : Vector3.forward;
+        SplitDamagePolygon(polygon, normal, threshold, out low, out high);
+    }
+
+    private static void SplitDamagePolygon(List<DamageVertex> polygon, Vector3 normal, float threshold,
+        out List<DamageVertex> low, out List<DamageVertex> high)
+    {
+        low = ClipDamagePolygon(polygon, normal, threshold, false);
+        high = ClipDamagePolygon(polygon, normal, threshold, true);
+    }
+
+    private static List<DamageVertex> ClipDamagePolygon(List<DamageVertex> polygon, Vector3 normal,
+        float threshold, bool keepHigh)
+    {
+        var result = new List<DamageVertex>();
+        if (polygon == null || polygon.Count == 0)
+            return result;
+        for (int index = 0; index < polygon.Count; index++)
+        {
+            DamageVertex current = polygon[index];
+            DamageVertex previous = polygon[(index + polygon.Count - 1) % polygon.Count];
+            float currentValue = Vector3.Dot(current.Position, normal);
+            float previousValue = Vector3.Dot(previous.Position, normal);
+            bool currentInside = keepHigh ? currentValue >= threshold : currentValue <= threshold;
+            bool previousInside = keepHigh ? previousValue >= threshold : previousValue <= threshold;
+            if (currentInside != previousInside)
+            {
+                float amount = (threshold - previousValue) / (currentValue - previousValue);
+                result.Add(DamageVertex.Lerp(previous, current, amount));
+            }
+            if (currentInside)
+                result.Add(current);
+        }
+        for (int index = result.Count - 1; index >= 0; index--)
+        {
+            int previous = (index + result.Count - 1) % result.Count;
+            if (result.Count > 1 &&
+                (result[index].Position - result[previous].Position).sqrMagnitude <= 0.0000000001f)
+                result.RemoveAt(index);
+        }
+        return result;
+    }
+
+    private static void AddDirectPlanformDamageCollider(Component part, IEnumerable<Renderer> renderers)
+    {
+        var points = new List<Vector2>();
+        float minY = float.PositiveInfinity;
+        float maxY = float.NegativeInfinity;
+        foreach (Renderer renderer in renderers.Where(value => value != null))
+        {
+            MeshFilter filter = renderer.GetComponent<MeshFilter>();
+            if (filter == null || filter.sharedMesh == null)
+                continue;
+            Matrix4x4 toPart = part.transform.worldToLocalMatrix * renderer.transform.localToWorldMatrix;
+            foreach (Vector3 sourceVertex in filter.sharedMesh.vertices)
+            {
+                Vector3 vertex = toPart.MultiplyPoint3x4(sourceVertex);
+                points.Add(new Vector2(vertex.x, vertex.z));
+                minY = Mathf.Min(minY, vertex.y);
+                maxY = Mathf.Max(maxY, vertex.y);
+            }
+        }
+        List<Vector2> hull = ConvexHull(points);
+        if (hull.Count < 3 || float.IsNaN(minY) || float.IsInfinity(minY) ||
+            float.IsNaN(maxY) || float.IsInfinity(maxY))
+            throw new InvalidOperationException(part.name + " cannot produce a planform damage collider.");
+
+        Vector2 center = hull.Aggregate(Vector2.zero, (sum, point) => sum + point) / hull.Count;
+        for (int index = 0; index < hull.Count; index++)
+            hull[index] = center + (hull[index] - center) * 0.985f;
+        float middleY = (minY + maxY) * 0.5f;
+        float halfHeight = Mathf.Max((maxY - minY) * 0.485f, 0.09f);
+        var vertices = new List<Vector3>(hull.Count * 2);
+        foreach (Vector2 point in hull)
+            vertices.Add(new Vector3(point.x, middleY - halfHeight, point.y));
+        foreach (Vector2 point in hull)
+            vertices.Add(new Vector3(point.x, middleY + halfHeight, point.y));
+        var triangles = new List<int>();
+        for (int index = 1; index < hull.Count - 1; index++)
+        {
+            triangles.Add(0);
+            triangles.Add(index + 1);
+            triangles.Add(index);
+            triangles.Add(hull.Count);
+            triangles.Add(hull.Count + index);
+            triangles.Add(hull.Count + index + 1);
+        }
+        for (int index = 0; index < hull.Count; index++)
+        {
+            int next = (index + 1) % hull.Count;
+            triangles.Add(index);
+            triangles.Add(next);
+            triangles.Add(hull.Count + next);
+            triangles.Add(index);
+            triangles.Add(hull.Count + next);
+            triangles.Add(hull.Count + index);
+        }
+
+        string meshName = part.name + "_DamageCollider";
+        var mesh = new Mesh { name = meshName, indexFormat = IndexFormat.UInt16 };
+        mesh.SetVertices(vertices);
+        mesh.SetTriangles(triangles, 0, true);
+        mesh.RecalculateBounds();
+        mesh.RecalculateNormals();
+        string assetPath = DamageMeshRoot + "/" + meshName + ".asset";
+        if (AssetDatabase.LoadAssetAtPath<Mesh>(assetPath) != null)
+            AssetDatabase.DeleteAsset(assetPath);
+        AssetDatabase.CreateAsset(mesh, assetPath);
+
+        MeshCollider collider = part.gameObject.AddComponent<MeshCollider>();
+        collider.sharedMesh = mesh;
+        collider.convex = true;
+        collider.cookingOptions = MeshColliderCookingOptions.CookForFasterSimulation |
+            MeshColliderCookingOptions.EnableMeshCleaning |
+            MeshColliderCookingOptions.WeldColocatedVertices |
+            MeshColliderCookingOptions.UseFastMidphase;
+    }
+
+    private static List<Vector2> ConvexHull(IEnumerable<Vector2> source)
+    {
+        List<Vector2> sorted = source
+            .OrderBy(point => point.x)
+            .ThenBy(point => point.y)
+            .ToList();
+        var unique = new List<Vector2>();
+        foreach (Vector2 point in sorted)
+            if (unique.Count == 0 || (point - unique[unique.Count - 1]).sqrMagnitude > 0.00000001f)
+                unique.Add(point);
+        if (unique.Count <= 3)
+            return unique;
+
+        float Cross(Vector2 origin, Vector2 first, Vector2 second)
+        {
+            Vector2 a = first - origin;
+            Vector2 b = second - origin;
+            return a.x * b.y - a.y * b.x;
+        }
+
+        var lower = new List<Vector2>();
+        foreach (Vector2 point in unique)
+        {
+            while (lower.Count >= 2 && Cross(lower[lower.Count - 2], lower[lower.Count - 1], point) <= 0.000001f)
+                lower.RemoveAt(lower.Count - 1);
+            lower.Add(point);
+        }
+        var upper = new List<Vector2>();
+        for (int index = unique.Count - 1; index >= 0; index--)
+        {
+            Vector2 point = unique[index];
+            while (upper.Count >= 2 && Cross(upper[upper.Count - 2], upper[upper.Count - 1], point) <= 0.000001f)
+                upper.RemoveAt(upper.Count - 1);
+            upper.Add(point);
+        }
+        lower.RemoveAt(lower.Count - 1);
+        upper.RemoveAt(upper.Count - 1);
+        lower.AddRange(upper);
+        if (lower.Count > 64)
+            lower = lower.Where((point, index) => index % Mathf.CeilToInt(lower.Count / 64f) == 0).ToList();
+        return lower;
     }
 
     private static void ConfigureDamageRenderers(Component part, IEnumerable<Renderer> renderers)
@@ -2375,7 +2803,7 @@ internal static class F117AircraftAssembler
         right.localRotation = Quaternion.Euler(15f, 180f, 8f);
 
         ConfigureCountermeasureEjector(flare, aircraft, centralPart, left, right,
-            "IR Flares", "flarePrefab", null, 16, 20f, 0.12f);
+            "IR Flares", "flarePrefab", null, 32, 20f, 0.12f);
         ConfigureCountermeasureEjector(chaff, aircraft, centralPart, left, right,
             "Radar Chaff", "chaffPrefab", CreateRadarChaffPrefab(), 64, 18f, 0.12f);
     }
@@ -2718,45 +3146,43 @@ internal static class F117AircraftAssembler
             Mathf.Abs(rightSocket.localPosition.y - InternalStoreMountHeight) > 0.01f)
             throw new InvalidOperationException("The production internal-store locators are not on the audited bay mount plane.");
 
-        Transform rackSocket = Child(visual.transform, "F117_InternalRackSocket", Vector3.zero).transform;
-        rackSocket.SetPositionAndRotation((leftSocket.position + rightSocket.position) * 0.5f, root.transform.rotation);
-
         SerializedObject data = new SerializedObject(manager);
         SerializedProperty sets = Require(data, "hardpointSets");
-        sets.arraySize = 2;
-        SerializedProperty set = sets.GetArrayElementAtIndex(0);
-        SetString(set, "name", "Internal Multi-Store Rack");
+        sets.arraySize = 3;
+        ConfigureWeaponSet(sets.GetArrayElementAtIndex(0), "Left Weapon Bay",
+            F117Builder.WeaponOptionCount, leftSocket, centralPart, Array.Empty<int>(), leftDoor);
+        ConfigureWeaponSet(sets.GetArrayElementAtIndex(1), "Right Weapon Bay",
+            F117Builder.WeaponOptionCount, rightSocket, centralPart, Array.Empty<int>(), rightDoor);
+
+        // A third, completely internal station hosts the game's native JammingPod1
+        // weapon unchanged. It has no bay-door or pylon geometry and is hidden/locked
+        // by the runtime plugin, so the stock weapon remains installed on every loadout.
+        Transform ecmSocket = Child(visual.transform, "F117_FixedJammerSocket", Vector3.zero).transform;
+        ecmSocket.SetPositionAndRotation(root.transform.position, root.transform.rotation);
+        ConfigureWeaponSet(sets.GetArrayElementAtIndex(2), "JammingPod1", 1, ecmSocket,
+            centralPart, Array.Empty<int>());
+        data.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void ConfigureWeaponSet(SerializedProperty set, string name, int optionCount,
+        Transform socket, Component centralPart, int[] precludedSets, params Component[] bayDoors)
+    {
+        SetString(set, "name", name);
         SetString(set, "SymmetryName", string.Empty);
         Set(set, "SymmetryWithPrev", false);
-        Size(set, "precludingHardpointSets", 0);
+        SerializedProperty preclusions = Require(set, "precludingHardpointSets");
+        preclusions.arraySize = precludedSets.Length;
+        for (int index = 0; index < precludedSets.Length; index++)
+            preclusions.GetArrayElementAtIndex(index).intValue = precludedSets[index];
         SerializedProperty options = Require(set, "weaponOptions");
-        options.arraySize = F117Builder.WeaponOptionCount;
+        options.arraySize = optionCount;
         for (int index = 0; index < options.arraySize; index++)
             options.GetArrayElementAtIndex(index).objectReferenceValue = null;
         Set(set, "weaponMount", null);
 
         SerializedProperty hardpoints = Require(set, "hardpoints");
         hardpoints.arraySize = 1;
-        ConfigureHardpoint(hardpoints.GetArrayElementAtIndex(0), rackSocket, centralPart, leftDoor, rightDoor);
-
-        // A second, completely internal station hosts the game's native JammingPod1
-        // weapon unchanged. It has no bay-door or pylon geometry and is hidden/locked
-        // by the runtime plugin, so the stock weapon remains installed on every loadout.
-        Transform ecmSocket = Child(visual.transform, "F117_FixedJammerSocket", Vector3.zero).transform;
-        ecmSocket.SetPositionAndRotation(root.transform.position, root.transform.rotation);
-        SerializedProperty ecmSet = sets.GetArrayElementAtIndex(1);
-        SetString(ecmSet, "name", "JammingPod1");
-        SetString(ecmSet, "SymmetryName", string.Empty);
-        Set(ecmSet, "SymmetryWithPrev", false);
-        Size(ecmSet, "precludingHardpointSets", 0);
-        SerializedProperty ecmOptions = Require(ecmSet, "weaponOptions");
-        ecmOptions.arraySize = 1;
-        ecmOptions.GetArrayElementAtIndex(0).objectReferenceValue = null;
-        Set(ecmSet, "weaponMount", null);
-        SerializedProperty ecmHardpoints = Require(ecmSet, "hardpoints");
-        ecmHardpoints.arraySize = 1;
-        ConfigureHardpoint(ecmHardpoints.GetArrayElementAtIndex(0), ecmSocket, centralPart);
-        data.ApplyModifiedPropertiesWithoutUndo();
+        ConfigureHardpoint(hardpoints.GetArrayElementAtIndex(0), socket, centralPart, bayDoors);
     }
 
     private static Component ConfigureBayDoor(GameObject visual, string visualName, string targetName)

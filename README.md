@@ -13,6 +13,7 @@ The mod adds a new aircraft; it does not replace a stock airframe.
   are open
 - Passive warning and targeting systems with game-native cockpit displays
 - Internal weapon carriage with compatible bomb and missile loadouts
+- F-117-scoped access to the stock-disabled CBO-400 and ARAD-45 internal mounts
 - Fixed onboard game-native jammer, chaff, and flares
 - Multiplayer support when every player uses matching game, Blueprinter, and
   F-117 versions

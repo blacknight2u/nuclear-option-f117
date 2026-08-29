@@ -9,6 +9,7 @@ A stealth-focused, subsonic attack aircraft for Nuclear Option.
 - Animated internal bays, landing gear, canopy, and landing drag chute
 - Passive targeting and game-native cockpit displays
 - Compatible internal bomb and missile loadouts
+- F-117-scoped access to the stock-disabled CBO-400 and ARAD-45 internal mounts
 - Fixed onboard game-native jammer, chaff, and flares
 - Selectable Nighthawk Black and real-geometry Farewell Flag liveries
 
