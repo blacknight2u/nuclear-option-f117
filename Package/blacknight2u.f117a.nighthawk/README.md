@@ -10,14 +10,16 @@ A stealth-focused, subsonic attack aircraft for Nuclear Option.
 - Passive targeting and game-native cockpit displays
 - Compatible internal bomb and missile loadouts
 - F-117-scoped access to the stock-disabled CBO-400 and ARAD-45 internal mounts
-- Fixed onboard game-native jammer, chaff, and flares
-- Selectable Nighthawk Black and real-geometry Farewell Flag liveries
+- Fixed onboard game-native jammer, 64 chaff, and 32 flares
+- Requisition inventory and rank-4 factory production in normal missions
+- Automatic compatibility with Equalizer without duplicate production
+- Nighthawk Black and Farewell Flag liveries
 
 The mod adds a separate aircraft and does not replace a stock airframe.
 
 ## Requirements
 
-- Nuclear Option `0.34.1`
+- Nuclear Option `0.34.2`
 - Blueprinter `1.8.21`
 - Matching enabled mod versions for every multiplayer participant
 

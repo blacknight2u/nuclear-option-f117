@@ -15,6 +15,9 @@ the investigation scripts that produced it.
   selection icon from the canonical silhouette.
 - `Assets/export_packed_textures.py` exports Blender images and converts glTF
   packed material channels for Unity.
+- `Assets/render_nomn_store_image.py` renders the NOMM store image from the
+  canonical Blender model. Its external CC0 environment assets are documented
+  in `Assets/RenderEnvironment/README.md` and are not committed.
 
 ## Audits
 

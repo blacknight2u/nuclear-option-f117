@@ -15,6 +15,8 @@ The mod adds a new aircraft; it does not replace a stock airframe.
 - Internal weapon carriage with compatible bomb and missile loadouts
 - F-117-scoped access to the stock-disabled CBO-400 and ARAD-45 internal mounts
 - Fixed onboard game-native jammer, chaff, and flares
+- Host-authoritative requisition inventory and rank-4 factory production in
+  normal missions, with automatic delegation when Equalizer is active
 - Multiplayer support when every player uses matching game, Blueprinter, and
   F-117 versions
 
@@ -23,17 +25,19 @@ performance. It has no emitting search radar or afterburner.
 
 ## Requirements
 
-- Nuclear Option `0.34.1`
+- Nuclear Option `0.34.2`
 - Blueprinter `1.8.21`
 - NOMM for normal installation and mod management
 
 ## Installation
 
 Install F-117A Nighthawk through NOMM when it is available in Discover. For a
-local build, import the provided `.nommpack` through NOMM, then enable both
-Blueprinter and F-117A Nighthawk before launching the game.
+private development build, use NOMM's local import workflow with a package
+prepared for testing, then enable both Blueprinter and F-117A Nighthawk before
+launching the game.
 
-Do not copy the development source tree into the game directory.
+Do not import the GitHub source archive or copy the development source tree
+into the game directory.
 
 ## Aircraft controls
 
@@ -62,6 +66,12 @@ short reproduction. Attach `Player.log` from:
 
 The optional Flight Data Logger can provide structured telemetry for flight,
 landing-gear, damage, or performance problems.
+
+## License
+
+Source code and documentation are available under the [MIT License](LICENSE).
+Models, textures, renders, compiled asset bundles, and other non-code media are
+covered by the separate [asset-rights notice](ASSETS.md).
 
 ## Development
 

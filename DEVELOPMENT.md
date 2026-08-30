@@ -63,19 +63,19 @@ reports belong under `Assets/F117/Generated` and must not be committed.
 
 ## Release package
 
-The NOMM archive layout is:
+The GitHub release ZIP downloaded by NOMM contains these files at the archive
+root:
 
 ```text
-modlist.nomm.json
-mods/
-  blacknight2u.f117a.nighthawk/
-    blacknight2u.f117a.nighthawk.nobp
-    F117Nighthawk.dll
-    meta.json
-    README.md
+blacknight2u.f117a.nighthawk.nobp
+F117Nighthawk.dll
+meta.json
+README.md
 ```
 
 Before packaging, synchronize the version across `Plugin/Plugin.cs`,
 `Plugin/F117Nighthawk.csproj`, the Blueprinter definition, and `meta.json`.
 Update the DLL hash in `meta.json`, validate the final bundle, inspect the
-archive contents, and test installation through NOMM.
+archive contents, and test installation through NOMM. A `.nommpack` used for
+local mod-pack import is a separate test artifact and is not the GitHub release
+ZIP.

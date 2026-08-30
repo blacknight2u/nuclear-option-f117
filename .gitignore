@@ -33,6 +33,9 @@ ReferenceAudit/
 BaselineSnapshots/
 NeutralAudit/
 TailCompare/
+Tools/Assets/RenderPreviews/
+Tools/Assets/RenderEnvironment/*
+!Tools/Assets/RenderEnvironment/README.md
 
 # Local experiments and previous installs
 Candidate-*/
