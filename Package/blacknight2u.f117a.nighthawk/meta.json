@@ -1,7 +1,7 @@
 {
   "id": "blacknight2u.f117a.nighthawk",
   "displayName": "F-117A Nighthawk",
-  "description": "Adds a rank 4 F-117A stealth strike aircraft with dynamic radar signature, passive targeting, a burst-limited onboard jammer, default-mission requisition support, detailed damage, and Nighthawk Black and Farewell Flag liveries. Includes expanded internal precision-strike, anti-radar, anti-ship, and defensive air-to-air loadouts. Automatically defers production management to Equalizer when active. Requires Blueprinter and matching versions in multiplayer.",
+  "description": "Radar couldn't see the aircraft. It saw the bird perched on it. The legendary F-117A Nighthawk brings extreme stealth to Nuclear Option—built to penetrate the heaviest air defenses, strike unseen, and vanish before the enemy can respond. Available in Nighthawk Black and Farewell Flag liveries.",
   "tags": [
     "mod",
     "aircraft",
@@ -16,12 +16,12 @@
   ],
   "artifact": {
     "fileName": "F117Nighthawk.dll",
-    "version": "0.4.88",
+    "version": "0.4.89",
     "category": "release",
     "type": "plugin",
     "gameVersion": "0.34.2",
     "downloadUrl": "",
-    "hash": "sha256:1b0e09e1004ff16a1dfb403c7bb3e848c837355b58171eb880e3fb1b6584849e",
+    "hash": "sha256:51e474a5c6150fe3dac9e2dc8b869fd507ef559c14d2665be789c8d6c90bc7b5",
     "extends": null,
     "dependencies": [
       {

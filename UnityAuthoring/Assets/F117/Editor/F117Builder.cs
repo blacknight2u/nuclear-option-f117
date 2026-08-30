@@ -71,7 +71,7 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.4.88";
+    private const string Version = "0.4.89";
     private const string FixedJammerAsset = "JammingPod1";
 
     private sealed class WeaponLoadoutSpec
@@ -390,7 +390,7 @@ public static class F117Builder
         Set(data, "collectivePID", Vector3.zero);
         Set(data, "hoverPID", Vector3.zero);
         Set(data, "tiltPID", Vector3.zero);
-        Set(data, "groundTurningRadius", 18f);
+        Set(data, "groundTurningRadius", 12f);
 
         SerializedProperty liveries = Require(data, "liveries");
         liveries.arraySize = 1 + paradeLiveries.Length;

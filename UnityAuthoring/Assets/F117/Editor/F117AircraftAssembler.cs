@@ -62,7 +62,8 @@ internal static class F117AircraftAssembler
     internal const float NoseSuspensionTravel = 0.45f;
     internal const float GroundSpawnHeight = 2.35f;
     internal const float NoseGearContactArea = 0.06f;
-    internal const float NoseSteeringSpeed = 55f;
+    internal const float NoseSteeringLock = 45f;
+    internal const float NoseSteeringSpeed = 60f;
     internal const float NoseAligningStrength = 5f;
     // The true mass-weighted CG must use every AeroPart.centerOfMass reference,
     // not the part transform origins. Keep a modest positive tricycle-gear
@@ -2544,7 +2545,7 @@ internal static class F117AircraftAssembler
 
             Set(data, "steering", steering);
             Set(data, "braked", braked);
-            Set(data, "steeringLock", steering ? 12f : 0f);
+            Set(data, "steeringLock", steering ? NoseSteeringLock : 0f);
             Set(data, "steeringSpeed", steering ? NoseSteeringSpeed : 0f);
             Set(data, "aligningStrength", steering ? NoseAligningStrength : 0f);
             Set(data, "differentialBrakeFactor", 0f);
