@@ -1334,6 +1334,10 @@ public static class F117ContractValidator
         Require(cockpitScreen != null && cockpitScreen == targetScreen && cockpitScreen.enabled &&
                 cockpitScreen.name == "F117_Tacscreen" && cockpitScreen.GetComponent<MeshFilter>()?.sharedMesh != null,
             "Cockpit and TargetCam share one dedicated visible F117_Tacscreen renderer", failures);
+        Renderer cockpitScreenBackground = prefab.GetComponentsInChildren<Renderer>(true)
+            .FirstOrDefault(renderer => renderer.name == "F117_Tacscreen_Background");
+        Require(cockpitScreenBackground == null,
+            "Cockpit displays use one full-size surface without a visible inset/background duplicate", failures);
         Mesh cockpitScreenMesh = cockpitScreen == null ? null : cockpitScreen.GetComponent<MeshFilter>()?.sharedMesh;
         int cockpitDisplayCount = ValidateCockpitDisplayMesh(cockpitScreenMesh, failures);
 
@@ -1517,6 +1521,37 @@ public static class F117ContractValidator
                 .ToArray();
             Require(originalShell == null && damageShells.Length >= 5,
                 "Monolithic exterior is replaced by AeroPart-owned damage renderers", failures);
+            Renderer[] seamCaps = prefab.GetComponentsInChildren<Renderer>(true)
+                .Where(renderer => renderer.name.EndsWith("_SeamCaps", StringComparison.Ordinal))
+                .ToArray();
+            Require(seamCaps.Length == 9,
+                "All nine fixed-airframe damage sections have closed cross-section caps", failures);
+            foreach (Renderer seamCap in seamCaps)
+            {
+                Mesh capMesh = seamCap.GetComponent<MeshFilter>()?.sharedMesh;
+                Material capMaterial = seamCap.sharedMaterial;
+                Component owningPart = null;
+                for (Transform current = seamCap.transform; current != null && owningPart == null;
+                     current = current.parent)
+                    owningPart = current.GetComponent("AeroPart");
+                SerializedProperty ownedRenderers = owningPart == null
+                    ? null
+                    : new SerializedObject(owningPart).FindProperty("damageMaterial")
+                        ?.FindPropertyRelative("renderers");
+                bool registered = ownedRenderers != null && ownedRenderers.isArray &&
+                    Enumerable.Range(0, ownedRenderers.arraySize).Any(index =>
+                        ownedRenderers.GetArrayElementAtIndex(index).objectReferenceValue == seamCap);
+                Require(seamCap.enabled && capMesh != null && capMesh.triangles.Length >= 6 &&
+                        capMaterial != null && capMaterial.name == "F117_DamageSeamCap" &&
+                        capMaterial.shader != null &&
+                        capMaterial.shader.name == "Universal Render Pipeline/Lit" &&
+                        Near(capMaterial.GetFloat("_Surface"), 0f, 0.001f) &&
+                        Near(capMaterial.GetFloat("_ZWrite"), 1f, 0.001f) &&
+                        owningPart != null && registered,
+                    seamCap.name +
+                    " is an opaque, physical-part-owned cross-section registered for native damage",
+                    failures);
+            }
             Require(exterior == null || !exterior.isArray || damageShells.All(shell =>
                     !Enumerable.Range(0, exterior.arraySize).Any(index =>
                         exterior.GetArrayElementAtIndex(index).objectReferenceValue == shell)),
@@ -1670,7 +1705,7 @@ public static class F117ContractValidator
         notes.Add("Electrical: dedicated 60 kJ jammer bus; native 13-unit draw gives about 5 s full-charge burst; two engines recharge at up to 1.16 kJ/s (about 52 s empty-to-full)");
         notes.Add("Physics graph: one root AeroPart plus 16 parent-matched, jointed descendants; each wing uses stock-style root -> inner -> outer structure, elevons attach to matching panels, and rudders attach to rear body");
         notes.Add("Hitboxes: all 17 AeroParts directly own their real colliders; six wing colliders are generated from their clipped planforms; native bullets/blast fragments cannot be swallowed by non-damageable child objects; full unrelated-part penetration audit passed");
-        notes.Add("Damage model: 17 non-critical, standard 100 HP AeroParts; fixed airframe triangles are geometrically clipped at section boundaries and controls own their render geometry, AircraftSkin pockmark textures, status reporting, native fuel fire/leak effects, and physical detachment");
+        notes.Add("Damage model: 17 non-critical, standard 100 HP AeroParts; fixed airframe triangles are geometrically clipped and closed with opaque cross-section caps at all nine rigidbody boundaries; controls own their render geometry, AircraftSkin pockmark textures, status reporting, native fuel fire/leak effects, and physical detachment");
         notes.Add("Elevon neutral: unbiased native servo/aero pivots; measured inner-panel visual corrections isolated below them");
         notes.Add("Mass: dry graph=13380 kg; full internal fuel=21630 kg; MTOW=23814 kg; payload margin=2184 kg; runtime CoM Z=" +
             runtimeCenterOfMass.z.ToString("0.00") + " m");
@@ -1691,8 +1726,8 @@ public static class F117ContractValidator
         notes.Add("Infrared: two forward-aligned sources, 0.5 idle to 2.2 full dry thrust; no afterburner, vapor, or global contrail components");
         notes.Add("Status HUD: retail bottom-right 260 px layout; plugin wires embedded F-117 damage Images before initialization");
         notes.Add("Exterior: baked boarding-ladder triangles=" + bakedLadderTriangleCount);
-        notes.Add("Cockpit: stock Cricket display atlas mapped without stretching across " + cockpitDisplayCount +
-            " physical displays (upright center camera/radar; 90-degree-corrected left flight and right engine instruments); " +
+        notes.Add("Cockpit: complete stock Cricket atlas regions mapped without cropping across " + cockpitDisplayCount +
+            " full-size physical displays (upright center camera/radar; 90-degree-corrected left flight and right engine instruments); " +
             "root-aligned viewpoint at Y=1.39 m on the seat line");
         notes.Add("Canopy: upward 40 degree ejection opening");
         notes.Add("Landing gear: aircraft-forward tire-physics frames, full authored suspension travel before BreakWheel, false-positive skid audio muted");
@@ -2266,33 +2301,19 @@ public static class F117ContractValidator
         bool cameraFound = false;
         bool basicFlightFound = false;
         bool engineFound = false;
-        const float atlasPixelAspect = 2f; // Native TacScreenRenderer is 1024 x 512.
         for (int index = 0; index < components.Count; index++)
         {
             float minimumU = float.PositiveInfinity;
             float minimumV = float.PositiveInfinity;
             float maximumU = float.NegativeInfinity;
             float maximumV = float.NegativeInfinity;
-            float minimumX = float.PositiveInfinity;
-            float minimumY = float.PositiveInfinity;
-            float minimumZ = float.PositiveInfinity;
-            float maximumX = float.NegativeInfinity;
-            float maximumY = float.NegativeInfinity;
-            float maximumZ = float.NegativeInfinity;
             foreach (int vertex in components[index])
             {
                 Vector2 uv = uvs[vertex];
-                Vector3 point = vertices[vertex];
                 minimumU = Mathf.Min(minimumU, uv.x);
                 minimumV = Mathf.Min(minimumV, uv.y);
                 maximumU = Mathf.Max(maximumU, uv.x);
                 maximumV = Mathf.Max(maximumV, uv.y);
-                minimumX = Mathf.Min(minimumX, point.x);
-                minimumY = Mathf.Min(minimumY, point.y);
-                minimumZ = Mathf.Min(minimumZ, point.z);
-                maximumX = Mathf.Max(maximumX, point.x);
-                maximumY = Mathf.Max(maximumY, point.y);
-                maximumZ = Mathf.Max(maximumZ, point.z);
             }
 
             Require(minimumU >= -0.001f && minimumV >= -0.001f &&
@@ -2300,23 +2321,9 @@ public static class F117ContractValidator
                 "F-117 cockpit display " + (index + 1) + " remains inside the native screen atlas",
                 failures);
 
-            float physicalWidth = maximumX - minimumX;
-            float physicalHeight = Mathf.Sqrt(
-                Mathf.Pow(maximumY - minimumY, 2f) + Mathf.Pow(maximumZ - minimumZ, 2f));
-            float physicalAspect = physicalHeight > 0.0001f ? physicalWidth / physicalHeight : 0f;
             bool camera = minimumU < 0.2f && minimumV < 0.01f && maximumV > 0.99f;
             bool basicFlight = minimumU > 0.75f && maximumV < 0.36f;
             bool engine = minimumU > 0.75f && minimumV > 0.35f && maximumV < 0.72f;
-            bool rotatedInstrument = basicFlight || engine;
-            float renderedAspect = maximumV - minimumV > 0.0001f && maximumU - minimumU > 0.0001f
-                ? rotatedInstrument
-                    ? (maximumV - minimumV) / ((maximumU - minimumU) * atlasPixelAspect)
-                    : (maximumU - minimumU) * atlasPixelAspect / (maximumV - minimumV)
-                : 0f;
-            Require(physicalAspect > 0f && Near(renderedAspect, physicalAspect, 0.02f),
-                "F-117 cockpit display " + (index + 1) +
-                " preserves the 1024x512 source aspect without stretching",
-                failures);
 
             Require(camera || basicFlight || engine,
                 "F-117 cockpit display " + (index + 1) + " maps one approved stock Cricket atlas region",
@@ -2354,9 +2361,9 @@ public static class F117ContractValidator
             if (camera)
             {
                 cameraFound = true;
-                Require(Near(minimumU, 0.09402f, 0.005f) && Near(maximumU, 0.69771f, 0.005f) &&
+                Require(Near(minimumU, 0.00110f, 0.005f) && Near(maximumU, 0.79063f, 0.005f) &&
                         Near(minimumV, 0.00011f, 0.005f) && Near(maximumV, 0.99989f, 0.005f),
-                    "Center display maps only the native Cricket camera/radar atlas region", failures);
+                    "Center display preserves the complete native Cricket camera/radar atlas region", failures);
                 // FBX conversion mirrors the model's horizontal X axis. The known-good
                 // center screen therefore imports as X/U=-1 while physical up remains Y/V=+1.
                 Require(correlationXU < -0.95f && correlationYV > 0.95f,
@@ -2367,9 +2374,9 @@ public static class F117ContractValidator
             else if (basicFlight)
             {
                 basicFlightFound = true;
-                Require(Near(minimumU, 0.80791f, 0.005f) && Near(maximumU, 0.97798f, 0.005f) &&
+                Require(Near(minimumU, 0.79230f, 0.005f) && Near(maximumU, 0.99359f, 0.005f) &&
                         Near(minimumV, 0.02251f, 0.005f) && Near(maximumV, 0.34329f, 0.005f),
-                    "Left display maps the native Cricket basic-flight instrument region", failures);
+                    "Left display preserves the complete native Cricket basic-flight instrument region", failures);
                 Require(correlationYU < -0.95f && correlationXV < -0.95f,
                     "Left instrument display counter-rotates the clockwise atlas content by 90 degrees " +
                     "(y/u=" + correlationYU.ToString("0.000") + ", x/v=" + correlationXV.ToString("0.000") +
@@ -2378,9 +2385,9 @@ public static class F117ContractValidator
             else if (engine)
             {
                 engineFound = true;
-                Require(Near(minimumU, 0.81003f, 0.005f) && Near(maximumU, 0.97580f, 0.005f) &&
+                Require(Near(minimumU, 0.79073f, 0.005f) && Near(maximumU, 0.99510f, 0.005f) &&
                         Near(minimumV, 0.38727f, 0.005f) && Near(maximumV, 0.69994f, 0.005f),
-                    "Right display maps the native Cricket engine-instrument region", failures);
+                    "Right display preserves the complete native Cricket engine-instrument region", failures);
                 Require(correlationYU < -0.95f && correlationXV < -0.95f,
                     "Right instrument display counter-rotates the clockwise atlas content by 90 degrees " +
                     "(y/u=" + correlationYU.ToString("0.000") + ", x/v=" + correlationXV.ToString("0.000") +

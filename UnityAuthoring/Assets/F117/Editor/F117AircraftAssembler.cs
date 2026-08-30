@@ -166,7 +166,9 @@ internal static class F117AircraftAssembler
         MeshRenderer cockpitScreenRenderer = CreateCockpitScreenRenderer(visual, materialsRoot);
 
         Material gearDustMaterial = CreateGearDustMaterial(materialsRoot);
-        Component centralPart = ConfigurePhysics(instance, visual, aircraft, rigidbody, gearDustMaterial);
+        Material damageSeamCapMaterial = CreateDamageSeamCapMaterial(materialsRoot);
+        Component centralPart = ConfigurePhysics(instance, visual, aircraft, rigidbody, gearDustMaterial,
+            damageSeamCapMaterial);
         ConfigureRuntimeSystems(instance, visual, aircraft, centralPart);
         ConfigureCrewAndSensors(instance, visual, aircraft, centralPart, runtimeUiFallback, cockpitScreenRenderer);
         ConfigureCanopy(instance, visual, aircraft, centralPart);
@@ -495,11 +497,8 @@ internal static class F117AircraftAssembler
         AssetDatabase.CreateAsset(bodyMesh, materialsRoot + "/F117_Cockpit_WithoutScreen.asset");
         cockpitFilter.sharedMesh = bodyMesh;
 
-        Mesh screenMesh = UnityEngine.Object.Instantiate(imported);
-        screenMesh.name = "F117_Tacscreen_Mesh";
-        screenMesh.subMeshCount = 1;
-        screenMesh.SetTriangles(screenTriangles, 0, false);
-        screenMesh.RecalculateBounds();
+        Mesh screenMesh = ExtractMeshSubset(imported, screenTriangles, "F117_Tacscreen_Mesh");
+        MapCompleteCockpitAtlas(screenMesh, screenMesh.triangles);
         AssetDatabase.CreateAsset(screenMesh, materialsRoot + "/F117_Tacscreen_Mesh.asset");
 
         GameObject screen = new GameObject("F117_Tacscreen");
@@ -516,6 +515,128 @@ internal static class F117AircraftAssembler
         renderer.receiveShadows = false;
         renderer.enabled = true;
         return renderer;
+    }
+
+    private static Mesh ExtractMeshSubset(Mesh source, int[] sourceTriangles, string name)
+    {
+        int[] usedVertices = sourceTriangles.Distinct().OrderBy(index => index).ToArray();
+        var remap = usedVertices.Select((sourceIndex, targetIndex) => new { sourceIndex, targetIndex })
+            .ToDictionary(item => item.sourceIndex, item => item.targetIndex);
+        Mesh mesh = new Mesh
+        {
+            name = name,
+            indexFormat = usedVertices.Length > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16
+        };
+        Vector3[] sourceVertices = source.vertices;
+        mesh.SetVertices(usedVertices.Select(index => sourceVertices[index]).ToList());
+        Vector3[] sourceNormals = source.normals;
+        if (sourceNormals != null && sourceNormals.Length == source.vertexCount)
+            mesh.SetNormals(usedVertices.Select(index => sourceNormals[index]).ToList());
+        Vector4[] sourceTangents = source.tangents;
+        if (sourceTangents != null && sourceTangents.Length == source.vertexCount)
+            mesh.SetTangents(usedVertices.Select(index => sourceTangents[index]).ToList());
+        Color[] sourceColors = source.colors;
+        if (sourceColors != null && sourceColors.Length == source.vertexCount)
+            mesh.SetColors(usedVertices.Select(index => sourceColors[index]).ToList());
+        for (int channel = 0; channel < 8; channel++)
+        {
+            var sourceUvs = new List<Vector4>();
+            source.GetUVs(channel, sourceUvs);
+            if (sourceUvs.Count == source.vertexCount)
+                mesh.SetUVs(channel, usedVertices.Select(index => sourceUvs[index]).ToList());
+        }
+        mesh.SetTriangles(sourceTriangles.Select(index => remap[index]).ToArray(), 0, true);
+        if (mesh.normals == null || mesh.normals.Length != mesh.vertexCount)
+            mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    private readonly struct CockpitAtlasRect
+    {
+        internal readonly float MinU;
+        internal readonly float MinV;
+        internal readonly float MaxU;
+        internal readonly float MaxV;
+
+        internal CockpitAtlasRect(float minU, float minV, float maxU, float maxV)
+        {
+            MinU = minU;
+            MinV = minV;
+            MaxU = maxU;
+            MaxV = maxV;
+        }
+    }
+
+    private static void MapCompleteCockpitAtlas(Mesh mesh, int[] triangles)
+    {
+        Vector3[] vertices = mesh.vertices;
+        Vector2[] uvs = mesh.uv;
+        if (uvs == null || uvs.Length != vertices.Length)
+            throw new InvalidOperationException("The F-117 tactical-screen mesh has no complete UV channel.");
+
+        var trianglesByVertex = new Dictionary<int, List<int>>();
+        for (int triangle = 0; triangle < triangles.Length / 3; triangle++)
+            for (int corner = 0; corner < 3; corner++)
+            {
+                int vertex = triangles[triangle * 3 + corner];
+                if (!trianglesByVertex.TryGetValue(vertex, out List<int> connected))
+                {
+                    connected = new List<int>();
+                    trianglesByVertex.Add(vertex, connected);
+                }
+                connected.Add(triangle);
+            }
+        var remaining = new HashSet<int>(Enumerable.Range(0, triangles.Length / 3));
+        var components = new List<HashSet<int>>();
+        while (remaining.Count > 0)
+        {
+            int seed = remaining.First();
+            remaining.Remove(seed);
+            var component = new HashSet<int>();
+            var pending = new Queue<int>();
+            pending.Enqueue(seed);
+            while (pending.Count > 0)
+            {
+                int triangle = pending.Dequeue();
+                for (int corner = 0; corner < 3; corner++)
+                {
+                    int vertex = triangles[triangle * 3 + corner];
+                    component.Add(vertex);
+                    foreach (int neighbor in trianglesByVertex[vertex])
+                        if (remaining.Remove(neighbor))
+                            pending.Enqueue(neighbor);
+                }
+            }
+            components.Add(component);
+        }
+        if (components.Count != 3)
+            throw new InvalidOperationException("The F-117 tactical screen requires exactly three display islands.");
+
+        foreach (HashSet<int> component in components)
+        {
+            float minU = component.Min(vertex => uvs[vertex].x);
+            float minV = component.Min(vertex => uvs[vertex].y);
+            float maxU = component.Max(vertex => uvs[vertex].x);
+            float maxV = component.Max(vertex => uvs[vertex].y);
+            bool camera = minU < 0.2f;
+            CockpitAtlasRect full = camera
+                ? new CockpitAtlasRect(0.00110f, 0.00011f, 0.79063f, 0.99989f)
+                : maxV < 0.36f
+                    ? new CockpitAtlasRect(0.79230f, 0.02251f, 0.99359f, 0.34329f)
+                    : new CockpitAtlasRect(0.79073f, 0.38727f, 0.99510f, 0.69994f);
+            foreach (int vertex in component)
+            {
+                float normalizedU = Mathf.InverseLerp(minU, maxU, uvs[vertex].x);
+                float normalizedV = Mathf.InverseLerp(minV, maxV, uvs[vertex].y);
+                uvs[vertex] = new Vector2(
+                    Mathf.Lerp(full.MinU, full.MaxU, normalizedU),
+                    Mathf.Lerp(full.MinV, full.MaxV, normalizedV));
+            }
+        }
+        mesh.vertices = vertices;
+        mesh.uv = uvs;
+        mesh.RecalculateBounds();
     }
 
     private static Material CreateGearDustMaterial(string materialsRoot)
@@ -536,6 +657,27 @@ internal static class F117AircraftAssembler
         EnableLocalKeyword(material, "_SURFACE_TYPE_TRANSPARENT");
         material.renderQueue = (int)RenderQueue.Transparent;
         AssetDatabase.CreateAsset(material, materialsRoot + "/F117_GearDust_Invisible.mat");
+        return material;
+    }
+
+    private static Material CreateDamageSeamCapMaterial(string materialsRoot)
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            throw new InvalidOperationException("Universal Render Pipeline/Lit is unavailable for damage seam caps.");
+        Material material = new Material(shader) { name = "F117_DamageSeamCap" };
+        Color structuralBlack = new Color(0.006f, 0.007f, 0.008f, 1f);
+        material.SetColor("_BaseColor", structuralBlack);
+        material.SetColor("_Color", structuralBlack);
+        material.SetFloat("_Metallic", 0.05f);
+        material.SetFloat("_Smoothness", 0.15f);
+        material.SetFloat("_Surface", 0f);
+        material.SetFloat("_ZWrite", 1f);
+        if (material.HasProperty("_Cull"))
+            material.SetFloat("_Cull", (float)CullMode.Off);
+        material.SetOverrideTag("RenderType", "Opaque");
+        material.renderQueue = -1;
+        AssetDatabase.CreateAsset(material, materialsRoot + "/F117_DamageSeamCap.mat");
         return material;
     }
 
@@ -1131,7 +1273,7 @@ internal static class F117AircraftAssembler
         return string.IsNullOrEmpty(result) ? "Material" : result;
     }
     private static Component ConfigurePhysics(GameObject root, GameObject visual, Component aircraft, Rigidbody rigidbody,
-        Material gearDustMaterial)
+        Material gearDustMaterial, Material damageSeamCapMaterial)
     {
         // Working Blueprinter aircraft author one root AeroPart and allow Aircraft.SetComplexPhysics
         // to split its connected child-part graph into rigidbodies. The prefab Rigidbody is only a
@@ -1224,7 +1366,7 @@ internal static class F117AircraftAssembler
         // AeroPart, matching the working aircraft damage graph.
         PartitionExteriorForDamage(visual, central, nose, rear,
             leftWingRoot, leftWingInner, leftWingOuter,
-            rightWingRoot, rightWingInner, rightWingOuter);
+            rightWingRoot, rightWingInner, rightWingOuter, damageSeamCapMaterial);
 
         // The source animation's smaller neutral-to-stop travel is +22.5323 degrees.
         // ControlSurface adds pitch and roll without a final combined clamp, so keep
@@ -1724,7 +1866,7 @@ internal static class F117AircraftAssembler
 
     private static void PartitionExteriorForDamage(GameObject visual, Component central, Component nose,
         Component rear, Component leftRoot, Component leftInner, Component leftOuter,
-        Component rightRoot, Component rightInner, Component rightOuter)
+        Component rightRoot, Component rightInner, Component rightOuter, Material seamCapMaterial)
     {
         Transform sourceTransform = FindDeep(visual.transform, "F117_Exterior_Mesh");
         MeshFilter sourceFilter = sourceTransform == null ? null : sourceTransform.GetComponent<MeshFilter>();
@@ -1831,6 +1973,35 @@ internal static class F117AircraftAssembler
                 renderersByOwner[owner].Add(renderer);
             }
         }
+
+        CreateDamageSeamCaps(visual.transform, central, renderersByOwner[central], seamCapMaterial,
+            new DamageCutPlane(Vector3.forward, 4.2f),
+            new DamageCutPlane(Vector3.forward, 3.6f),
+            new DamageCutPlane(Vector3.right, 1.65f),
+            new DamageCutPlane(Vector3.right, -1.65f),
+            new DamageCutPlane(Vector3.forward, -4.35f));
+        CreateDamageSeamCaps(visual.transform, nose, renderersByOwner[nose], seamCapMaterial,
+            new DamageCutPlane(Vector3.forward, 4.2f));
+        CreateDamageSeamCaps(visual.transform, rear, renderersByOwner[rear], seamCapMaterial,
+            new DamageCutPlane(Vector3.forward, -4.35f));
+        CreateDamageSeamCaps(visual.transform, rightRoot, renderersByOwner[rightRoot], seamCapMaterial,
+            new DamageCutPlane(Vector3.forward, 3.6f),
+            new DamageCutPlane(Vector3.right, 1.65f),
+            new DamageCutPlane(new Vector3(1f, 0f, -WingRootSweep), WingRootMetricCut));
+        CreateDamageSeamCaps(visual.transform, rightInner, renderersByOwner[rightInner], seamCapMaterial,
+            new DamageCutPlane(new Vector3(1f, 0f, -WingRootSweep), WingRootMetricCut),
+            new DamageCutPlane(new Vector3(1f, 0f, -WingOuterSweep), WingOuterMetricCut));
+        CreateDamageSeamCaps(visual.transform, rightOuter, renderersByOwner[rightOuter], seamCapMaterial,
+            new DamageCutPlane(new Vector3(1f, 0f, -WingOuterSweep), WingOuterMetricCut));
+        CreateDamageSeamCaps(visual.transform, leftRoot, renderersByOwner[leftRoot], seamCapMaterial,
+            new DamageCutPlane(Vector3.forward, 3.6f),
+            new DamageCutPlane(Vector3.right, -1.65f),
+            new DamageCutPlane(new Vector3(-1f, 0f, -WingRootSweep), WingRootMetricCut));
+        CreateDamageSeamCaps(visual.transform, leftInner, renderersByOwner[leftInner], seamCapMaterial,
+            new DamageCutPlane(new Vector3(-1f, 0f, -WingRootSweep), WingRootMetricCut),
+            new DamageCutPlane(new Vector3(-1f, 0f, -WingOuterSweep), WingOuterMetricCut));
+        CreateDamageSeamCaps(visual.transform, leftOuter, renderersByOwner[leftOuter], seamCapMaterial,
+            new DamageCutPlane(new Vector3(-1f, 0f, -WingOuterSweep), WingOuterMetricCut));
 
         if (sourceTriangleCount == 0 || sourceArea <= 0f ||
             Mathf.Abs(assignedArea - sourceArea) > sourceArea * 0.0001f)
@@ -1951,7 +2122,10 @@ internal static class F117AircraftAssembler
             if (currentInside != previousInside)
             {
                 float amount = (threshold - previousValue) / (currentValue - previousValue);
-                result.Add(DamageVertex.Lerp(previous, current, amount));
+                DamageVertex intersection = DamageVertex.Lerp(previous, current, amount);
+                intersection.Position += normal * ((threshold - Vector3.Dot(intersection.Position, normal)) /
+                    normal.sqrMagnitude);
+                result.Add(intersection);
             }
             if (currentInside)
                 result.Add(current);
@@ -1964,6 +2138,138 @@ internal static class F117AircraftAssembler
                 result.RemoveAt(index);
         }
         return result;
+    }
+
+    private readonly struct DamageCutPlane
+    {
+        internal readonly Vector3 Normal;
+        internal readonly float Threshold;
+
+        internal DamageCutPlane(Vector3 normal, float threshold)
+        {
+            Normal = normal.normalized;
+            Threshold = threshold / normal.magnitude;
+        }
+    }
+
+    private sealed class DamageCapPoint
+    {
+        internal Vector3 RootPosition;
+        internal Vector2 PlanePosition;
+    }
+
+    private static void CreateDamageSeamCaps(Transform visual, Component owner,
+        List<Renderer> ownerRenderers, Material material, params DamageCutPlane[] planes)
+    {
+        if (material == null)
+            throw new InvalidOperationException("The F-117 damage seam-cap material is unavailable.");
+        var rootVertices = ownerRenderers
+            .Select(renderer => renderer.GetComponent<MeshFilter>())
+            .Where(filter => filter != null && filter.sharedMesh != null)
+            .SelectMany(filter => filter.sharedMesh.vertices.Select(vertex =>
+                visual.InverseTransformPoint(filter.transform.TransformPoint(vertex))))
+            .ToArray();
+        var vertices = new List<Vector3>();
+        var normals = new List<Vector3>();
+        var triangles = new List<int>();
+        foreach (DamageCutPlane plane in planes)
+        {
+            List<Vector3> hull = DamagePlaneHull(rootVertices, plane);
+            if (hull.Count < 3)
+                continue;
+            Vector3 center = hull.Aggregate(Vector3.zero, (sum, point) => sum + point) / hull.Count;
+            int centerIndex = vertices.Count;
+            vertices.Add(owner.transform.InverseTransformPoint(visual.TransformPoint(center)));
+            normals.Add(owner.transform.InverseTransformDirection(
+                visual.TransformDirection(plane.Normal)).normalized);
+            foreach (Vector3 point in hull)
+            {
+                vertices.Add(owner.transform.InverseTransformPoint(visual.TransformPoint(point)));
+                normals.Add(owner.transform.InverseTransformDirection(
+                    visual.TransformDirection(plane.Normal)).normalized);
+            }
+            for (int index = 0; index < hull.Count; index++)
+            {
+                triangles.Add(centerIndex);
+                triangles.Add(centerIndex + 1 + index);
+                triangles.Add(centerIndex + 1 + (index + 1) % hull.Count);
+            }
+        }
+        if (triangles.Count == 0)
+            throw new InvalidOperationException(owner.name + " received no closed damage-section cross-sections.");
+
+        Mesh mesh = new Mesh { name = owner.name + "_SeamCaps" };
+        mesh.SetVertices(vertices);
+        mesh.SetNormals(normals);
+        mesh.SetTriangles(triangles, 0, true);
+        mesh.RecalculateBounds();
+        AssetDatabase.CreateAsset(mesh, DamageMeshRoot + "/" + mesh.name + ".asset");
+
+        GameObject cap = new GameObject(mesh.name);
+        cap.layer = owner.gameObject.layer;
+        cap.transform.SetParent(owner.transform, false);
+        cap.AddComponent<MeshFilter>().sharedMesh = mesh;
+        MeshRenderer renderer = cap.AddComponent<MeshRenderer>();
+        renderer.sharedMaterial = material;
+        renderer.shadowCastingMode = ShadowCastingMode.On;
+        renderer.receiveShadows = true;
+        renderer.enabled = true;
+        ownerRenderers.Add(renderer);
+    }
+
+    private static List<Vector3> DamagePlaneHull(IEnumerable<Vector3> vertices, DamageCutPlane plane)
+    {
+        Vector3 tangent = Vector3.Cross(Vector3.up, plane.Normal).normalized;
+        if (tangent.sqrMagnitude < 0.5f)
+            tangent = Vector3.right;
+        Vector3 bitangent = Vector3.Cross(plane.Normal, tangent).normalized;
+        var unique = new Dictionary<string, DamageCapPoint>(StringComparer.Ordinal);
+        foreach (Vector3 vertex in vertices)
+        {
+            if (Mathf.Abs(Vector3.Dot(vertex, plane.Normal) - plane.Threshold) > 0.0002f)
+                continue;
+            string key = Mathf.RoundToInt(vertex.x * 10000f) + ":" +
+                Mathf.RoundToInt(vertex.y * 10000f) + ":" +
+                Mathf.RoundToInt(vertex.z * 10000f);
+            if (!unique.ContainsKey(key))
+                unique.Add(key, new DamageCapPoint
+                {
+                    RootPosition = vertex,
+                    PlanePosition = new Vector2(Vector3.Dot(vertex, tangent), Vector3.Dot(vertex, bitangent))
+                });
+        }
+        List<DamageCapPoint> points = unique.Values
+            .OrderBy(point => point.PlanePosition.x)
+            .ThenBy(point => point.PlanePosition.y)
+            .ToList();
+        if (points.Count < 3)
+            return new List<Vector3>();
+        var lower = new List<DamageCapPoint>();
+        foreach (DamageCapPoint point in points)
+        {
+            while (lower.Count >= 2 && DamagePlaneCross(lower[lower.Count - 2].PlanePosition,
+                       lower[lower.Count - 1].PlanePosition, point.PlanePosition) <= 0f)
+                lower.RemoveAt(lower.Count - 1);
+            lower.Add(point);
+        }
+        var upper = new List<DamageCapPoint>();
+        for (int index = points.Count - 1; index >= 0; index--)
+        {
+            DamageCapPoint point = points[index];
+            while (upper.Count >= 2 && DamagePlaneCross(upper[upper.Count - 2].PlanePosition,
+                       upper[upper.Count - 1].PlanePosition, point.PlanePosition) <= 0f)
+                upper.RemoveAt(upper.Count - 1);
+            upper.Add(point);
+        }
+        lower.RemoveAt(lower.Count - 1);
+        upper.RemoveAt(upper.Count - 1);
+        return lower.Concat(upper).Select(point => point.RootPosition).ToList();
+    }
+
+    private static float DamagePlaneCross(Vector2 origin, Vector2 first, Vector2 second)
+    {
+        return (first.x - origin.x) * (second.y - origin.y) -
+            (first.y - origin.y) * (second.x - origin.x);
     }
 
     private static void AddDirectPlanformDamageCollider(Component part, IEnumerable<Renderer> renderers)
