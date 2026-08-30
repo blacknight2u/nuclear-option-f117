@@ -146,6 +146,8 @@ public static class F117ContractValidator
                 "Closed clean-aircraft definition has the nonzero 0.0000005 radar return", failures);
             Require(Near(Float(definitionData, "visibleRange", definition.name, failures), 2500f, 0.01f),
                 "Aircraft optical visibility is 2.5 km", failures);
+            Require(Near(Float(definitionData, "mapIconSize", definition.name, failures), 1.30f, 0.001f),
+                "F-117 tactical-map silhouette compensates for its transparent canvas padding", failures);
             Require(Near(Float(definitionData, "mass", definition.name, failures), 13380f, 0.1f),
                 "Simple-physics mass is the 13,380 kg dry weight", failures);
             Require(Near(Float(definitionData, "value", definition.name, failures), 120f, 0.001f),
@@ -471,13 +473,25 @@ public static class F117ContractValidator
             material.name.EndsWith("INT_CockpitFrame", StringComparison.OrdinalIgnoreCase));
         Require(cockpitFrame != null && cockpitFrame.GetColor("_BaseColor").r <= 0.05f &&
                 cockpitFrame.GetColor("_BaseColor").g <= 0.05f &&
-                cockpitFrame.GetColor("_BaseColor").b <= 0.05f,
+                cockpitFrame.GetColor("_BaseColor").b <= 0.05f &&
+                Near(cockpitFrame.GetFloat("_Metallic"), 0f, 0.001f) &&
+                Near(cockpitFrame.GetFloat("_Smoothness"), 0.5f, 0.001f),
             "Canopy/cockpit frame uses the authored black material instead of the white fallback", failures);
         RequireTexturePath(cockpitFrame, "_MetallicGlossMap",
             "Assets/F117/Textures/metal_paint02_mask.png", failures);
         Require(cockpitFrame != null &&
                 cockpitFrame.shaderKeywords.Contains("_METALLICSPECGLOSSMAP"),
             "Canopy frame keeps its authored URP packed-mask keyword for both finish profiles", failures);
+        Material[] cockpitStructureMaterials = productionMaterials.Where(material =>
+            (material.name.IndexOf("F117_int_", StringComparison.OrdinalIgnoreCase) >= 0 &&
+             material.name.IndexOf("glass", StringComparison.OrdinalIgnoreCase) < 0) ||
+            material.name.EndsWith("INT_CockpitFrame", StringComparison.OrdinalIgnoreCase) ||
+            material.name.EndsWith("LIGHTS", StringComparison.OrdinalIgnoreCase)).ToArray();
+        Require(cockpitStructureMaterials.Length >= 11 &&
+                cockpitStructureMaterials.All(material =>
+                    Near(material.GetFloat("_Metallic"), 0f, 0.001f) &&
+                    Near(material.GetFloat("_Smoothness"), 0.5f, 0.001f)),
+            "Cockpit tub and frame preserve the source non-metallic medium-rough finish", failures);
         Renderer canopyRenderer = prefab.GetComponentsInChildren<Renderer>(true)
             .FirstOrDefault(renderer => renderer.name == "F117_Canopy_Mesh");
         Material[] canopyMaterials = canopyRenderer == null ? Array.Empty<Material>() : canopyRenderer.sharedMaterials;
@@ -537,6 +551,7 @@ public static class F117ContractValidator
         float mass = 0f;
         float area = 0f;
         float horizontalLiftArea = 0f;
+        float horizontalLiftMomentX = 0f;
         float horizontalLiftMomentZ = 0f;
         Vector3 massMoment = Vector3.zero;
         foreach (Component part in aeroParts)
@@ -606,7 +621,9 @@ public static class F117ContractValidator
                                        Vector3.zero;
                 Vector3 forcePoint = serializedLiftNormal.TransformPoint(centerOfLift);
                 float forcePointZ = prefab.transform.InverseTransformPoint(forcePoint).z;
+                float forcePointX = prefab.transform.InverseTransformPoint(forcePoint).x;
                 horizontalLiftArea += partWingArea;
+                horizontalLiftMomentX += forcePointX * partWingArea;
                 horizontalLiftMomentZ += forcePointZ * partWingArea;
             }
             Require(Near(Float(data, "airflowChanneling", part.name, failures), 0f, 0.0001f),
@@ -777,11 +794,18 @@ public static class F117ContractValidator
             "No child-only hitbox can absorb bullets or fragments without routing damage to an AeroPart", failures);
         Require(Near(mass, 13380f, 0.1f), "Connected AeroPart graph totals the 13,380 kg dry mass", failures);
         Vector3 runtimeCenterOfMass = mass > 0f ? massMoment / mass : Vector3.zero;
+        float neutralLiftCenterX = horizontalLiftArea > 0f
+            ? horizontalLiftMomentX / horizontalLiftArea
+            : float.NaN;
         float neutralLiftCenterZ = horizontalLiftArea > 0f
             ? horizontalLiftMomentZ / horizontalLiftArea
             : float.NaN;
         Require(Near(horizontalLiftArea, 73f, 0.02f),
             "Horizontal lifting area totals the established 73.0 m2", failures);
+        Require(Near(runtimeCenterOfMass.x, 0f, 0.001f),
+            "Dry center of mass is centered laterally", failures);
+        Require(Near(neutralLiftCenterX, 0f, 0.001f),
+            "Neutral horizontal lift center is centered laterally", failures);
         Require(Near(runtimeCenterOfMass.z - neutralLiftCenterZ,
                 F117AircraftAssembler.TargetPitchStaticMargin, 0.015f),
             "Neutral horizontal lift centre is 0.28 m behind dry CG, preserving pitch authority instead of consuming it as trim",
@@ -847,12 +871,15 @@ public static class F117ContractValidator
                         structuralParent.name == "F117_Wing_" + side + "_" + section,
                     control.name + " is attached to its matching structural wing section", failures);
             }
-            Vector3 animatedAxis = visibleMesh == null
-                ? Vector3.zero
-                : visibleMesh.transform.localRotation * Vector3.right;
-            Vector3 expectedAxis = rudder ? Vector3.forward : Vector3.right;
-            Require(animatedAxis.sqrMagnitude > 0f && Vector3.Dot(animatedAxis.normalized, expectedAxis) > 0.999f,
-                control.name + " maps the game's local-X animation onto its audited source hinge axis", failures);
+            if (rudder)
+            {
+                Vector3 animatedAxis = visibleMesh == null
+                    ? Vector3.zero
+                    : visibleMesh.transform.localRotation * Vector3.right;
+                Require(animatedAxis.sqrMagnitude > 0f &&
+                        Vector3.Dot(animatedAxis.normalized, Vector3.forward) > 0.999f,
+                    control.name + " maps the game's local-X animation onto its audited source hinge axis", failures);
+            }
             float pitchRange = Float(data, "pitchRange", control.name, failures);
             float rollRange = Float(data, "rollRange", control.name, failures);
             float yawRange = Float(data, "yawRange", control.name, failures);
@@ -880,11 +907,10 @@ public static class F117ContractValidator
                         ? F117AircraftAssembler.InnerElevonLeftNeutralCorrection
                         : F117AircraftAssembler.InnerElevonRightNeutralCorrection
                     : 0f;
-                float actualServoNeutral = visibleMesh == null
-                    ? float.NaN
-                    : Mathf.DeltaAngle(0f, visibleMesh.transform.localEulerAngles.x);
-                Require(Near(actualServoNeutral, 0f, 0.01f),
-                    control.name + " keeps an unbiased native servo/aerodynamic neutral", failures);
+                Require(aerodynamicLiftNormal != null &&
+                        Vector3.Dot(aerodynamicLiftNormal.right, prefab.transform.right) > 0.99999f &&
+                        Vector3.Dot(aerodynamicLiftNormal.forward, prefab.transform.forward) > 0.99999f,
+                    control.name + " keeps an aircraft-aligned aerodynamic neutral", failures);
                 Transform correction = visibleMesh == null
                     ? null
                     : visibleMesh.transform.Find(control.name + "_MeshCorrection");
@@ -896,6 +922,49 @@ public static class F117ContractValidator
                     control.name + " keeps its measured cosmetic correction below the servo/aero pivot", failures);
             }
             Require(Near(Float(data, "maxSplit", control.name, failures), 0f, 0.001f), control.name + " has no unconfigured split mode", failures);
+        }
+
+        foreach (string section in new[] { "Inner", "Outer" })
+        {
+            Component leftControl = controls.FirstOrDefault(control =>
+                control.name == "F117_Elevon_L_" + section);
+            Component rightControl = controls.FirstOrDefault(control =>
+                control.name == "F117_Elevon_R_" + section);
+            SerializedObject leftControlData = leftControl == null ? null : new SerializedObject(leftControl);
+            SerializedObject rightControlData = rightControl == null ? null : new SerializedObject(rightControl);
+            GameObject leftVisible = leftControlData == null ? null :
+                Ref(leftControlData, "visibleMesh") as GameObject;
+            GameObject rightVisible = rightControlData == null ? null :
+                Ref(rightControlData, "visibleMesh") as GameObject;
+            Component leftPart = leftControlData == null ? null :
+                Ref(leftControlData, "attachedSurface") as Component;
+            Component rightPart = rightControlData == null ? null :
+                Ref(rightControlData, "attachedSurface") as Component;
+            SerializedObject leftPartData = leftPart == null ? null : new SerializedObject(leftPart);
+            SerializedObject rightPartData = rightPart == null ? null : new SerializedObject(rightPart);
+            Transform leftLift = leftPartData == null ? null : Ref(leftPartData, "liftNormal") as Transform;
+            Transform rightLift = rightPartData == null ? null : Ref(rightPartData, "liftNormal") as Transform;
+            Vector3 leftCenter = leftPartData == null ? Vector3.zero :
+                Property(leftPartData, "centerOfLift", leftPart.name, failures)?.vector3Value ?? Vector3.zero;
+            Vector3 rightCenter = rightPartData == null ? Vector3.zero :
+                Property(rightPartData, "centerOfLift", rightPart.name, failures)?.vector3Value ?? Vector3.zero;
+            Vector3 leftAxis = leftVisible == null ? Vector3.zero :
+                prefab.transform.InverseTransformDirection(leftVisible.transform.right).normalized;
+            Vector3 rightAxis = rightVisible == null ? Vector3.zero :
+                prefab.transform.InverseTransformDirection(rightVisible.transform.right).normalized;
+            Vector3 rightAxisMirroredToLeft = new Vector3(rightAxis.x, -rightAxis.y, -rightAxis.z);
+            Require(leftAxis.sqrMagnitude > 0.99f && rightAxis.sqrMagnitude > 0.99f &&
+                    (leftAxis - rightAxisMirroredToLeft).sqrMagnitude <= 0.00000001f,
+                section + " elevons use exactly mirrored driven hinge axes", failures);
+            Vector3 leftPoint = leftLift == null ? Vector3.zero :
+                prefab.transform.InverseTransformPoint(leftLift.TransformPoint(leftCenter));
+            Vector3 rightPoint = rightLift == null ? Vector3.zero :
+                prefab.transform.InverseTransformPoint(rightLift.TransformPoint(rightCenter));
+            Require(leftLift != null && rightLift != null &&
+                    Near(leftPoint.x, -rightPoint.x, 0.0001f) &&
+                    Near(leftPoint.y, rightPoint.y, 0.0001f) &&
+                    Near(leftPoint.z, rightPoint.z, 0.0001f),
+                section + " elevons use exactly mirrored aerodynamic force points", failures);
         }
 
         Collider[] controlHitboxes = controls
@@ -1092,6 +1161,7 @@ public static class F117ContractValidator
                 RequireRef(data, field, gear.name, failures);
             RequireArray(data, "wheels", 1, gear.name, failures);
             ParticleSystem dust = Ref(data, "dust") as ParticleSystem;
+            AudioSource rollingSource = Ref(data, "tireNoiseSound") as AudioSource;
             AudioSource skidSource = Ref(data, "tireSkidSound") as AudioSource;
             ParticleSystemRenderer dustRenderer = dust == null ? null : dust.GetComponent<ParticleSystemRenderer>();
             Require(dust != null && !dust.emission.enabled && dust.main.maxParticles == 0,
@@ -1100,6 +1170,25 @@ public static class F117ContractValidator
                 gear.name + " dust renderer serializes disabled for the runtime safety lock", failures);
             Require(skidSource != null && skidSource.mute,
                 gear.name + " suppresses the custom-rig false-positive skid squeal", failures);
+            foreach (AudioSource source in new[] { rollingSource, skidSource })
+            {
+                Require(source != null && Near(source.dopplerLevel, 0f, 0.001f) &&
+                        Near(source.minDistance, 20f, 0.001f) && Near(source.maxDistance, 200f, 0.001f) &&
+                        source.rolloffMode == AudioRolloffMode.Custom,
+                    gear.name + " tire sources use the stock aircraft spatial-audio profile", failures);
+                AnimationCurve rolloff = source == null
+                    ? null
+                    : source.GetCustomCurve(AudioSourceCurveType.CustomRolloff);
+                Require(rolloff != null && rolloff.length == 5 &&
+                        Near(rolloff.keys[0].time, 0f, 0.001f) && Near(rolloff.keys[0].value, 1.00618f, 0.001f) &&
+                        Near(rolloff.keys[1].time, 0.2f, 0.001f) && Near(rolloff.keys[1].value, 0.5f, 0.001f) &&
+                        Near(rolloff.keys[2].time, 0.4f, 0.001f) && Near(rolloff.keys[2].value, 0.25f, 0.001f) &&
+                        Near(rolloff.keys[3].time, 0.8f, 0.001f) && Near(rolloff.keys[3].value, 0.125f, 0.001f) &&
+                        Near(rolloff.keys[4].time, 1f, 0.001f) && Near(rolloff.keys[4].value, 0f, 0.001f),
+                    gear.name + " tire sources preserve the stock distance rolloff curve", failures);
+            }
+            Require(Ref(data, "foldSound") == null && Ref(data, "latchSound") == null,
+                gear.name + " keeps native gear-motion clips as runtime-patched placeholders", failures);
             Renderer[] gearRenderers = gear.GetComponentsInChildren<Renderer>(true)
                 .Where(renderer => renderer is MeshRenderer || renderer is SkinnedMeshRenderer)
                 .ToArray();
@@ -1777,6 +1866,27 @@ public static class F117ContractValidator
         foreach (string asset in new[] { "IRFlare", "flare1", "weaponicon_flares", "weaponicon_radarJammer" })
             Require(manifestJson.Contains("\"locator\": \"" + asset + "\""),
                 "Manifest patches countermeasure asset " + asset, failures);
+        Require(manifestJson.Contains("\"locator\": \"gearfold\"") &&
+                LiteralCount(manifestJson, "\"memberPath\": \"foldSound\"") == 3,
+            "Manifest patches the native gear-fold clip onto all three landing gears", failures);
+        Require(manifestJson.Contains("\"locator\": \"latch1\"") &&
+                LiteralCount(manifestJson, "\"memberPath\": \"latchSound\"") == 3,
+            "Manifest patches the native gear-latch clip onto all three landing gears", failures);
+        foreach (string side in new[] { "Nose", "Left", "Right" })
+        {
+            string wheelPath = "F117_CentralBody/F117_Gear_" + side + "_Hinge_Axis/F117_Gear_" + side +
+                               "_Hinge/F117_Gear_" + side + "_Sprung/F117_Gear_" + side +
+                               "_Unsprung/Axle/WheelProxy/UnityEngine.AudioSource, UnityEngine.AudioModule#";
+            Require(manifestJson.Contains(wheelPath + "0") && manifestJson.Contains(wheelPath + "1"),
+                "Manifest routes both " + side.ToLowerInvariant() +
+                " tire sources through the native Effects mixer", failures);
+        }
+        Require(manifestJson.Contains("\"locator\": \"hudIcon_aircraft\"") &&
+                manifestJson.Contains("\"memberPath\": \"friendlyIcon\"") &&
+                manifestJson.Contains("\"memberPath\": \"hostileIcon\"") &&
+                !manifestJson.Contains("\"memberPath\": \"mapIcon\""),
+            "Friendly and hostile HUD markers use the native aircraft icon while the map keeps the F-117 silhouette",
+            failures);
         Require(manifestJson.Contains("\"name\": \"Shader Graphs/AircraftSkin\"") &&
                 damageSkinMaterials.All(material => manifestJson.Contains(material.name + "/shader")),
             "Manifest resolves every F-117 damage skin material to the native AircraftSkin shader", failures);
@@ -1813,7 +1923,8 @@ public static class F117ContractValidator
             " full-size physical displays (upright center camera/radar; 90-degree-corrected left flight and right engine instruments); " +
             "root-aligned viewpoint at Y=1.39 m on the seat line");
         notes.Add("Canopy: upward 40 degree ejection opening");
-        notes.Add("Landing gear: aircraft-forward tire-physics frames, stock-sized 0.60 m ground probes on all three legs, full probe travel before BreakWheel, false-positive skid audio muted");
+        notes.Add("HUD markers: native hudIcon_aircraft for friendly and hostile contacts; custom F-117 silhouette retained for the map and damage display");
+        notes.Add("Landing gear: aircraft-forward tire-physics frames, stock-sized 0.60 m ground probes on all three legs, full probe travel before BreakWheel, stock spatial/mixer tire audio, native fold/latch sounds, false-positive skid audio muted");
         notes.Add("Rear controls: model-measured elevon area, 15 pitch + 7.5 roll travel; both rudders use coordinated -18 yaw on local-Z visual hinges");
         notes.Add("Pitch balance: neutral horizontal lift centre is " +
             (runtimeCenterOfMass.z - neutralLiftCenterZ).ToString("0.00") +
@@ -2302,7 +2413,7 @@ public static class F117ContractValidator
         return property == null ? null : property.objectReferenceValue;
     }
 
-    private static int RegexCount(string value, string needle)
+    private static int LiteralCount(string value, string needle)
     {
         int count = 0;
         for (int index = 0; (index = value.IndexOf(needle, index, StringComparison.Ordinal)) >= 0; index += needle.Length)

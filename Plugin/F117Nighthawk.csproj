@@ -6,7 +6,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>F117Nighthawk</AssemblyName>
     <RootNamespace>Blacknight2u.F117Nighthawk</RootNamespace>
-    <Version>0.4.91</Version>
+    <Version>0.4.92</Version>
     <Authors>blacknight2u</Authors>
     <Description>Runtime flight-system support for the F-117A Nighthawk aircraft mod.</Description>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -83,5 +83,8 @@
   <ItemGroup>
     <EmbeddedResource Include="..\UnityAuthoring\Assets\F117\UI\F117_Damage.png"
                       LogicalName="Blacknight2u.F117Nighthawk.F117_Damage.png" />
+    <EmbeddedResource Include="..\UnityAuthoring\Assets\F117\UI\DamageSections\*.png">
+      <LogicalName>Blacknight2u.F117Nighthawk.DamageSections.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

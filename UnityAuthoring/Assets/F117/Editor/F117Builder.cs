@@ -71,7 +71,7 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.4.91";
+    private const string Version = "0.4.92";
     private const string FixedJammerAsset = "JammingPod1";
 
     private sealed class WeaponLoadoutSpec
@@ -150,6 +150,7 @@ public static class F117Builder
         GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath);
         F117AircraftAssembler.Result assembled = F117AircraftAssembler.Assemble(
             source, model, MaterialsRoot, runtimeUiFallback);
+        F117DamageAvatarGenerator.Generate(assembled.Instance);
         GameObject prefab = PrefabUtility.SaveAsPrefabAsset(assembled.Instance, PrefabPath);
         UnityEngine.Object.DestroyImmediate(assembled.Instance);
         if (prefab == null)
@@ -514,7 +515,7 @@ public static class F117Builder
         Set(data, "mapOrient", true);
         Set(data, "IsObstacle", true);
         Set(data, "iconSize", 1f);
-        Set(data, "mapIconSize", 1.15f);
+        Set(data, "mapIconSize", 1.30f);
         Set(data, "captureCapacity", 0);
         Set(data, "captureStrength", 0f);
         Set(data, "captureDefense", 0f);
@@ -619,8 +620,10 @@ public static class F117Builder
         }
 
         AddAuditedReferencePatches(output, source);
+        AddHudIconAssetPatches(output, source);
         AddAircraftSkinShaderPatches(output, source);
         AddCountermeasureAssetPatches(output, source);
+        AddLandingGearAudioAssetPatches(output, source);
 
         AddEngineAssetPatch(output, source, "revoker_turbine", "UnityEngine.AudioClip, UnityEngine.AudioModule",
             "UnityEngine.AudioSource, UnityEngine.AudioModule", 0, "clip");
@@ -724,6 +727,47 @@ public static class F117Builder
             AircraftLocation(string.Empty, "ChaffEjector, Assembly-CSharp", 0, "displayImage"));
     }
 
+    private static void AddLandingGearAudioAssetPatches(PatchManifest output, PatchManifest source)
+    {
+        string[] sides = { "Nose", "Left", "Right" };
+        LocationRef[] gears = sides.Select(side => AircraftLocation(
+            LandingGearPath(side), "LandingGear, Assembly-CSharp", 0, "foldSound")).ToArray();
+        AddReferenceAssetPatch(output, source, "gearfold", "UnityEngine.AudioClip, UnityEngine.AudioModule", gears);
+
+        gears = sides.Select(side => AircraftLocation(
+            LandingGearPath(side), "LandingGear, Assembly-CSharp", 0, "latchSound")).ToArray();
+        AddReferenceAssetPatch(output, source, "latch1", "UnityEngine.AudioClip, UnityEngine.AudioModule", gears);
+
+        LocationRef[] wheelMixers = sides.SelectMany(side => new[]
+        {
+            AircraftLocation(WheelProxyPath(side), "UnityEngine.AudioSource, UnityEngine.AudioModule", 0,
+                "outputAudioMixerGroup::Effects_General"),
+            AircraftLocation(WheelProxyPath(side), "UnityEngine.AudioSource, UnityEngine.AudioModule", 1,
+                "outputAudioMixerGroup::Effects_General")
+        }).ToArray();
+        AppendReferenceAssetPatch(output, source, "MasterAudioMixer",
+            "UnityEngine.Audio.AudioMixer, UnityEngine.AudioModule", wheelMixers);
+    }
+
+    private static string LandingGearPath(string side)
+    {
+        return "F117_CentralBody/F117_Gear_" + side + "_Hinge_Axis/F117_Gear_" + side +
+               "_Hinge/F117_Gear_" + side + "_Sprung";
+    }
+
+    private static string WheelProxyPath(string side)
+    {
+        return LandingGearPath(side) + "/F117_Gear_" + side + "_Unsprung/Axle/WheelProxy";
+    }
+
+    private static void AddHudIconAssetPatches(PatchManifest output, PatchManifest source)
+    {
+        AddReferenceAssetPatch(output, source, "hudIcon_aircraft",
+            "UnityEngine.Sprite, UnityEngine.CoreModule",
+            DefinitionLocation("friendlyIcon"),
+            DefinitionLocation("hostileIcon"));
+    }
+
     private static void AddAircraftSkinShaderPatches(PatchManifest output, PatchManifest source)
     {
         LocationRef[] locations = FindAircraftSkinMaterialPaths()
@@ -779,6 +823,30 @@ public static class F117Builder
             GameAsset = sourcePatch.GameAsset,
             PatchLocations = locations.ToList()
         });
+    }
+
+    private static void AppendReferenceAssetPatch(PatchManifest output, PatchManifest source, string gameAssetName,
+        string gameAssetType, params LocationRef[] locations)
+    {
+        AssetPatch sourcePatch = (source.Patches ?? new List<AssetPatch>())
+            .FirstOrDefault(patch => patch.GameAsset?.asset?.name == gameAssetName &&
+                patch.GameAsset.asset.type == gameAssetType);
+        if (sourcePatch == null)
+            throw new InvalidOperationException("Reference manifest is missing audited asset '" + gameAssetName +
+                "' with exact type '" + gameAssetType + "'.");
+        foreach (LocationRef location in locations)
+            if (!ReferenceLocationExists(location))
+                throw new InvalidOperationException("Audited patch location no longer exists: " +
+                    location.hierarchyPath + " " + location.componentType + " " + location.memberPath);
+
+        AssetPatch target = output.Patches.FirstOrDefault(patch => patch.GameAsset?.asset?.name == gameAssetName &&
+            patch.GameAsset.asset.type == gameAssetType);
+        if (target == null)
+        {
+            target = new AssetPatch { GameAsset = sourcePatch.GameAsset, PatchLocations = new List<LocationRef>() };
+            output.Patches.Add(target);
+        }
+        target.PatchLocations.AddRange(locations);
     }
 
     private static LocationRef AircraftLocation(string hierarchyPath, string componentType, int componentIndex, string memberPath)
@@ -937,6 +1005,20 @@ public static class F117Builder
         {
             id = "F117A_Nighthawk_Parameters",
             asset = BundleAsset(ParametersPath, "F117A_Nighthawk_Parameters", "AircraftParameters, Assembly-CSharp"),
+            hierarchyPath = string.Empty,
+            componentType = string.Empty,
+            componentIndex = 0,
+            memberPath = memberPath
+        };
+    }
+
+    private static LocationRef DefinitionLocation(string memberPath)
+    {
+        return new LocationRef
+        {
+            id = "F117A_Nighthawk_Definition",
+            asset = BundleAsset(DefinitionPath, "F117A_Nighthawk_Definition",
+                "AircraftDefinition, Assembly-CSharp"),
             hierarchyPath = string.Empty,
             componentType = string.Empty,
             componentIndex = 0,

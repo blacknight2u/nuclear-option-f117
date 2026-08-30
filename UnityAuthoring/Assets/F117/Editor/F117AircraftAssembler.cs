@@ -145,6 +145,59 @@ internal static class F117AircraftAssembler
         internal Component CentralPart;
     }
 
+    private sealed class TireAudioProfile
+    {
+        internal bool BypassEffects;
+        internal bool BypassListenerEffects;
+        internal bool BypassReverbZones;
+        internal int Priority;
+        internal float DopplerLevel;
+        internal float MinDistance;
+        internal float MaxDistance;
+        internal AudioRolloffMode RolloffMode;
+        internal AnimationCurve CustomRolloff;
+
+        internal static TireAudioProfile Capture(GameObject donor)
+        {
+            Component donorGear = donor.GetComponentsInChildren<Component>(true)
+                .FirstOrDefault(component => component != null && component.GetType().Name == "LandingGear");
+            SerializedProperty sourceProperty = donorGear == null
+                ? null
+                : new SerializedObject(donorGear).FindProperty("tireNoiseSound");
+            AudioSource source = sourceProperty?.objectReferenceValue as AudioSource;
+            if (source == null)
+                throw new InvalidOperationException("The Blueprinter reference aircraft has no stock tire audio profile.");
+
+            AnimationCurve customRolloff = source.GetCustomCurve(AudioSourceCurveType.CustomRolloff);
+            return new TireAudioProfile
+            {
+                BypassEffects = source.bypassEffects,
+                BypassListenerEffects = source.bypassListenerEffects,
+                BypassReverbZones = source.bypassReverbZones,
+                Priority = source.priority,
+                DopplerLevel = source.dopplerLevel,
+                MinDistance = source.minDistance,
+                MaxDistance = source.maxDistance,
+                RolloffMode = source.rolloffMode,
+                CustomRolloff = customRolloff == null ? null : new AnimationCurve(customRolloff.keys)
+            };
+        }
+
+        internal void Apply(AudioSource source)
+        {
+            source.bypassEffects = BypassEffects;
+            source.bypassListenerEffects = BypassListenerEffects;
+            source.bypassReverbZones = BypassReverbZones;
+            source.priority = Priority;
+            source.dopplerLevel = DopplerLevel;
+            source.minDistance = MinDistance;
+            source.maxDistance = MaxDistance;
+            source.rolloffMode = RolloffMode;
+            if (RolloffMode == AudioRolloffMode.Custom && CustomRolloff != null)
+                source.SetCustomCurve(AudioSourceCurveType.CustomRolloff, new AnimationCurve(CustomRolloff.keys));
+        }
+    }
+
     internal static Result Assemble(GameObject sourcePrefab, GameObject modelPrefab, string materialsRoot,
         GameObject runtimeUiFallback)
     {
@@ -157,6 +210,7 @@ internal static class F117AircraftAssembler
         Rigidbody rigidbody = instance.GetComponent<Rigidbody>();
         if (aircraft == null || weaponManager == null || rigidbody == null)
             throw new InvalidOperationException("The Blueprinter reference aircraft is missing required runtime components.");
+        TireAudioProfile tireAudioProfile = TireAudioProfile.Capture(instance);
 
         StripReferenceArtwork(instance);
         RepairCrewMaterials(instance, materialsRoot);
@@ -175,7 +229,7 @@ internal static class F117AircraftAssembler
         Material gearDustMaterial = CreateGearDustMaterial(materialsRoot);
         Material damageSeamCapMaterial = CreateDamageSeamCapMaterial(materialsRoot);
         Component centralPart = ConfigurePhysics(instance, visual, aircraft, rigidbody, gearDustMaterial,
-            damageSeamCapMaterial);
+            damageSeamCapMaterial, tireAudioProfile);
         ConfigureRuntimeSystems(instance, visual, aircraft, centralPart);
         ConfigureCrewAndSensors(instance, visual, aircraft, centralPart, runtimeUiFallback, cockpitScreenRenderer);
         ConfigureCanopy(instance, visual, aircraft, centralPart);
@@ -941,6 +995,9 @@ internal static class F117AircraftAssembler
         if (mask != null)
         {
             bool tireRubber = string.Equals(materialName, "F117_Tires", StringComparison.OrdinalIgnoreCase);
+            bool nonMetallicCockpit = materialName.StartsWith("F117_int_", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(materialName, "INT_CockpitFrame", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(materialName, "LIGHTS", StringComparison.OrdinalIgnoreCase);
             if (tireRubber)
             {
                 if (target.HasProperty("_MetallicGlossMap"))
@@ -956,8 +1013,12 @@ internal static class F117AircraftAssembler
             else if (target.HasProperty("_MetallicGlossMap"))
             {
                 target.SetTexture("_MetallicGlossMap", mask);
-                target.SetFloat("_Metallic", 1f);
-                target.SetFloat("_Smoothness", 1f);
+                // Packed cockpit maps provide detail, but the authored FBX materials are
+                // non-metallic with 0.5 roughness. Treating their mask like exterior chrome
+                // made the tub and canopy frame react sharply to every lighting/reflection
+                // change instead of retaining the source matte finish.
+                target.SetFloat("_Metallic", nonMetallicCockpit ? 0f : 1f);
+                target.SetFloat("_Smoothness", nonMetallicCockpit ? 0.5f : 1f);
                 target.SetFloat("_SmoothnessTextureChannel", 0f);
                 EnableLocalKeyword(target, "_METALLICSPECGLOSSMAP");
             }
@@ -1280,7 +1341,7 @@ internal static class F117AircraftAssembler
         return string.IsNullOrEmpty(result) ? "Material" : result;
     }
     private static Component ConfigurePhysics(GameObject root, GameObject visual, Component aircraft, Rigidbody rigidbody,
-        Material gearDustMaterial, Material damageSeamCapMaterial)
+        Material gearDustMaterial, Material damageSeamCapMaterial, TireAudioProfile tireAudioProfile)
     {
         // Working Blueprinter aircraft author one root AeroPart and allow Aircraft.SetComplexPhysics
         // to split its connected child-part graph into rigidbodies. The prefab Rigidbody is only a
@@ -1375,23 +1436,32 @@ internal static class F117AircraftAssembler
             leftWingRoot, leftWingInner, leftWingOuter,
             rightWingRoot, rightWingInner, rightWingOuter, damageSeamCapMaterial);
 
+        // The imported left/right hinge frames differ slightly because they were authored as
+        // independent model parts. Average all four measured axes into one canonical swept
+        // hinge and mirror it exactly. Otherwise equal pitch commands create a small uncancelled
+        // lateral/rolling force, first noticeable during rotation and again in hard pitch pulls.
+        Vector3[] elevonHingeAxes = CalculateMirroredElevonHingeAxes(visual);
+
         // The source animation's smaller neutral-to-stop travel is +22.5323 degrees.
         // ControlSurface adds pitch and roll without a final combined clamp, so keep
         // their absolute sum at that geometric limit instead of allowing 33-40 degrees.
         AddControlSurface(visual, "F117_Elevon_L_Inner", 40f, InnerElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWingInner, false,
-            InnerElevonLeftNeutralCorrection);
+            InnerElevonLeftNeutralCorrection, elevonHingeAxes[0]);
         AddControlSurface(visual, "F117_Elevon_R_Inner", 40f, InnerElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWingInner, false,
-            InnerElevonRightNeutralCorrection);
-        AddControlSurface(visual, "F117_Elevon_L_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWingOuter, false, 0f);
-        AddControlSurface(visual, "F117_Elevon_R_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWingOuter, false, 0f);
+            InnerElevonRightNeutralCorrection, elevonHingeAxes[1]);
+        AddControlSurface(visual, "F117_Elevon_L_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWingOuter, false, 0f,
+            elevonHingeAxes[0]);
+        AddControlSurface(visual, "F117_Elevon_R_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWingOuter, false, 0f,
+            elevonHingeAxes[1]);
+        SymmetrizeElevonForcePoints(visual);
         // Both source rudder drivers use the same signed local-Z hinge axis, so their
         // ranges must keep the same sign. Runtime telemetry also proves the global sign:
         // positive yaw rate makes ControlsFilter request negative yaw, and negative
         // travel must produce the opposing tail moment instead of reinforcing the rate.
         AddControlSurface(visual, "F117_Rudder_L", 25f, FullVerticalTailArea, 0f, 0f, RudderYawTravel,
-            aircraft, rigidbody, rear, true, 0f);
+            aircraft, rigidbody, rear, true, 0f, null);
         AddControlSurface(visual, "F117_Rudder_R", 25f, FullVerticalTailArea, 0f, 0f, RudderYawTravel,
-            aircraft, rigidbody, rear, true, 0f);
+            aircraft, rigidbody, rear, true, 0f, null);
 
         // The engines occupy the rear-body collision volume. They must be physical
         // children of that body so each native FixedJoint has enableCollision=false
@@ -1399,7 +1469,7 @@ internal static class F117AircraftAssembler
         // both engine proxy colliders strike RearCollider during complex-physics startup,
         // which breaks the rear-body joint and drops the complete tail/rudder assembly.
         ConfigureEngines(rear.transform, visual, aircraft, rigidbody, rear);
-        ConfigureLandingGear(visual, aircraft, central, gearDustMaterial);
+        ConfigureLandingGear(visual, aircraft, central, gearDustMaterial, tireAudioProfile);
         float dryCenterOfMassZ = BalanceDryCenterOfMass(visual, central);
         BalancePitchStaticMargin(visual, dryCenterOfMassZ, fixedLiftParts);
         // Native bullets and explosions use collider.gameObject.GetComponent<IDamageable>();
@@ -2427,9 +2497,65 @@ internal static class F117AircraftAssembler
         data.ApplyModifiedPropertiesWithoutUndo();
     }
 
+    private static Vector3[] CalculateMirroredElevonHingeAxes(GameObject visual)
+    {
+        string[] leftNames = { "F117_Elevon_L_Inner", "F117_Elevon_L_Outer" };
+        string[] rightNames = { "F117_Elevon_R_Inner", "F117_Elevon_R_Outer" };
+        Vector3 sum = Vector3.zero;
+        foreach (string name in leftNames)
+        {
+            Transform source = FindDeep(visual.transform, name);
+            if (source == null)
+                throw new InvalidOperationException("Missing production control surface " + name + ".");
+            sum += visual.transform.InverseTransformDirection(source.right).normalized;
+        }
+        foreach (string name in rightNames)
+        {
+            Transform source = FindDeep(visual.transform, name);
+            if (source == null)
+                throw new InvalidOperationException("Missing production control surface " + name + ".");
+            Vector3 axis = visual.transform.InverseTransformDirection(source.right).normalized;
+            sum += new Vector3(axis.x, -axis.y, -axis.z);
+        }
+        Vector3 left = sum.normalized;
+        if (left.sqrMagnitude < 0.99f)
+            throw new InvalidOperationException("Cannot derive the F-117 canonical elevon hinge axis.");
+        Vector3 right = new Vector3(left.x, -left.y, -left.z);
+        return new[] { left, right };
+    }
+
+    private static void SymmetrizeElevonForcePoints(GameObject visual)
+    {
+        foreach (string section in new[] { "Inner", "Outer" })
+        {
+            Component left = FindDeep(visual.transform, "F117_Elevon_L_" + section)?.GetComponent("AeroPart");
+            Component right = FindDeep(visual.transform, "F117_Elevon_R_" + section)?.GetComponent("AeroPart");
+            if (left == null || right == null)
+                throw new InvalidOperationException("Cannot symmetrize the F-117 " + section + " elevon force points.");
+
+            SerializedObject leftData = new SerializedObject(left);
+            SerializedObject rightData = new SerializedObject(right);
+            Transform leftLift = leftData.FindProperty("liftNormal").objectReferenceValue as Transform;
+            Transform rightLift = rightData.FindProperty("liftNormal").objectReferenceValue as Transform;
+            Vector3 leftCenter = leftData.FindProperty("centerOfLift").vector3Value;
+            Vector3 rightCenter = rightData.FindProperty("centerOfLift").vector3Value;
+            Vector3 leftPoint = visual.transform.InverseTransformPoint(leftLift.TransformPoint(leftCenter));
+            Vector3 rightPoint = visual.transform.InverseTransformPoint(rightLift.TransformPoint(rightCenter));
+            float halfSpan = (Mathf.Abs(leftPoint.x) + Mathf.Abs(rightPoint.x)) * 0.5f;
+            float height = (leftPoint.y + rightPoint.y) * 0.5f;
+            float longitudinal = (leftPoint.z + rightPoint.z) * 0.5f;
+            Vector3 leftTarget = visual.transform.TransformPoint(new Vector3(-halfSpan, height, longitudinal));
+            Vector3 rightTarget = visual.transform.TransformPoint(new Vector3(halfSpan, height, longitudinal));
+            leftData.FindProperty("centerOfLift").vector3Value = leftLift.InverseTransformPoint(leftTarget);
+            rightData.FindProperty("centerOfLift").vector3Value = rightLift.InverseTransformPoint(rightTarget);
+            leftData.ApplyModifiedPropertiesWithoutUndo();
+            rightData.ApplyModifiedPropertiesWithoutUndo();
+        }
+    }
+
     private static void AddControlSurface(GameObject visual, string name, float mass, float area,
         float pitch, float roll, float yaw, Component aircraft, Rigidbody rigidbody,
-        Component connectedPart, bool vertical, float neutralCorrection)
+        Component connectedPart, bool vertical, float neutralCorrection, Vector3? hingeAxisAircraft)
     {
         Transform transform = FindDeep(visual.transform, name);
         if (transform == null)
@@ -2452,6 +2578,21 @@ internal static class F117AircraftAssembler
         // X maps exactly onto the model's Z hinge, then preserve the mesh world pose.
         if (vertical)
             visualPivot.localRotation = Quaternion.FromToRotation(Vector3.right, Vector3.forward);
+        else if (hingeAxisAircraft.HasValue)
+        {
+            Vector3 desiredWorldAxis = visual.transform.TransformDirection(hingeAxisAircraft.Value).normalized;
+            // Quaternion.FromToRotation intentionally snaps extremely small rotations to
+            // identity. The imported outer-right hinge differs by only hundredths of a
+            // degree, which is small enough to be snapped but large enough to leave a
+            // speed-amplified asymmetric pitch moment. Construct the orthonormal frame
+            // directly so the driven local-X axis is the canonical mirrored axis exactly.
+            Vector3 preservedUp = Vector3.ProjectOnPlane(visualPivot.up, desiredWorldAxis).normalized;
+            if (preservedUp.sqrMagnitude < 0.99f)
+                preservedUp = Vector3.ProjectOnPlane(visual.transform.up, desiredWorldAxis).normalized;
+            Vector3 forward = Vector3.Cross(desiredWorldAxis, preservedUp).normalized;
+            preservedUp = Vector3.Cross(forward, desiredWorldAxis).normalized;
+            visualPivot.rotation = Quaternion.LookRotation(forward, preservedUp);
+        }
         Transform renderHost = visualPivot;
         if (!vertical && Mathf.Abs(neutralCorrection) > 0.001f)
             renderHost = Child(visualPivot, name + "_MeshCorrection", Vector3.zero).transform;
@@ -2733,7 +2874,7 @@ internal static class F117AircraftAssembler
         }
     }
     private static void ConfigureLandingGear(GameObject visual, Component aircraft, Component attachedPart,
-        Material gearDustMaterial)
+        Material gearDustMaterial, TireAudioProfile tireAudioProfile)
     {
         ConfigureGear("Nose", "F117_Gear_Nose", "LOC_Gear_Nose_Stowed", "LOC_Gear_Nose_Contact",
             0.293f, 100f, true, false, new[] { new DoorSpec("F117_GearDoor_Nose", "LOC_GearDoor_Nose_Closed") });
@@ -2887,11 +3028,8 @@ internal static class F117AircraftAssembler
             source.playOnAwake = false;
             source.loop = true;
             source.spatialBlend = 1f;
-            source.dopplerLevel = 0.35f;
-            source.rolloffMode = AudioRolloffMode.Logarithmic;
-            source.minDistance = 3f;
-            source.maxDistance = 180f;
             source.volume = 0f;
+            tireAudioProfile.Apply(source);
             return source;
         }
     }

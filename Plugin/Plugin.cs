@@ -20,7 +20,7 @@ namespace Blacknight2u.F117Nighthawk
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.4.91";
+        public const string PluginVersion = "0.4.92";
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
         internal const string LightweightAgmMountKey = "AGM1_quad_internal";
@@ -100,6 +100,7 @@ namespace Blacknight2u.F117Nighthawk
             Log = Logger;
             harmony = new Harmony(PluginGuid);
             harmony.PatchAll(typeof(Plugin).Assembly);
+            StartCoroutine(RegisterUnlockedStockMountsWhenReady());
             Logger.LogInfo(PluginName + " " + PluginVersion + " runtime systems loaded.");
         }
 
@@ -414,6 +415,81 @@ namespace Blacknight2u.F117Nighthawk
         internal static bool IsF117UnlockedStockMount(WeaponMount mount)
         {
             return MountMatches(mount, Cbo400MountKey, Arad45MountKey);
+        }
+
+        private IEnumerator RegisterUnlockedStockMountsWhenReady()
+        {
+            WaitForSecondsRealtime retryDelay = new WaitForSecondsRealtime(0.25f);
+            for (int attempt = 0; attempt < 240; attempt++)
+            {
+                if (TryRegisterUnlockedStockMounts())
+                    yield break;
+                yield return retryDelay;
+            }
+
+            Log.LogError("F-117 could not register its stock-disabled weapon mounts within " +
+                "60 seconds. ARAD-45 loadouts cannot be serialized safely.");
+        }
+
+        private static bool TryRegisterUnlockedStockMounts()
+        {
+            if (Encyclopedia.Lookup == null ||
+                !Encyclopedia.Lookup.TryGetValue(AircraftKey, out UnitDefinition definition) ||
+                definition == null || definition.unitPrefab == null)
+                return false;
+
+            Aircraft aircraftPrefab = definition.unitPrefab.GetComponent<Aircraft>();
+            WeaponManager manager = aircraftPrefab == null ? null : aircraftPrefab.weaponManager;
+            if (manager == null || manager.hardpointSets == null)
+                return false;
+
+            WeaponMount[] mounts = manager.hardpointSets
+                .Where(set => set != null && set.weaponOptions != null)
+                .SelectMany(set => set.weaponOptions)
+                .Where(IsF117UnlockedStockMount)
+                .Distinct()
+                .OrderBy(mount => mount.jsonKey ?? mount.name, StringComparer.Ordinal)
+                .ToArray();
+            if (!mounts.Any(mount => MountMatches(mount, Arad45MountKey)))
+                return false;
+
+            Encyclopedia encyclopedia = Encyclopedia.i;
+            if (encyclopedia == null || encyclopedia.weaponMounts == null ||
+                encyclopedia.IndexLookup == null || Encyclopedia.WeaponLookup == null)
+                return false;
+
+            foreach (WeaponMount mount in mounts)
+            {
+                if (!encyclopedia.weaponMounts.Contains(mount))
+                {
+                    mount.Initialize();
+                    encyclopedia.weaponMounts.Add(mount);
+                }
+
+                string key = mount.jsonKey;
+                if (!string.IsNullOrEmpty(key))
+                {
+                    if (Encyclopedia.WeaponLookup.TryGetValue(key, out WeaponMount existing) &&
+                        existing != mount)
+                    {
+                        Log.LogError("F-117 cannot register stock weapon mount '" + key +
+                            "' because another mount already owns that key.");
+                        return false;
+                    }
+                    Encyclopedia.WeaponLookup[key] = mount;
+                }
+
+                int index = encyclopedia.IndexLookup.IndexOf(mount);
+                if (index < 0)
+                {
+                    index = encyclopedia.IndexLookup.Count;
+                    encyclopedia.IndexLookup.Add(mount);
+                }
+                ((INetworkDefinition)mount).LookupIndex = index;
+                Log.LogInfo("F-117 registered stock-disabled weapon mount '" +
+                    (key ?? mount.name) + "' at network definition index " + index + ".");
+            }
+            return true;
         }
 
         internal static bool IsF117InternalWeaponSet(HardpointSet set)
@@ -932,10 +1008,12 @@ namespace Blacknight2u.F117Nighthawk
                 }
                 else if (entry.Kind == ProfileKind.CockpitFrame)
                 {
-                    // The frame keeps its black albedo, UV layout, multipliers, and
-                    // keyword state. Only its URP packed finish texture changes.
-                    material.SetTexture("_MetallicGlossMap",
-                        paradeFlag ? mirrorFinish : entry.MatteFinish);
+                    // The canopy frame is cockpit structure, not livery-painted skin.
+                    // Preserve the source non-metallic, medium-rough black finish for
+                    // every livery so exterior chrome profiles cannot make it shimmer.
+                    material.SetTexture("_MetallicGlossMap", entry.MatteFinish);
+                    material.SetFloat("_Metallic", 0f);
+                    material.SetFloat("_Smoothness", 0.5f);
                     frameCount++;
                 }
             }
@@ -1016,7 +1094,7 @@ namespace Blacknight2u.F117Nighthawk
                 }
                 else if (entry.Kind == ProfileKind.CockpitFrame)
                 {
-                    expectedFinish = paradeFlag ? Plugin.MirrorMetallicTexture : entry.MatteFinish;
+                    expectedFinish = entry.MatteFinish;
                 }
                 else
                 {
@@ -1840,6 +1918,9 @@ namespace Blacknight2u.F117Nighthawk
         private bool wasAirborne;
         private bool landingRollArmed;
         private bool previousMainGearContact;
+        private bool noseGearBroken;
+        private int brokenMainGearCount;
+        private bool brokenGearTouchdown;
         private bool cockpitDisplayBound;
         private Coroutine initialCameraRefresh;
         private float openAmount;
@@ -1889,6 +1970,8 @@ namespace Blacknight2u.F117Nighthawk
                 chuteFullScale = chute.localScale;
                 chute.gameObject.SetActive(false);
                 previousMainGearContact = MainGearCarryWeight();
+                foreach (LandingGear gear in landingGears)
+                    gear.onGearBreak += OnLandingGearBreak;
             }
             else
             {
@@ -1990,10 +2073,12 @@ namespace Blacknight2u.F117Nighthawk
             float speed = body.velocity.magnitude;
             bool gearLocked = aircraft.gearState == LandingGear.GearState.LockedExtended;
             bool mainGearOnGround = MainGearCarryWeight();
-            bool noseOnGround = noseGear.WeightOnWheel(WheelLoadThreshold);
-            bool allGearOnGround = mainGearOnGround && noseOnGround;
+            bool noseOnGround = noseGear != null && noseGear.WeightOnWheel(WheelLoadThreshold);
             bool requested = inputs != null && inputs.brake >= 0.65f;
-            bool noGearWeight = !mainGearOnGround && !noseOnGround;
+            // Broken wheels no longer expose suspension compression. Once their native break event
+            // has confirmed this touchdown, do not reinterpret the missing components as a new
+            // airborne interval and cancel the landing roll 0.75 seconds later.
+            bool noGearWeight = !mainGearOnGround && !noseOnGround && !brokenGearTouchdown;
             if (noGearWeight && speed >= MinimumLandingTouchdownSpeed)
                 airborneEvidenceTime += Time.deltaTime;
             else
@@ -2004,6 +2089,7 @@ namespace Blacknight2u.F117Nighthawk
             {
                 wasAirborne = true;
                 landingRollArmed = false;
+                brokenGearTouchdown = false;
             }
 
             // A landing roll begins on the main-gear contact edge after genuine
@@ -2024,7 +2110,14 @@ namespace Blacknight2u.F117Nighthawk
             float alignmentAngle = groundVelocity.sqrMagnitude > 1f && groundForward.sqrMagnitude > 0.01f
                 ? Vector3.Angle(groundForward, groundVelocity)
                 : 180f;
-            bool validLandingRoll = landingRollArmed && gearLocked && allGearOnGround &&
+            // A wheel that breaks on touchdown destroys its LandingGear component before Update can
+            // sample WeightOnWheel. Preserve that native break event as contact evidence for this
+            // landing, rather than making a hard landing permanently fail the all-gear test.
+            bool mainGearSupported = mainGearOnGround || (brokenGearTouchdown && brokenMainGearCount > 0);
+            bool noseGearSupported = noseOnGround || (brokenGearTouchdown && noseGearBroken);
+            bool landingGearConfigurationValid = gearLocked || brokenGearTouchdown;
+            bool validLandingRoll = landingRollArmed && landingGearConfigurationValid &&
+                mainGearSupported && noseGearSupported &&
                 aircraft.radarAlt <= 4f && Mathf.Abs(body.velocity.y) <= MaximumDeploymentSinkRate &&
                 alignmentAngle <= MaximumRunwayAlignmentAngle;
 
@@ -2034,7 +2127,9 @@ namespace Blacknight2u.F117Nighthawk
                 deployed = true;
                 landingRollArmed = false;
                 Plugin.Log.LogDebug("F-117 drag chute deployed at " + (speed * 3.6f).ToString("0") +
-                    " km/h with all gear loaded and runway alignment " + alignmentAngle.ToString("0.0") + " degrees.");
+                    " km/h with landing contact confirmed" +
+                    (brokenGearTouchdown ? " after gear damage" : " on all gear") +
+                    " and runway alignment " + alignmentAngle.ToString("0.0") + " degrees.");
             }
 
             if (deployed && speed <= ChuteJettisonSpeed)
@@ -2065,6 +2160,52 @@ namespace Blacknight2u.F117Nighthawk
                 float scale = Mathf.SmoothStep(0.08f, 1f, openAmount);
                 chute.localScale = chuteFullScale * scale;
             }
+        }
+
+        private void OnLandingGearBreak(LandingGear brokenGear)
+        {
+            if (brokenGear == null)
+                return;
+
+            bool isNoseGear = ReferenceEquals(brokenGear, noseGear);
+            if (isNoseGear)
+                noseGearBroken = true;
+            else if (mainGears != null && mainGears.Any(gear => ReferenceEquals(gear, brokenGear)))
+                brokenMainGearCount = Mathf.Min(mainGears.Length, brokenMainGearCount + 1);
+            else
+                return;
+
+            float speed = body != null ? body.velocity.magnitude : 0f;
+            bool extendedForLanding = aircraft != null &&
+                aircraft.gearState == LandingGear.GearState.LockedExtended;
+            bool lowEnoughForTouchdown = aircraft != null && aircraft.radarAlt <= 4f;
+            if (wasAirborne && extendedForLanding && lowEnoughForTouchdown &&
+                speed >= MinimumLandingTouchdownSpeed)
+            {
+                wasAirborne = false;
+                landingRollArmed = true;
+                brokenGearTouchdown = true;
+                Plugin.Log.LogDebug("F-117 landing gear broke on touchdown at " +
+                    (speed * 3.6f).ToString("0") +
+                    " km/h; preserving contact evidence for drag-chute deployment.");
+            }
+            else if (landingRollArmed)
+            {
+                // The main-gear edge may have armed the landing roll one physics step before the
+                // nose or remaining main gear failed. Keep that failure as valid support evidence.
+                brokenGearTouchdown = true;
+                Plugin.Log.LogDebug("F-117 landing gear broke during the armed landing roll; " +
+                    "drag-chute contact evidence retained.");
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (landingGears == null)
+                return;
+            foreach (LandingGear gear in landingGears)
+                if (gear != null)
+                    gear.onGearBreak -= OnLandingGearBreak;
         }
 
         private void TryBindCockpitDisplay()
