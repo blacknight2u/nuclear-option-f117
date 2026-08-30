@@ -1125,7 +1125,7 @@ public static class F117ContractValidator
             if (noseGear)
             {
                 Require(Near(suspensionTravel, F117AircraftAssembler.NoseSuspensionTravel, 0.001f),
-                    gear.name + " has enough cast travel for uneven terrain", failures);
+                    gear.name + " uses the stock-sized ground-probe travel", failures);
                 Require(Near(Float(data, "contactArea", gear.name, failures),
                         F117AircraftAssembler.NoseGearContactArea, 0.001f),
                     gear.name + " has sufficient soft-ground contact area", failures);
@@ -1135,6 +1135,9 @@ public static class F117ContractValidator
                         F117AircraftAssembler.NoseAligningStrength, 0.01f),
                     gear.name + " uses the stable low-bias steering response", failures);
             }
+            else
+                Require(Near(suspensionTravel, F117AircraftAssembler.MainSuspensionTravel, 0.001f),
+                    gear.name + " uses the stock-sized ground-probe travel", failures);
             Require(Near(maxCompression, suspensionTravel, 0.001f),
                 gear.name + " permits its full suspension stroke before the game's break test", failures);
             Require(gearHinge != null && gear.transform.parent == gearHinge,
@@ -1552,6 +1555,86 @@ public static class F117ContractValidator
                     " is an opaque, physical-part-owned cross-section registered for native damage",
                     failures);
             }
+            var bulkheadPlanes =
+                new Dictionary<string, Dictionary<Renderer, List<Vector2>>>(StringComparer.Ordinal);
+            foreach (Renderer seamCap in seamCaps)
+            {
+                Mesh capMesh = seamCap.GetComponent<MeshFilter>()?.sharedMesh;
+                if (capMesh == null)
+                    continue;
+                Vector3[] capVertices = capMesh.vertices;
+                int[] capTriangles = capMesh.triangles;
+                for (int triangle = 0; triangle < capTriangles.Length; triangle += 3)
+                {
+                    Vector3 first = prefab.transform.InverseTransformPoint(
+                        seamCap.transform.TransformPoint(capVertices[capTriangles[triangle]]));
+                    Vector3 second = prefab.transform.InverseTransformPoint(
+                        seamCap.transform.TransformPoint(capVertices[capTriangles[triangle + 1]]));
+                    Vector3 third = prefab.transform.InverseTransformPoint(
+                        seamCap.transform.TransformPoint(capVertices[capTriangles[triangle + 2]]));
+                    Vector3 normal = Vector3.Cross(second - first, third - first).normalized;
+                    if (normal.sqrMagnitude < 0.5f)
+                        continue;
+                    if (normal.x < -0.0001f ||
+                        (Mathf.Abs(normal.x) <= 0.0001f && normal.y < -0.0001f) ||
+                        (Mathf.Abs(normal.x) <= 0.0001f && Mathf.Abs(normal.y) <= 0.0001f && normal.z < 0f))
+                        normal = -normal;
+                    float distance = Vector3.Dot(normal, first);
+                    string planeKey = Mathf.RoundToInt(normal.x * 1000f) + ":" +
+                        Mathf.RoundToInt(normal.y * 1000f) + ":" +
+                        Mathf.RoundToInt(normal.z * 1000f) + ":" +
+                        Mathf.RoundToInt(distance * 1000f);
+                    if (!bulkheadPlanes.TryGetValue(planeKey,
+                            out Dictionary<Renderer, List<Vector2>> footprints))
+                    {
+                        footprints = new Dictionary<Renderer, List<Vector2>>();
+                        bulkheadPlanes.Add(planeKey, footprints);
+                    }
+                    if (!footprints.TryGetValue(seamCap, out List<Vector2> footprint))
+                    {
+                        footprint = new List<Vector2>();
+                        footprints.Add(seamCap, footprint);
+                    }
+                    Vector3 tangentReference = Mathf.Abs(Vector3.Dot(normal, Vector3.up)) > 0.9f
+                        ? Vector3.right
+                        : Vector3.up;
+                    Vector3 tangent = Vector3.Cross(tangentReference, normal).normalized;
+                    Vector3 bitangent = Vector3.Cross(normal, tangent).normalized;
+                    foreach (Vector3 point in new[] { first, second, third })
+                        footprint.Add(new Vector2(Vector3.Dot(point, tangent),
+                            Vector3.Dot(point, bitangent)));
+                }
+            }
+            var duplicateBulkheadPlanes = new List<string>();
+            foreach (KeyValuePair<string, Dictionary<Renderer, List<Vector2>>> plane in bulkheadPlanes)
+            {
+                KeyValuePair<Renderer, List<Vector2>>[] footprints = plane.Value.ToArray();
+                for (int firstIndex = 0; firstIndex < footprints.Length; firstIndex++)
+                    for (int secondIndex = firstIndex + 1; secondIndex < footprints.Length; secondIndex++)
+                    {
+                        List<Vector2> firstPoints = footprints[firstIndex].Value;
+                        List<Vector2> secondPoints = footprints[secondIndex].Value;
+                        float overlapX = Mathf.Min(firstPoints.Max(point => point.x),
+                                secondPoints.Max(point => point.x)) -
+                            Mathf.Max(firstPoints.Min(point => point.x),
+                                secondPoints.Min(point => point.x));
+                        float overlapY = Mathf.Min(firstPoints.Max(point => point.y),
+                                secondPoints.Max(point => point.y)) -
+                            Mathf.Max(firstPoints.Min(point => point.y),
+                                secondPoints.Min(point => point.y));
+                        if (overlapX > 0.001f && overlapY > 0.001f)
+                            duplicateBulkheadPlanes.Add(plane.Key + " [" +
+                                (footprints[firstIndex].Key.transform.parent?.name ??
+                                 footprints[firstIndex].Key.name) + " overlaps " +
+                                (footprints[secondIndex].Key.transform.parent?.name ??
+                                 footprints[secondIndex].Key.name) + "]");
+                    }
+            }
+            Require(duplicateBulkheadPlanes.Count == 0,
+                "Damage-section bulkheads are recessed onto distinct planes and cannot z-fight into exterior triangles" +
+                (duplicateBulkheadPlanes.Count == 0 ? string.Empty : ": " +
+                    string.Join("; ", duplicateBulkheadPlanes)),
+                failures);
             Require(exterior == null || !exterior.isArray || damageShells.All(shell =>
                     !Enumerable.Range(0, exterior.arraySize).Any(index =>
                         exterior.GetArrayElementAtIndex(index).objectReferenceValue == shell)),
@@ -1705,7 +1788,7 @@ public static class F117ContractValidator
         notes.Add("Electrical: dedicated 60 kJ jammer bus; native 13-unit draw gives about 5 s full-charge burst; two engines recharge at up to 1.16 kJ/s (about 52 s empty-to-full)");
         notes.Add("Physics graph: one root AeroPart plus 16 parent-matched, jointed descendants; each wing uses stock-style root -> inner -> outer structure, elevons attach to matching panels, and rudders attach to rear body");
         notes.Add("Hitboxes: all 17 AeroParts directly own their real colliders; six wing colliders are generated from their clipped planforms; native bullets/blast fragments cannot be swallowed by non-damageable child objects; full unrelated-part penetration audit passed");
-        notes.Add("Damage model: 17 non-critical, standard 100 HP AeroParts; fixed airframe triangles are geometrically clipped and closed with opaque cross-section caps at all nine rigidbody boundaries; controls own their render geometry, AircraftSkin pockmark textures, status reporting, native fuel fire/leak effects, and physical detachment");
+        notes.Add("Damage model: 17 non-critical, standard 100 HP AeroParts; fixed airframe triangles are geometrically clipped and backed by inset opaque bulkheads at all nine rigidbody boundaries; controls own their render geometry, AircraftSkin pockmark textures, status reporting, native fuel fire/leak effects, and physical detachment");
         notes.Add("Elevon neutral: unbiased native servo/aero pivots; measured inner-panel visual corrections isolated below them");
         notes.Add("Mass: dry graph=13380 kg; full internal fuel=21630 kg; MTOW=23814 kg; payload margin=2184 kg; runtime CoM Z=" +
             runtimeCenterOfMass.z.ToString("0.00") + " m");
@@ -1730,7 +1813,7 @@ public static class F117ContractValidator
             " full-size physical displays (upright center camera/radar; 90-degree-corrected left flight and right engine instruments); " +
             "root-aligned viewpoint at Y=1.39 m on the seat line");
         notes.Add("Canopy: upward 40 degree ejection opening");
-        notes.Add("Landing gear: aircraft-forward tire-physics frames, full authored suspension travel before BreakWheel, false-positive skid audio muted");
+        notes.Add("Landing gear: aircraft-forward tire-physics frames, stock-sized 0.60 m ground probes on all three legs, full probe travel before BreakWheel, false-positive skid audio muted");
         notes.Add("Rear controls: model-measured elevon area, 15 pitch + 7.5 roll travel; both rudders use coordinated -18 yaw on local-Z visual hinges");
         notes.Add("Pitch balance: neutral horizontal lift centre is " +
             (runtimeCenterOfMass.z - neutralLiftCenterZ).ToString("0.00") +

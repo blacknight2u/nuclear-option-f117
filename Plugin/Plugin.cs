@@ -20,7 +20,7 @@ namespace Blacknight2u.F117Nighthawk
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.4.90";
+        public const string PluginVersion = "0.4.91";
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
         internal const string LightweightAgmMountKey = "AGM1_quad_internal";
@@ -2220,6 +2220,27 @@ namespace Blacknight2u.F117Nighthawk
                 if (item.name == objectName)
                     return item;
             return null;
+        }
+    }
+
+    [HarmonyPatch(typeof(AircraftSelectionMenu), "UpdateReadouts")]
+    internal static class F117SelectionRcsPatch
+    {
+        private static readonly FieldInfo PreviewAircraft =
+            AccessTools.Field(typeof(AircraftSelectionMenu), "previewAircraft");
+        private static readonly FieldInfo RcsLabel =
+            AccessTools.Field(typeof(AircraftSelectionMenu), "RCS");
+
+        [HarmonyPostfix]
+        private static void Postfix(AircraftSelectionMenu __instance)
+        {
+            Aircraft preview = PreviewAircraft?.GetValue(__instance) as Aircraft;
+            if (!Plugin.IsF117(preview) || preview.definition == null)
+                return;
+
+            object label = RcsLabel?.GetValue(__instance);
+            PropertyInfo text = label?.GetType().GetProperty("text", BindingFlags.Instance | BindingFlags.Public);
+            text?.SetValue(label, preview.definition.radarSize.ToString("F4"), null);
         }
     }
 

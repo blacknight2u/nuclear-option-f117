@@ -51,6 +51,9 @@ internal static class F117AircraftAssembler
     internal const float WingRootMetricCut = 4.1f;
     internal const float WingOuterSweep = 1.394f;
     internal const float WingOuterMetricCut = 11.82f;
+    internal const float DamageBulkheadInset = 0.03f;
+    internal const float DamageBulkheadLayerOffset = 0.01f;
+    internal const float DamageBulkheadOutlineScale = 0.97f;
     internal const float WingRootAreaFraction = 0.5487673f;
     internal const float WingInnerAreaFraction = 0.3027565f;
     internal const float WingOuterAreaFraction = 0.1484762f;
@@ -59,7 +62,11 @@ internal static class F117AircraftAssembler
     // approximately 5.6 m reference mean chord: stable enough for the native FBW,
     // without making it spend most of the elevon travel holding pitch trim.
     internal const float TargetPitchStaticMargin = 0.28f;
-    internal const float NoseSuspensionTravel = 0.45f;
+    // LandingGear uses suspensionTravel as both suspension stroke and the length
+    // of its single ground line probe. Working aircraft use 0.60 m on every leg;
+    // shorter probes can miss runway seams or uneven terrain between physics frames.
+    internal const float NoseSuspensionTravel = 0.60f;
+    internal const float MainSuspensionTravel = 0.60f;
     internal const float GroundSpawnHeight = 2.35f;
     internal const float NoseGearContactArea = 0.06f;
     internal const float NoseSteeringLock = 45f;
@@ -1975,32 +1982,41 @@ internal static class F117AircraftAssembler
         }
 
         CreateDamageSeamCaps(visual.transform, central, renderersByOwner[central], seamCapMaterial,
+            DamageBulkheadInset,
             new DamageCutPlane(Vector3.forward, 4.2f),
             new DamageCutPlane(Vector3.forward, 3.6f),
             new DamageCutPlane(Vector3.right, 1.65f),
             new DamageCutPlane(Vector3.right, -1.65f),
             new DamageCutPlane(Vector3.forward, -4.35f));
         CreateDamageSeamCaps(visual.transform, nose, renderersByOwner[nose], seamCapMaterial,
+            DamageBulkheadInset,
             new DamageCutPlane(Vector3.forward, 4.2f));
         CreateDamageSeamCaps(visual.transform, rear, renderersByOwner[rear], seamCapMaterial,
+            DamageBulkheadInset,
             new DamageCutPlane(Vector3.forward, -4.35f));
         CreateDamageSeamCaps(visual.transform, rightRoot, renderersByOwner[rightRoot], seamCapMaterial,
+            DamageBulkheadInset + DamageBulkheadLayerOffset,
             new DamageCutPlane(Vector3.forward, 3.6f),
             new DamageCutPlane(Vector3.right, 1.65f),
             new DamageCutPlane(new Vector3(1f, 0f, -WingRootSweep), WingRootMetricCut));
         CreateDamageSeamCaps(visual.transform, rightInner, renderersByOwner[rightInner], seamCapMaterial,
+            DamageBulkheadInset,
             new DamageCutPlane(new Vector3(1f, 0f, -WingRootSweep), WingRootMetricCut),
             new DamageCutPlane(new Vector3(1f, 0f, -WingOuterSweep), WingOuterMetricCut));
         CreateDamageSeamCaps(visual.transform, rightOuter, renderersByOwner[rightOuter], seamCapMaterial,
+            DamageBulkheadInset,
             new DamageCutPlane(new Vector3(1f, 0f, -WingOuterSweep), WingOuterMetricCut));
         CreateDamageSeamCaps(visual.transform, leftRoot, renderersByOwner[leftRoot], seamCapMaterial,
+            DamageBulkheadInset + DamageBulkheadLayerOffset,
             new DamageCutPlane(Vector3.forward, 3.6f),
             new DamageCutPlane(Vector3.right, -1.65f),
             new DamageCutPlane(new Vector3(-1f, 0f, -WingRootSweep), WingRootMetricCut));
         CreateDamageSeamCaps(visual.transform, leftInner, renderersByOwner[leftInner], seamCapMaterial,
+            DamageBulkheadInset,
             new DamageCutPlane(new Vector3(-1f, 0f, -WingRootSweep), WingRootMetricCut),
             new DamageCutPlane(new Vector3(-1f, 0f, -WingOuterSweep), WingOuterMetricCut));
         CreateDamageSeamCaps(visual.transform, leftOuter, renderersByOwner[leftOuter], seamCapMaterial,
+            DamageBulkheadInset,
             new DamageCutPlane(new Vector3(-1f, 0f, -WingOuterSweep), WingOuterMetricCut));
 
         if (sourceTriangleCount == 0 || sourceArea <= 0f ||
@@ -2159,7 +2175,8 @@ internal static class F117AircraftAssembler
     }
 
     private static void CreateDamageSeamCaps(Transform visual, Component owner,
-        List<Renderer> ownerRenderers, Material material, params DamageCutPlane[] planes)
+        List<Renderer> ownerRenderers, Material material, float insetDepth,
+        params DamageCutPlane[] planes)
     {
         if (material == null)
             throw new InvalidOperationException("The F-117 damage seam-cap material is unavailable.");
@@ -2178,13 +2195,17 @@ internal static class F117AircraftAssembler
             if (hull.Count < 3)
                 continue;
             Vector3 center = hull.Aggregate(Vector3.zero, (sum, point) => sum + point) / hull.Count;
+            float ownerMean = rootVertices.Average(point => Vector3.Dot(point, plane.Normal));
+            float ownerSide = ownerMean >= plane.Threshold ? 1f : -1f;
+            Vector3 inset = plane.Normal * (ownerSide * insetDepth);
             int centerIndex = vertices.Count;
-            vertices.Add(owner.transform.InverseTransformPoint(visual.TransformPoint(center)));
+            vertices.Add(owner.transform.InverseTransformPoint(visual.TransformPoint(center + inset)));
             normals.Add(owner.transform.InverseTransformDirection(
                 visual.TransformDirection(plane.Normal)).normalized);
             foreach (Vector3 point in hull)
             {
-                vertices.Add(owner.transform.InverseTransformPoint(visual.TransformPoint(point)));
+                Vector3 recessed = center + (point - center) * DamageBulkheadOutlineScale + inset;
+                vertices.Add(owner.transform.InverseTransformPoint(visual.TransformPoint(recessed)));
                 normals.Add(owner.transform.InverseTransformDirection(
                     visual.TransformDirection(plane.Normal)).normalized);
             }
@@ -2742,7 +2763,7 @@ internal static class F117AircraftAssembler
             sprung.transform.SetPositionAndRotation(hinge.Transform.position, visual.transform.rotation);
 
             Transform contactLocator = Locator(visual, contactName);
-            float suspensionTravel = side == "Nose" ? NoseSuspensionTravel : 0.38f;
+            float suspensionTravel = side == "Nose" ? NoseSuspensionTravel : MainSuspensionTravel;
             GameObject unsprung = Child(sprung.transform, "F117_Gear_" + side + "_Unsprung", Vector3.zero);
             GameObject bumpStop = Child(sprung.transform, "BumpStop", Vector3.zero);
             bumpStop.transform.SetPositionAndRotation(
@@ -2808,8 +2829,9 @@ internal static class F117AircraftAssembler
             // normal taxi steering silent while retaining audible high-energy skids.
             Set(data, "skidVolumeFloor", -0.8f);
             Set(data, "skidPitchMult", 1f);
-            // Allow the complete authored suspension stroke; automatic low-speed
-            // braking must not cross LandingGear's wheel-break threshold.
+            // Preserve the complete stock-sized probe envelope. Moving the bump stop
+            // upward with the longer travel leaves the rendered tire/contact plane
+            // unchanged while preventing one-frame misses over runway seams.
             Set(data, "maxCompression", suspensionTravel);
             Set(data, "mass", gearMass);
             Set(data, "gearCollider", gearCollider);
