@@ -21,7 +21,7 @@
     "type": "plugin",
     "gameVersion": "0.34.2",
     "downloadUrl": "",
-    "hash": "sha256:51e474a5c6150fe3dac9e2dc8b869fd507ef559c14d2665be789c8d6c90bc7b5",
+    "hash": "sha256:dea66571643714523007122ab86c380d1a55c95c3cbef61f5c5f7905893a8018",
     "extends": null,
     "dependencies": [
       {
