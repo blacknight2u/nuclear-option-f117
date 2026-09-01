@@ -40,4 +40,4 @@ This project is available under the [MIT License](LICENSE).
 
 ## Model credit
 
-Original F-117 3D model by Ricardo3D, used under the Creative Commons Attribution license.
+This mod uses [“F-117 Nighthawk” by Ricardo3D](https://sketchfab.com/3d-models/f-117-nighthawk-e0f9202b54b2474d926585723ce8d47a), adapted for Nuclear Option under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
