@@ -37,3 +37,7 @@ This project is available under the [MIT License](LICENSE).
 
 - [Development and release process](DEVELOPMENT.md)
 - [Aircraft modding guide](AIRCRAFT_MODDING_GUIDE.md)
+
+## Model credit
+
+Original F-117 3D model by Ricardo3D, used under the Creative Commons Attribution license.
