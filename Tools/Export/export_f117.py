@@ -15,11 +15,32 @@ geometry remain untouched.
 """
 
 import argparse
+import hashlib
+import json
 import os
+import re
 import sys
 from pathlib import Path
 
 import bpy
+
+
+EXPORT_TOOL_ROOT = Path(__file__).resolve().parent
+if os.fspath(EXPORT_TOOL_ROOT) not in sys.path:
+    sys.path.insert(0, os.fspath(EXPORT_TOOL_ROOT))
+from author_damage_sections import author_damage_sections
+from semantic_clean_fbx import (
+    append_production_into_factory_empty,
+    file_sha256,
+    production_objects,
+    remove_appended_image_texture_nodes,
+    require_internal_object_dependencies,
+    require_matching_manifest,
+    scrub_local_library_weak_reference_paths,
+    structural_manifest,
+    validate_clean_fbx_paths,
+    validate_private_absolute_paths,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -212,8 +233,8 @@ def export_fbx(output_path):
         use_triangles=False,
         add_leaf_bones=False,
         bake_anim=False,
-        path_mode="COPY",
-        embed_textures=True,
+        path_mode="STRIP",
+        embed_textures=False,
         axis_forward="-Z",
         axis_up="Y",
     )
@@ -233,9 +254,88 @@ def main():
         raise RuntimeError(f"Refusing to modify unexpected Blender file: {bpy.data.filepath}")
     output_path = options.output.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    meta_path = Path(f"{output_path}.meta")
+    meta_existed = meta_path.exists()
+    meta_hash = file_sha256(meta_path) if meta_existed else None
+
+    author_damage_sections()
     author_display_uvs()
+    pre_scrub_manifest = structural_manifest(EXPORT_ROOT)
+    scrub_local_library_weak_reference_paths()
+    post_scrub_manifest = structural_manifest(EXPORT_ROOT)
+    require_matching_manifest(pre_scrub_manifest, post_scrub_manifest, "WEAK_REFERENCE_SCRUB")
     bpy.ops.wm.save_as_mainfile(filepath=os.fspath(MASTER_PATH))
-    export_fbx(output_path)
+
+    saved_master_hash = file_sha256(MASTER_PATH)
+    source_objects = production_objects(EXPORT_ROOT)
+    require_internal_object_dependencies(source_objects)
+    source_names = tuple(item.name for item in source_objects)
+    source_manifest = structural_manifest(EXPORT_ROOT)
+    print(f"SEMANTIC_MANIFEST_SOURCE={source_manifest['digest']}")
+    print(
+        "SEMANTIC_MANIFEST_COUNTS="
+        + json.dumps(source_manifest["summary"], sort_keys=True, separators=(",", ":"))
+    )
+
+    append_production_into_factory_empty(MASTER_PATH, source_names, EXPORT_ROOT)
+    appended_manifest = structural_manifest(EXPORT_ROOT)
+    require_matching_manifest(source_manifest, appended_manifest, "APPENDED_COPY")
+
+    remove_appended_image_texture_nodes(EXPORT_ROOT)
+    stripped_manifest = structural_manifest(EXPORT_ROOT)
+    require_matching_manifest(source_manifest, stripped_manifest, "TEXTURE_STRIP")
+    if bpy.data.filepath:
+        raise RuntimeError(f"Clean export scene must remain unsaved: {bpy.data.filepath}")
+
+    staging_path = output_path.with_name(
+        f".{output_path.stem}.semantic-clean-{os.getpid()}{output_path.suffix}"
+    )
+    private_markers = (
+        os.fspath(REPOSITORY_ROOT),
+        os.fspath(MASTER_PATH),
+        os.fspath(output_path),
+    )
+    validate_private_absolute_paths(
+        MASTER_PATH,
+        private_markers=private_markers + (
+            os.fspath(Path.home()),
+            os.fspath(Path.home()).replace("\\", "/"),
+            "copybuffer.blend",
+            "AppData\\Local\\Temp",
+            "AppData/Local/Temp",
+        ),
+        label="BLEND",
+        strict_absolute=False,
+    )
+    try:
+        if staging_path.exists():
+            staging_path.unlink()
+        export_fbx(staging_path)
+        validate_clean_fbx_paths(staging_path, private_markers)
+        if file_sha256(MASTER_PATH) != saved_master_hash:
+            raise RuntimeError("Canonical master changed after the factory-empty export")
+        if meta_path.exists() != meta_existed:
+            raise RuntimeError("Unity FBX metadata existence changed during export")
+        if meta_existed and file_sha256(meta_path) != meta_hash:
+            raise RuntimeError("Unity FBX metadata changed during export")
+        os.replace(staging_path, output_path)
+    finally:
+        if staging_path.exists():
+            staging_path.unlink()
+
+    final_strings = validate_clean_fbx_paths(output_path, private_markers)
+    if file_sha256(MASTER_PATH) != saved_master_hash:
+        raise RuntimeError("Canonical master changed after final FBX placement")
+    if meta_path.exists() != meta_existed:
+        raise RuntimeError("Unity FBX metadata existence changed after final placement")
+    if meta_existed and file_sha256(meta_path) != meta_hash:
+        raise RuntimeError("Unity FBX metadata changed after final placement")
+
+    print(f"SAVED_BLEND_SHA256={saved_master_hash}")
+    print(f"EXPORTED_FBX_SHA256={file_sha256(output_path)}")
+    print(f"EXPORTED_FBX_BYTES={output_path.stat().st_size}")
+    print(f"EXPORTED_FBX_STRING_COUNT={len(final_strings)}")
+    print(f"FBX_META_PRESERVED={'YES' if meta_existed else 'ABSENT'}")
     print(f"SAVED_BLEND={MASTER_PATH}")
     print(f"EXPORTED_FBX={output_path}")
 

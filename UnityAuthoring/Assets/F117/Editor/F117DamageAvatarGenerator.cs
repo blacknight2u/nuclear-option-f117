@@ -15,9 +15,7 @@ public static class F117DamageAvatarGenerator
     private const float MinimumProjectedTriangleArea = 0.0000001f;
     private static readonly string[] PartNames =
     {
-        "F117_CentralBody", "F117_Nose", "F117_RearBody",
-        "F117_Wing_Left_Root", "F117_Wing_Left_Inner", "F117_Wing_Left_Outer",
-        "F117_Wing_Right_Root", "F117_Wing_Right_Inner", "F117_Wing_Right_Outer",
+        "F117_CentralBody", "F117_Wing_Left", "F117_Wing_Right",
         "F117_Elevon_L_Inner", "F117_Elevon_L_Outer",
         "F117_Elevon_R_Inner", "F117_Elevon_R_Outer",
         "F117_Rudder_L", "F117_Rudder_R",
@@ -108,6 +106,17 @@ public static class F117DamageAvatarGenerator
                     "/" + section.Triangles.Count + "t")));
 
             Directory.CreateDirectory(OutputRoot);
+            var expectedFiles = new HashSet<string>(
+                PartNames.Select(name => name + ".png"), StringComparer.OrdinalIgnoreCase);
+            foreach (string file in Directory.GetFiles(OutputRoot, "*.png", SearchOption.TopDirectoryOnly))
+            {
+                if (expectedFiles.Contains(Path.GetFileName(file)))
+                    continue;
+                string assetPath = file.Replace('\\', '/');
+                int assetsIndex = assetPath.IndexOf("Assets/", StringComparison.OrdinalIgnoreCase);
+                if (assetsIndex < 0 || !AssetDatabase.DeleteAsset(assetPath.Substring(assetsIndex)))
+                    throw new IOException("Could not remove obsolete damage mask: " + file);
+            }
             int[] visiblePixels = new int[sections.Length];
             bool[] exteriorUnion = new bool[OutputSize * OutputSize];
             for (int index = 0; index < sections.Length; index++)
@@ -159,8 +168,12 @@ public static class F117DamageAvatarGenerator
 
     private static DamageSection BuildSection(Transform aircraftRoot, string name)
     {
-        Transform part = aircraftRoot.GetComponentsInChildren<Transform>(true)
-            .FirstOrDefault(transform => transform.name == name);
+        Transform part = name == "F117_CentralBody" &&
+                         (aircraftRoot.name == "F117_CentralBody" ||
+                          aircraftRoot.name.StartsWith("F117A_Nighthawk", StringComparison.Ordinal))
+            ? aircraftRoot
+            : aircraftRoot.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(transform => transform.name == name);
         if (part == null)
             throw new InvalidOperationException("Cannot generate exact damage mask; missing part " + name + ".");
 
@@ -214,8 +227,13 @@ public static class F117DamageAvatarGenerator
         {
             Vector3[] vertices = mesh.vertices;
             Matrix4x4 toAircraft = aircraftRoot.worldToLocalMatrix * renderer.transform.localToWorldMatrix;
+            Material[] materials = renderer.sharedMaterials;
             for (int subMesh = 0; subMesh < mesh.subMeshCount; subMesh++)
             {
+                if (subMesh < materials.Length && materials[subMesh] != null &&
+                    materials[subMesh].name.IndexOf("AircraftStructure",
+                        StringComparison.OrdinalIgnoreCase) >= 0)
+                    continue;
                 int[] triangles = mesh.GetTriangles(subMesh);
                 for (int index = 0; index < triangles.Length; index += 3)
                 {

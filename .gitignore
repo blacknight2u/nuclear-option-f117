@@ -15,6 +15,18 @@
 UnityAuthoring/Assets/F117/Generated/
 UnityAuthoring/Assets/F117/Generated.meta
 
+# Local Blueprinter authoring dependencies
+UnityAuthoring/Assets/blueprinter/
+UnityAuthoring/Assets/blueprinter.meta
+UnityAuthoring/Assets/Plugins/
+UnityAuthoring/Assets/Plugins.meta
+
+# Unity local caches and editor preferences
+UnityAuthoring/Library/
+UnityAuthoring/Logs/
+UnityAuthoring/Temp/
+UnityAuthoring/UserSettings/
+
 # Release output
 Package/blacknight2u.f117a.nighthawk/F117Nighthawk.dll
 Package/blacknight2u.f117a.nighthawk/*.nobp

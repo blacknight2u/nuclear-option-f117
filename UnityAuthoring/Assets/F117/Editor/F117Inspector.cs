@@ -136,6 +136,149 @@ public static class F117Inspector
         Debug.Log("F-117 parade overlay geometry written to " + path);
     }
 
+    public static void RenderNoseGearFlagCoverage()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BuiltPrefab);
+        if (prefab == null)
+            throw new InvalidOperationException("Missing asset: " + BuiltPrefab);
+        GameObject instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+        if (instance == null)
+            throw new InvalidOperationException("Could not instantiate the built F-117 prefab.");
+        try
+        {
+            string[] hingeNames =
+            {
+                "F117_GearDoor_Nose_CloseHinge",
+                "F117_GearDoor_Left_Outer_CloseHinge",
+                "F117_GearDoor_Left_Inner_CloseHinge",
+                "F117_GearDoor_Right_Outer_CloseHinge",
+                "F117_GearDoor_Right_Inner_CloseHinge"
+            };
+            foreach (string hingeName in hingeNames)
+            {
+                Transform hinge = instance.GetComponentsInChildren<Transform>(true)
+                    .Single(item => item.name == hingeName);
+                hinge.localRotation = Quaternion.identity;
+            }
+
+            const int size = 1200;
+            const float minX = -1.2f;
+            const float maxX = 1.2f;
+            const float minZ = 4.2f;
+            const float maxZ = 7.5f;
+            Texture2D source = CoverageTexture(size);
+            Texture2D overlay = CoverageTexture(size);
+            RasterSource(instance, "F117_Exterior_Mesh", source,
+                new Color32(225, 225, 225, 255), minX, maxX, minZ, maxZ);
+            RasterSource(instance, "F117_GearDoor_Nose_Mesh", source,
+                new Color32(30, 150, 255, 255), minX, maxX, minZ, maxZ);
+            RasterOverlay(instance, "F117_Exterior_Mesh", overlay,
+                new Color32(225, 225, 225, 255), minX, maxX, minZ, maxZ);
+            RasterOverlay(instance, "F117_GearDoor_Nose_Mesh", overlay,
+                new Color32(30, 150, 255, 255), minX, maxX, minZ, maxZ);
+
+            string directory = Path.Combine(Application.dataPath, "F117", "Generated", "Reports");
+            Directory.CreateDirectory(directory);
+            File.WriteAllBytes(Path.Combine(directory, "F117_NoseGear_Source_Coverage.png"),
+                source.EncodeToPNG());
+            File.WriteAllBytes(Path.Combine(directory, "F117_NoseGear_Overlay_Coverage.png"),
+                overlay.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(source);
+            UnityEngine.Object.DestroyImmediate(overlay);
+            Debug.Log("F-117 nose-gear source and flag-overlay coverage images written to " + directory);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(instance);
+        }
+    }
+
+    private static Texture2D CoverageTexture(int size)
+    {
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false, true);
+        Color32[] pixels = Enumerable.Repeat(new Color32(18, 18, 18, 255), size * size).ToArray();
+        texture.SetPixels32(pixels);
+        return texture;
+    }
+
+    private static void RasterSource(GameObject root, string ownerName, Texture2D target,
+        Color32 color, float minX, float maxX, float minZ, float maxZ)
+    {
+        MeshFilter filter = root.GetComponentsInChildren<MeshFilter>(true)
+            .Single(item => item.name == ownerName);
+        Mesh mesh = filter.sharedMesh;
+        Material[] materials = filter.GetComponent<Renderer>().sharedMaterials;
+        for (int submesh = 0; submesh < mesh.subMeshCount; submesh++)
+        {
+            if (submesh >= materials.Length ||
+                !F117AircraftAssembler.IsParadeFlagMaterial(materials[submesh], ownerName))
+                continue;
+            RasterTriangles(root.transform, filter.transform, mesh.vertices,
+                mesh.GetTriangles(submesh), target, color, minX, maxX, minZ, maxZ, true);
+        }
+    }
+
+    private static void RasterOverlay(GameObject root, string ownerName, Texture2D target,
+        Color32 color, float minX, float maxX, float minZ, float maxZ)
+    {
+        MeshFilter filter = root.GetComponentsInChildren<MeshFilter>(true)
+            .Single(item => item.name == F117AircraftAssembler.ParadeFlagOverlayPrefix + ownerName);
+        RasterTriangles(root.transform, filter.transform, filter.sharedMesh.vertices,
+            filter.sharedMesh.triangles, target, color, minX, maxX, minZ, maxZ, false);
+    }
+
+    private static void RasterTriangles(Transform root, Transform owner, Vector3[] vertices,
+        int[] triangles, Texture2D target, Color32 color,
+        float minX, float maxX, float minZ, float maxZ, bool requireDownward)
+    {
+        Vector3[] points = vertices.Select(vertex =>
+            root.InverseTransformPoint(owner.TransformPoint(vertex))).ToArray();
+        for (int index = 0; index + 2 < triangles.Length; index += 3)
+        {
+            Vector3 a = points[triangles[index]];
+            Vector3 b = points[triangles[index + 1]];
+            Vector3 c = points[triangles[index + 2]];
+            Vector3 normal = Vector3.Cross(b - a, c - a);
+            if (requireDownward && (normal.sqrMagnitude == 0f ||
+                    -normal.normalized.y < F117AircraftAssembler.ParadeFlagMinimumDownwardDot))
+                continue;
+            Vector2 pa = CoveragePoint(a, target.width, minX, maxX, minZ, maxZ);
+            Vector2 pb = CoveragePoint(b, target.width, minX, maxX, minZ, maxZ);
+            Vector2 pc = CoveragePoint(c, target.width, minX, maxX, minZ, maxZ);
+            int lowX = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(pa.x, Mathf.Min(pb.x, pc.x))), 0, target.width - 1);
+            int highX = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(pa.x, Mathf.Max(pb.x, pc.x))), 0, target.width - 1);
+            int lowY = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(pa.y, Mathf.Min(pb.y, pc.y))), 0, target.height - 1);
+            int highY = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(pa.y, Mathf.Max(pb.y, pc.y))), 0, target.height - 1);
+            float area = Cross(pb - pa, pc - pa);
+            if (Mathf.Abs(area) < 0.000001f)
+                continue;
+            for (int y = lowY; y <= highY; y++)
+            for (int x = lowX; x <= highX; x++)
+            {
+                Vector2 point = new Vector2(x + 0.5f, y + 0.5f);
+                float first = Cross(pb - pa, point - pa) / area;
+                float second = Cross(pc - pb, point - pb) / area;
+                float third = Cross(pa - pc, point - pc) / area;
+                if (first >= -0.00001f && second >= -0.00001f && third >= -0.00001f)
+                    target.SetPixel(x, y, color);
+            }
+        }
+        target.Apply(false, false);
+    }
+
+    private static Vector2 CoveragePoint(Vector3 point, int size,
+        float minX, float maxX, float minZ, float maxZ)
+    {
+        return new Vector2(
+            Mathf.InverseLerp(minX, maxX, point.x) * (size - 1),
+            Mathf.InverseLerp(minZ, maxZ, point.z) * (size - 1));
+    }
+
+    private static float Cross(Vector2 first, Vector2 second)
+    {
+        return first.x * second.y - first.y * second.x;
+    }
+
     private static void DumpProjectedCockpitIslands(MeshRenderer renderer, Mesh mesh, Transform eye, StringBuilder report)
     {
         Material[] materials = renderer.sharedMaterials;

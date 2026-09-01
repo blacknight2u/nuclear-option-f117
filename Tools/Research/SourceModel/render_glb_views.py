@@ -32,12 +32,14 @@ maximum = Vector((max(p.x for p in corners), max(p.y for p in corners), max(p.z 
 center = (minimum + maximum) * 0.5
 
 scene = bpy.context.scene
-scene.render.engine = "BLENDER_EEVEE_NEXT"
+scene.render.engine = "BLENDER_EEVEE"
 scene.render.resolution_x = 1000
 scene.render.resolution_y = 700
 scene.render.resolution_percentage = 100
 scene.render.image_settings.file_format = "PNG"
 scene.render.film_transparent = False
+if scene.world is None:
+    scene.world = bpy.data.worlds.new("SourceRenderWorld")
 scene.world.color = (0.018, 0.022, 0.03)
 
 bpy.ops.object.light_add(type="AREA", location=(10, -8, 15))

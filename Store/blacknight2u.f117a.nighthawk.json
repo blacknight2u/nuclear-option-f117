@@ -19,7 +19,7 @@
     "blacknight2u"
   ],
   "imageUrl": "https://raw.githubusercontent.com/blacknight2u/nuclear-option-f117/main/Store/F117A-Nighthawk-NOMM.png",
-  "imageHash": "952aa4b8999ca8f427ddf9fd66522dcd462430cdee0773c892f5025099c276bf",
+  "imageHash": "b51d491a9e0fc6ca4737f100712fca9199a52a473deffa78af6e9a55a5ec3fdc",
   "isClientOrServer": "Both",
   "githubOwner": "blacknight2u",
   "githubRepoName": "nuclear-option-f117",
@@ -36,7 +36,7 @@
       "dependencies": [
         {
           "id": "com.nikkorap.blueprinter",
-          "version": "1.8.21"
+          "version": "2.0.1"
         }
       ]
     }

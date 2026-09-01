@@ -1,5 +1,7 @@
+import hashlib
 import math
 import os
+import zlib
 from pathlib import Path
 
 import bpy
@@ -16,6 +18,83 @@ HANGAR_HDRI = ENVIRONMENT / (
 HANGAR_BACKGROUND = ENVIRONMENT / "hanger_exterior_cloudy_tonemapped.jpg"
 ENV_ROTATION_DEGREES = float(os.environ.get("F117_ENV_ROTATION", "280"))
 AIRFRAME_TINT = float(os.environ.get("F117_AIRFRAME_TINT", "0.0092"))
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+SAFE_PNG_CHUNKS = {
+    b"IHDR", b"PLTE", b"IDAT", b"IEND",
+    b"cHRM", b"gAMA", b"iCCP", b"sBIT", b"sRGB", b"tRNS", b"pHYs",
+}
+
+
+def parse_png_chunks(data, path):
+    if not data.startswith(PNG_SIGNATURE):
+        raise RuntimeError(f"Rendered store image is not a PNG: {path}")
+
+    chunks = []
+    offset = len(PNG_SIGNATURE)
+    while offset + 12 <= len(data):
+        length = int.from_bytes(data[offset:offset + 4], "big")
+        end = offset + 12 + length
+        if end > len(data):
+            raise RuntimeError(f"Rendered store image has a truncated PNG chunk: {path}")
+        chunk_type = data[offset + 4:offset + 8]
+        payload = data[offset + 8:offset + 8 + length]
+        stored_crc = int.from_bytes(data[offset + 8 + length:end], "big")
+        calculated_crc = zlib.crc32(payload, zlib.crc32(chunk_type)) & 0xFFFFFFFF
+        if stored_crc != calculated_crc:
+            raise RuntimeError(
+                f"Rendered store image has an invalid {chunk_type!r} chunk checksum: {path}"
+            )
+        chunks.append((chunk_type, payload, data[offset:end]))
+        offset = end
+        if chunk_type == b"IEND":
+            break
+
+    if not chunks or chunks[-1][0] != b"IEND" or offset != len(data):
+        raise RuntimeError(f"Rendered store image has an invalid PNG end marker: {path}")
+    return chunks
+
+
+def strip_png_private_metadata(path):
+    """Keep image/color chunks while removing source paths and other private metadata."""
+    data = path.read_bytes()
+    chunks = parse_png_chunks(data, path)
+    expected_size = 960 if FAST_PREVIEW else 1920
+    if chunks[0][0] != b"IHDR" or len(chunks[0][1]) != 13:
+        raise RuntimeError(f"Rendered store image has an invalid PNG header: {path}")
+    width = int.from_bytes(chunks[0][1][0:4], "big")
+    height = int.from_bytes(chunks[0][1][4:8], "big")
+    if width != expected_size or height != expected_size:
+        raise RuntimeError(
+            f"Rendered store image is {width}x{height}; expected {expected_size}x{expected_size}."
+        )
+
+    original_idat_hash = hashlib.sha256(
+        b"".join(payload for chunk_type, payload, _ in chunks if chunk_type == b"IDAT")
+    ).digest()
+    output = PNG_SIGNATURE + b"".join(
+        raw_chunk for chunk_type, _, raw_chunk in chunks if chunk_type in SAFE_PNG_CHUNKS
+    )
+    temporary = path.with_name(path.name + ".sanitized.tmp")
+    temporary.write_bytes(output)
+    try:
+        sanitized_chunks = parse_png_chunks(temporary.read_bytes(), temporary)
+        if any(chunk_type not in SAFE_PNG_CHUNKS for chunk_type, _, _ in sanitized_chunks):
+            raise RuntimeError("Sanitized store image retained a private PNG metadata chunk.")
+        sanitized_idat_hash = hashlib.sha256(
+            b"".join(payload for chunk_type, payload, _ in sanitized_chunks if chunk_type == b"IDAT")
+        ).digest()
+        if sanitized_idat_hash != original_idat_hash:
+            raise RuntimeError("PNG metadata sanitization changed the rendered pixel stream.")
+        sanitized = temporary.read_bytes().lower()
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+    private_markers = (b"c:\\users\\", b"/users/", str(ROOT).encode("utf-8").lower())
+    if any(marker and marker in sanitized for marker in private_markers):
+        temporary.unlink(missing_ok=True)
+        raise RuntimeError("Rendered store image still contains a private source path.")
+    os.replace(temporary, path)
 
 
 def look_at(obj, target):
@@ -276,11 +355,12 @@ scene.cycles.max_bounces = 8
 scene.cycles.diffuse_bounces = 4
 scene.cycles.glossy_bounces = 4
 scene.render.resolution_x = 960 if FAST_PREVIEW else 1920
-scene.render.resolution_y = 540 if FAST_PREVIEW else 1080
+scene.render.resolution_y = 960 if FAST_PREVIEW else 1920
 scene.render.resolution_percentage = 100
 scene.render.image_settings.file_format = "PNG"
 scene.render.image_settings.color_mode = "RGB"
 scene.render.film_transparent = False
+scene.render.use_stamp = False
 scene.render.filepath = str(OUTPUT)
 scene.view_settings.look = "AgX - Medium Low Contrast"
 scene.view_settings.exposure = 0.35
@@ -396,4 +476,5 @@ camera_data.dof.use_dof = False
 
 OUTPUT.parent.mkdir(parents=True, exist_ok=True)
 bpy.ops.render.render(write_still=True)
+strip_png_private_metadata(OUTPUT)
 print("NOMM_STORE_IMAGE=" + str(OUTPUT))

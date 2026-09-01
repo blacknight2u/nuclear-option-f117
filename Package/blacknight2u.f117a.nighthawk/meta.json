@@ -16,17 +16,17 @@
   ],
   "artifact": {
     "fileName": "F117Nighthawk.dll",
-    "version": "0.4.92",
+    "version": "0.4.99",
     "category": "release",
     "type": "plugin",
     "gameVersion": "0.34.2",
     "downloadUrl": "",
-    "hash": "sha256:c8740474cdec548e3a6376c17006be8e0dc149f43f344748daafa42f0e4f3fd2",
+    "hash": "sha256:b159a9645b28c9436d5dbd374ac158ecf6f3c37e049eba4c15a618af28b0f050",
     "extends": null,
     "dependencies": [
       {
         "id": "com.nikkorap.blueprinter",
-        "version": "1.8.21"
+        "version": "2.0.1"
       }
     ],
     "incompatibilities": []

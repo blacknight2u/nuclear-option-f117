@@ -34,35 +34,30 @@ public static class F117Builder
         .Concat(FinishTexturePaths)
         .Concat(Enumerable.Range(1, 7).Select(index => MaterialsRoot +
             "/F117_F117_EXTERNAL_" + index + "_Damage.asset"))
+        .Concat(F117AircraftAssembler.ParadeFlagFinishKeys.SelectMany(key => new[]
+        {
+            MaterialsRoot + "/F117_ParadeFlag_" + key + ".asset",
+            MaterialsRoot + "/F117_ParadeFlag_" + key + "_Damage.asset"
+        }))
         .ToArray();
     private const string PrefabPath = GeneratedRoot + "/F117A_Nighthawk.prefab";
     private const string DefinitionPath = GeneratedRoot + "/F117A_Nighthawk_Definition.asset";
     private const string ParametersPath = GeneratedRoot + "/F117A_Nighthawk_Parameters.asset";
     private const string LiveryPath = GeneratedRoot + "/F117A_Nighthawk_Livery.asset";
-    private const string ParadeLiveryPath = GeneratedRoot + "/F117A_ParadeFlag_Livery.asset";
     private static readonly string[] ParadeLiveryPaths =
     {
-        ParadeLiveryPath,
-        GeneratedRoot + "/F117A_ParadeFlag_SilverBlue_Livery.asset",
-        GeneratedRoot + "/F117A_ParadeFlag_CoolTitanium_Livery.asset",
         GeneratedRoot + "/F117A_ParadeFlag_SmokedChrome_Livery.asset",
-        GeneratedRoot + "/F117A_ParadeFlag_WarmTitanium_Livery.asset"
+        GeneratedRoot + "/F117A_ParadeFlag_MatteBlack_Livery.asset"
     };
     private static readonly string[] ParadeLiveryAssetNames =
     {
-        "F117A_ParadeFlag_Livery",
-        "F117A_ParadeFlag_SilverBlue_Livery",
-        "F117A_ParadeFlag_CoolTitanium_Livery",
         "F117A_ParadeFlag_SmokedChrome_Livery",
-        "F117A_ParadeFlag_WarmTitanium_Livery"
+        "F117A_ParadeFlag_MatteBlack_Livery"
     };
     private static readonly string[] ParadeLiveryDisplayNames =
     {
-        "Farewell Flag - Pure Chrome",
-        "Farewell Flag - Silver Blue",
-        "Farewell Flag - Cool Titanium",
         "Farewell Flag - Smoked Chrome",
-        "Farewell Flag - Warm Titanium"
+        "Farewell Flag - Matte Black"
     };
     private const string StatusPath = GeneratedRoot + "/F117A_Nighthawk_StatusDisplay.prefab";
     private const string RuntimeUiFallbackPath = GeneratedRoot + "/F117_RuntimeUI_Fallback.prefab";
@@ -71,7 +66,7 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.4.92";
+    private const string Version = "0.4.99";
     private const string FixedJammerAsset = "JammingPod1";
 
     private sealed class WeaponLoadoutSpec
@@ -228,13 +223,11 @@ public static class F117Builder
             bool decal = stem.IndexOf("decal", StringComparison.Ordinal) >= 0;
             bool paradeFlag = stem.StartsWith("f117_paradeflag", StringComparison.Ordinal);
             bool aircraftFinish = stem.EndsWith("_ms", StringComparison.Ordinal);
-            bool data = normal || stem.EndsWith("_comp", StringComparison.Ordinal) ||
+            bool data = normal || aircraftFinish || stem.EndsWith("_comp", StringComparison.Ordinal) ||
                 stem.EndsWith("_mask", StringComparison.Ordinal) || stem.EndsWith("_occlusion", StringComparison.Ordinal);
             importer.textureType = normal
                 ? TextureImporterType.NormalMap
-                : aircraftFinish ? TextureImporterType.Sprite : TextureImporterType.Default;
-            if (aircraftFinish)
-                importer.spriteImportMode = SpriteImportMode.Single;
+                : TextureImporterType.Default;
             importer.sRGBTexture = !data;
             importer.alphaIsTransparency = !data;
             if (paradeFlag || aircraftFinish)
@@ -280,7 +273,10 @@ public static class F117Builder
         rootRect.anchoredPosition = Vector2.zero;
         rootRect.sizeDelta = new Vector2(260f, 260f);
 
-        GameObject part = new GameObject("F117_CentralBody", typeof(RectTransform), typeof(CanvasRenderer));
+        // PrefabUtility names the saved aircraft root after F117A_Nighthawk.prefab.
+        // StatusDisplay matches damage parts by GameObject name, so the central entry
+        // must use the persisted runtime root name rather than its authoring alias.
+        GameObject part = new GameObject("F117A_Nighthawk", typeof(RectTransform), typeof(CanvasRenderer));
         part.layer = root.layer;
         part.transform.SetParent(root.transform, false);
         RectTransform partRect = part.GetComponent<RectTransform>();
@@ -751,7 +747,7 @@ public static class F117Builder
 
     private static string LandingGearPath(string side)
     {
-        return "F117_CentralBody/F117_Gear_" + side + "_Hinge_Axis/F117_Gear_" + side +
+        return "F117_Visual/F117_Gear_" + side + "_Hinge_Axis/F117_Gear_" + side +
                "_Hinge/F117_Gear_" + side + "_Sprung";
     }
 
@@ -798,7 +794,10 @@ public static class F117Builder
             .Where(path =>
             {
                 Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
-                return material != null && F117AircraftAssembler.UsesAircraftSkin(material.name);
+                return material != null &&
+                    (F117AircraftAssembler.UsesAircraftSkin(material.name) ||
+                     string.Equals(material.name, F117AircraftAssembler.ParadeFlagMaterialName,
+                         StringComparison.Ordinal));
             })
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
@@ -976,9 +975,9 @@ public static class F117Builder
         {
             target.PatchLocations.Add(new LocationRef
             {
-                id = "F117A_Nighthawk/F117_CentralBody/F117_RearBody/F117_Engine_" + side,
+                id = "F117A_Nighthawk/F117_Engine_" + side,
                 asset = BundleAsset(PrefabPath, "F117A_Nighthawk", "UnityEngine.GameObject, UnityEngine.CoreModule"),
-                hierarchyPath = "F117_CentralBody/F117_RearBody/F117_Engine_" + side,
+                hierarchyPath = "F117_Engine_" + side,
                 componentType = componentType,
                 componentIndex = componentIndex,
                 memberPath = memberPath

@@ -22,7 +22,7 @@ def configure_materials():
             continue
         # Keep imported texture nodes; only correct obviously transparent opaque surfaces.
         if "glass" not in material.name.lower():
-            material.surface_render_method = "DITHERED" if material.diffuse_color.a < 0.99 else "DITHERED"
+            material.surface_render_method = "DITHERED"
 
 
 def render(name, location, target=(0.0, 0.3, 0.0), lens=58.0):
@@ -37,7 +37,7 @@ def render(name, location, target=(0.0, 0.3, 0.0), lens=58.0):
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 scene = bpy.context.scene
-scene.render.engine = "BLENDER_EEVEE_NEXT"
+scene.render.engine = "BLENDER_EEVEE"
 scene.render.resolution_x = 1400
 scene.render.resolution_y = 900
 scene.render.resolution_percentage = 100

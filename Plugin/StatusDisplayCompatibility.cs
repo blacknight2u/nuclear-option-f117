@@ -16,9 +16,7 @@ namespace Blacknight2u.F117Nighthawk
             "Blacknight2u.F117Nighthawk.DamageSections.";
         private static readonly string[] DamagePartNames =
         {
-            "F117_CentralBody", "F117_Nose", "F117_RearBody",
-            "F117_Wing_Left_Root", "F117_Wing_Left_Inner", "F117_Wing_Left_Outer",
-            "F117_Wing_Right_Root", "F117_Wing_Right_Inner", "F117_Wing_Right_Outer",
+            "F117A_Nighthawk", "F117_Wing_Left", "F117_Wing_Right",
             "F117_Elevon_L_Inner", "F117_Elevon_L_Outer",
             "F117_Elevon_R_Inner", "F117_Elevon_R_Outer",
             "F117_Rudder_L", "F117_Rudder_R",
@@ -39,7 +37,12 @@ namespace Blacknight2u.F117Nighthawk
             var sections = new Dictionary<string, Sprite>(StringComparer.Ordinal);
             foreach (string partName in DamagePartNames)
             {
-                string resource = DamageSectionResourcePrefix + partName + ".png";
+                // The central mask keeps its stable embedded resource name even though
+                // Unity persists the aircraft root as F117A_Nighthawk.
+                string resourcePartName = partName == "F117A_Nighthawk"
+                    ? "F117_CentralBody"
+                    : partName;
+                string resource = DamageSectionResourcePrefix + resourcePartName + ".png";
                 sections.Add(partName, LoadSprite(assembly, resource, partName + "_DamageSection"));
             }
             DamageSections = sections;

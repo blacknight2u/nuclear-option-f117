@@ -1,80 +1,39 @@
 # F-117A Nighthawk for Nuclear Option
 
-A flyable F-117A stealth attack aircraft for Nuclear Option, built with
-Blueprinter and a small aircraft-scoped BepInEx plugin.
+Adds the F-117A Nighthawk as a separate flyable aircraft in Nuclear Option.
 
-The mod adds a new aircraft; it does not replace a stock airframe.
+## Aircraft
 
-## Features
+- Extreme-low-observable radar profile while clean, with increased signature
+  when the landing gear or either weapon bay is open
+- High-subsonic flight model with twin non-afterburning engines
+- Two independent internal weapon bays with a broad selection of compatible
+  strike and defensive loadouts
+- Passive electro-optical targeting and radar-warning equipment without an
+  emitting search radar
+- Permanently installed active radar jammer, 64 radar chaff, and 32 infrared
+  flares
+- Animated landing gear, weapon bays, canopy, and one-use landing drag chute
+- Purpose-built damage model and aircraft status display
+- Nighthawk Black plus Farewell Flag liveries in Smoked Chrome and Matte Black
 
-- Subsonic flight model with twin non-afterburning engines
-- Animated tricycle landing gear, canopy, bomb bays, and drag chute
-- Dynamic radar signature that increases when the landing gear or weapon bays
-  are open
-- Passive warning and targeting systems with game-native cockpit displays
-- Internal weapon carriage with compatible bomb and missile loadouts
-- F-117-scoped access to the stock-disabled CBO-400 and ARAD-45 internal mounts
-- Fixed onboard game-native jammer, chaff, and flares
-- Host-authoritative requisition inventory and rank-4 factory production in
-  normal missions, with automatic delegation when Equalizer is active
-- Multiplayer support when every player uses matching game, Blueprinter, and
-  F-117 versions
-
-The aircraft favors stealth and precision attack over speed or air-to-air
-performance. It has no emitting search radar or afterburner.
+The aircraft is available at rank 4 and costs $120 million.
 
 ## Requirements
 
 - Nuclear Option `0.34.2`
-- Blueprinter `1.8.21`
-- NOMM for normal installation and mod management
+- Blueprinter `2.0.1`
 
 ## Installation
 
-Install F-117A Nighthawk through NOMM when it is available in Discover. For a
-private development build, use NOMM's local import workflow with a package
-prepared for testing, then enable both Blueprinter and F-117A Nighthawk before
-launching the game.
-
-Do not import the GitHub source archive or copy the development source tree
-into the game directory.
-
-## Aircraft controls
-
-Normal flight, weapons, landing gear, countermeasures, and targeting use the
-standard Nuclear Option controls.
-
-The onboard jammer appears in the equipped-weapon cycle. Select it, designate a
-tracked radar target, and hold the normal fire control to jam. It uses the
-game's standard jammer behavior. Its dedicated 60 kJ capacitor supports about
-five seconds of strong jamming from full charge and takes about 52 seconds to
-recover at maximum engine RPM, so save it for critical moments.
-
-The drag chute becomes available after a real airborne landing. With the gear
-locked down and the aircraft settled on all three wheels, hold the wheel brakes
-within the chute's landing-speed envelope. It jettisons automatically near taxi
-speed.
-
-## Reporting problems
-
-Include the game, Blueprinter, and F-117 versions, the enabled mod list, and a
-short reproduction. Attach `Player.log` from:
-
-```text
-%USERPROFILE%\AppData\LocalLow\Shockfront\NuclearOption\Player.log
-```
-
-The optional Flight Data Logger can provide structured telemetry for flight,
-landing-gear, damage, or performance problems.
+Install and enable **F-117A Nighthawk** through NOMM. Blueprinter is installed
+as a dependency.
 
 ## License
 
-Source code and documentation are available under the [MIT License](LICENSE).
-Models, textures, renders, compiled asset bundles, and other non-code media are
-covered by the separate [asset-rights notice](ASSETS.md).
+This project is available under the [MIT License](LICENSE).
 
-## Development
+## Development documentation
 
 - [Development and release process](DEVELOPMENT.md)
 - [Aircraft modding guide](AIRCRAFT_MODDING_GUIDE.md)
-- [Maintained and historical tools](Tools/README.md)

@@ -4,6 +4,9 @@ from mathutils import Vector
 
 
 TARGETS = (
+    "F117_Exterior_Mesh",
+    "F117_Exterior_LeftWing_Mesh",
+    "F117_Exterior_RightWing_Mesh",
     "F117_Gear_Nose_Mesh",
     "F117_Gear_Left_Mesh",
     "F117_Gear_Right_Mesh",

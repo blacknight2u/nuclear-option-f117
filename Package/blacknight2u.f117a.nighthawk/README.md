@@ -1,41 +1,30 @@
 # F-117A Nighthawk
 
-A stealth-focused, subsonic attack aircraft for Nuclear Option.
+Adds the F-117A Nighthawk as a separate flyable aircraft in Nuclear Option.
 
-## Highlights
+## Aircraft
 
-- Twin non-afterburning engines
-- Dynamic radar signature from weapon-bay and landing-gear state
-- Animated internal bays, landing gear, canopy, and landing drag chute
-- Passive targeting and game-native cockpit displays
-- Compatible internal bomb and missile loadouts
-- F-117-scoped access to the stock-disabled CBO-400 and ARAD-45 internal mounts
-- Fixed onboard game-native jammer, 64 chaff, and 32 flares
-- Requisition inventory and rank-4 factory production in normal missions
-- Automatic compatibility with Equalizer without duplicate production
-- Nighthawk Black and Farewell Flag liveries
+- Extreme-low-observable radar profile while clean, with increased signature
+  when the landing gear or either weapon bay is open
+- High-subsonic flight model with twin non-afterburning engines
+- Two independent internal weapon bays with a broad selection of compatible
+  strike and defensive loadouts
+- Passive electro-optical targeting and radar-warning equipment without an
+  emitting search radar
+- Permanently installed active radar jammer, 64 radar chaff, and 32 infrared
+  flares
+- Animated landing gear, weapon bays, canopy, and one-use landing drag chute
+- Purpose-built damage model and aircraft status display
+- Nighthawk Black plus Farewell Flag liveries in Smoked Chrome and Matte Black
 
-The mod adds a separate aircraft and does not replace a stock airframe.
+The aircraft is available at rank 4 and costs $120 million.
 
 ## Requirements
 
 - Nuclear Option `0.34.2`
-- Blueprinter `1.8.21`
-- Matching enabled mod versions for every multiplayer participant
+- Blueprinter `2.0.1`
 
-## Using the jammer
+## Installation
 
-The onboard jammer is fixed equipment and appears in the normal weapon cycle.
-Select it, designate a tracked radar target, and hold the standard fire control.
-Its range, power draw, and effectiveness are the game's normal jammer behavior.
-The dedicated 60 kJ capacitor provides about five seconds of strong jamming
-from full charge and needs about 52 seconds to recover at maximum engine RPM.
-
-## Drag chute
-
-After landing, lock the gear down, settle on all three wheels, and hold the
-wheel brakes within the chute's landing-speed envelope. The chute jettisons
-automatically near taxi speed.
-
-Report problems with the game, Blueprinter, and F-117 version numbers, the
-enabled mod list, reproduction steps, and `Player.log`.
+Install and enable **F-117A Nighthawk** through NOMM. Blueprinter is installed
+as a dependency.

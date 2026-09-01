@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -13,7 +14,74 @@ internal static class F117AircraftAssembler
     private const string ParadeFlagTexturePath = TexturesRoot + "F117_ParadeFlag_Wrap.png";
     internal const string MirrorFinishTexturePath = TexturesRoot + "F117_Mirror_MS.png";
     internal const string ParadeFlagOverlayPrefix = "F117_ParadeFlagOverlay_";
-    private const float ParadeFlagSurfaceOffset = 0.012f;
+    internal const string ParadeFlagMaterialName = "F117_ParadeFlag_Underside";
+    internal static readonly string[] ParadeFlagFinishKeys =
+    {
+        // PureChrome is retained only as the untinted flag-albedo source used by
+        // Matte Black. It is not exposed as a selectable livery.
+        "PureChrome", "SmokedChrome"
+    };
+    private static readonly Color[] ParadeFlagFinishTints =
+    {
+        Color.white,
+        new Color(0.35f, 0.39f, 0.45f, 1f)
+    };
+    // The nearest measured underside emblem is 0.232 mm above its airframe skin.
+    // Keep the wrap below that authored decal layer while still separating it from
+    // the base surface enough to avoid coincident depth values.
+    internal const float ParadeFlagSurfaceOffset = 0.0001f;
+    internal const float ParadeFlagWeldTolerance = 0.00001f;
+    internal const float ParadeFlagVisibilityClearance = 0.00002f;
+    // The flag owns the actual underside, not steep tail, side, or edge facets.
+    // A 0.75 minimum downward dot excludes every measured high-tail facet near
+    // the rudders while retaining the faceted lower wing, bay-door, and elevon skins.
+    internal const double ParadeFlagMinimumDownwardDot = 0.75d;
+    // Keep length and projected-area tolerances dimensionally separate. Comparing
+    // a squared 3D cross magnitude with a linear tolerance discarded more than
+    // half of the measured source triangles and produced zero-normal occluders.
+    private const float ParadeFlagCoordinateEpsilon = 0.0000001f;
+    // This projected-area epsilon is used only to clean already clipped polygons;
+    // source projection eligibility is separately derived from the 10 um weld.
+    private const float ParadeFlagAreaEpsilon = 0.00000001f;
+    private const float ParadeFlagSpatialCell = 0.5f;
+    internal static readonly string[] ParadeFlagSurfaceNames =
+    {
+        "F117_Exterior_Mesh",
+        "F117_Exterior_LeftWing_Mesh", "F117_Exterior_RightWing_Mesh",
+        "F117_BayDoor_Left_Mesh", "F117_BayDoor_Right_Mesh",
+        "F117_Elevon_L_Inner_Mesh", "F117_Elevon_L_Outer_Mesh",
+        "F117_Elevon_R_Inner_Mesh", "F117_Elevon_R_Outer_Mesh",
+        "F117_GearDoor_Nose_Mesh",
+        "F117_GearDoor_Left_Outer_Mesh", "F117_GearDoor_Left_Inner_Mesh",
+        "F117_GearDoor_Right_Outer_Mesh", "F117_GearDoor_Right_Inner_Mesh"
+    };
+    // Measured from Unity's configured import of the pinned canonical FBX. Unity
+    // welds coincident vertices and removes collapsed source faces before the game
+    // sees the mesh; the validator separately hash-locks the raw FBX identity.
+    // These counts are never copied from generated overlay meshes.
+    internal static readonly int[] ParadeFlagEligibleSourceTriangleCounts =
+    {
+        79288, 619, 609, 516, 516, 40, 36, 42, 36,
+        489, 964, 260, 956, 260
+    };
+    internal static readonly int[] ParadeFlagDownwardSourceTriangleCounts =
+    {
+        11873, 136, 131, 81, 81, 5, 6, 7, 6,
+        10, 8, 5, 8, 7
+    };
+    internal const int ParadeFlagUniqueOccluderFaceCount = 84625;
+    internal const int ParadeFlagProjectedOccluderFaceCount = 77732;
+    private static readonly string[] ParadeFlagOccluderNames =
+    {
+        "F117_Exterior_Mesh",
+        "F117_Exterior_LeftWing_Mesh", "F117_Exterior_RightWing_Mesh",
+        "F117_BayDoor_Left_Mesh", "F117_BayDoor_Right_Mesh",
+        "F117_Elevon_L_Inner_Mesh", "F117_Elevon_L_Outer_Mesh",
+        "F117_Elevon_R_Inner_Mesh", "F117_Elevon_R_Outer_Mesh",
+        "F117_GearDoor_Nose_Mesh",
+        "F117_GearDoor_Left_Outer_Mesh", "F117_GearDoor_Left_Inner_Mesh",
+        "F117_GearDoor_Right_Outer_Mesh", "F117_GearDoor_Right_Inner_Mesh"
+    };
     private const string AircraftSkinTemplatePath =
         "Assets/blueprinter/aryx/aryx_f16m/Aryx_F16M_KingViper_Skin.mat";
     internal const float InternalStoreMountHeight = 0.45f;
@@ -43,20 +111,6 @@ internal static class F117AircraftAssembler
     // moving share to its measured geometry subtracts the same area from the fixed
     // wing share, so this restores control authority without inventing lift area.
     internal const float MainWingLiftArea = 24.25654f;
-    // The production exterior uses several very large wing polygons. Damage sections
-    // must therefore be cut geometrically at these measured span stations rather than
-    // assigning whole triangles by centroid. Unity's FBX conversion mirrors Blender X,
-    // so the imported model's authored left side is negative X and right is positive X.
-    internal const float WingRootSweep = 0.4383f;
-    internal const float WingRootMetricCut = 4.1f;
-    internal const float WingOuterSweep = 1.394f;
-    internal const float WingOuterMetricCut = 11.82f;
-    internal const float DamageBulkheadInset = 0.03f;
-    internal const float DamageBulkheadLayerOffset = 0.01f;
-    internal const float DamageBulkheadOutlineScale = 0.97f;
-    internal const float WingRootAreaFraction = 0.5487673f;
-    internal const float WingInnerAreaFraction = 0.3027565f;
-    internal const float WingOuterAreaFraction = 0.1484762f;
     // Keep the neutral horizontal lift centre a small, explicit distance behind
     // the dry centre of mass. The 0.28 m target is five percent of the aircraft's
     // approximately 5.6 m reference mean chord: stable enough for the native FBW,
@@ -67,15 +121,48 @@ internal static class F117AircraftAssembler
     // shorter probes can miss runway seams or uneven terrain between physics frames.
     internal const float NoseSuspensionTravel = 0.60f;
     internal const float MainSuspensionTravel = 0.60f;
-    internal const float GroundSpawnHeight = 2.35f;
+    // All three deployed tire contacts share one authored plane. Spawn gives every
+    // probe a small positive preload; unequal nose/main equilibrium deflections then
+    // settle the aircraft onto its real tricycle load distribution.
+    internal const float GearContactPlaneY = -2.34363496f;
+    internal const float GearSpawnCompression = 0.03538486f;
+    internal const float GroundSpawnHeight = 2.30825010f;
+    internal const float NoseGearContactZ = 5.04024982f;
+    internal const float MainGearContactZ = -0.76365989f;
+    internal const float MainGearHalfTrack = 2.07423997f;
+    // Balance the authored 13,380 kg dry mass about the measured 5.80390971 m
+    // wheelbase and the approved 0.50 m dry-CG margin below. At the 25/52 mm
+    // equilibrium compressions this puts 8.6149 percent of the static load on
+    // the nose wheel and divides the remainder equally between the mains.
+    internal const float NoseGearDryCompression = 0.025f;
+    internal const float MainGearDryCompression = 0.052f;
+    internal const float NoseGearSpringRate = 452308.21f;
+    internal const float MainGearSpringRate = 1153366.30f;
+    // Preserve the flight-tested v0.4.96 damping coefficients. Static support
+    // balance depends only on spring force, so the CG correction does not need a
+    // second, unrelated damping retune.
+    internal const float NoseGearDampingRate = 83950f;
+    internal const float MainGearDampingRate = 110300f;
+    internal const float NoseTireResponse = 0.33f;
+    internal const float MainTireResponse = 1f;
+    internal const float TireRollingResistance = 0.01f;
     internal const float NoseGearContactArea = 0.06f;
     internal const float NoseSteeringLock = 45f;
     internal const float NoseSteeringSpeed = 60f;
     internal const float NoseAligningStrength = 5f;
-    // The true mass-weighted CG must use every AeroPart.centerOfMass reference,
-    // not the part transform origins. Keep a modest positive tricycle-gear
-    // margin: 0.50 m over the 5.665 m wheelbase gives 8.8% static nose load.
+    // Restore the last approved v0.4.92 dry CG. The later 1.06 m experiment put
+    // 21.45% of the tested full-fuel/two-missile load on the nose and prevented
+    // rotation at 95 m/s. The approved 0.50 m dry margin predicts 15.9% loaded nose
+    // weight for that same configuration while remaining ahead of the main gear.
     internal const float DryCenterOfMassAheadOfMainGear = 0.50f;
+    // The three-piece damage graph merges the former center, nose, and rear dry
+    // structure into one Rigidbody. Keep its dry mass point separate from the
+    // historical station where Nuclear Option applies fuel and payload mass.
+    // The runtime controller combines these two first moments after every native
+    // UnitPart.ModifyMass call; neither endpoint is a fixed loaded-aircraft CG.
+    internal const float DryCentralMass = 10250f;
+    internal const float DryCentralCenterOfMassZ = 0.657403290f;
+    internal const float VariableLoadCenterOfMassZ = -0.344007939f;
     internal const float ControlSurfaceColliderInset = 0.96f;
     internal const float ControlSurfaceColliderMinSize = 0.08f;
     // The moving-rudder geometry averages 5.318495 m2 projected area while its
@@ -104,7 +191,7 @@ internal static class F117AircraftAssembler
     internal const float JammerChargePerEngineRpm = 0.0002f;
     private static readonly HashSet<string> RequiredDonorComponentTypes = new HashSet<string>(StringComparer.Ordinal)
     {
-        "Aircraft", "FuelTank", "NetworkIdentity", "AircraftNetworkTransform", "TargetCam", "TargetDetector",
+        "Aircraft", "AeroPart", "FuelTank", "NetworkIdentity", "AircraftNetworkTransform", "TargetCam", "TargetDetector",
         "AutopilotPlane", "ControlsFilter", "LaserDesignator", "WeaponManager", "RadarLocator", "Radar",
         "Cockpit", "Canopy", "Pilot", "PowerSupply", "FlareEjector", "ChaffEjector"
     };
@@ -152,6 +239,7 @@ internal static class F117AircraftAssembler
         internal bool BypassReverbZones;
         internal int Priority;
         internal float DopplerLevel;
+        internal float Spread;
         internal float MinDistance;
         internal float MaxDistance;
         internal AudioRolloffMode RolloffMode;
@@ -176,6 +264,7 @@ internal static class F117AircraftAssembler
                 BypassReverbZones = source.bypassReverbZones,
                 Priority = source.priority,
                 DopplerLevel = source.dopplerLevel,
+                Spread = source.spread,
                 MinDistance = source.minDistance,
                 MaxDistance = source.maxDistance,
                 RolloffMode = source.rolloffMode,
@@ -190,6 +279,7 @@ internal static class F117AircraftAssembler
             source.bypassReverbZones = BypassReverbZones;
             source.priority = Priority;
             source.dopplerLevel = DopplerLevel;
+            source.spread = Spread;
             source.minDistance = MinDistance;
             source.maxDistance = MaxDistance;
             source.rolloffMode = RolloffMode;
@@ -203,7 +293,10 @@ internal static class F117AircraftAssembler
     {
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(sourcePrefab);
         PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
-        instance.name = "F117A_Nighthawk";
+        // Stock AI taxi code requires the aircraft root itself to be a UnitPart.
+        // Make the authoritative central AeroPart the prefab root and keep its name
+        // aligned with the damage/status contract.
+        instance.name = "F117_CentralBody";
 
         Component aircraft = FindComponent(instance, "Aircraft");
         Component weaponManager = FindComponent(instance, "WeaponManager");
@@ -218,7 +311,7 @@ internal static class F117AircraftAssembler
 
         GameObject visual = (GameObject)PrefabUtility.InstantiatePrefab(modelPrefab);
         PrefabUtility.UnpackPrefabInstance(visual, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
-        visual.name = "F117_CentralBody";
+        visual.name = "F117_Visual";
         visual.transform.SetParent(instance.transform, false);
         visual.transform.localPosition = Vector3.zero;
         visual.transform.localRotation = Quaternion.identity;
@@ -227,20 +320,23 @@ internal static class F117AircraftAssembler
         MeshRenderer cockpitScreenRenderer = CreateCockpitScreenRenderer(visual, materialsRoot);
 
         Material gearDustMaterial = CreateGearDustMaterial(materialsRoot);
-        Material damageSeamCapMaterial = CreateDamageSeamCapMaterial(materialsRoot);
         Component centralPart = ConfigurePhysics(instance, visual, aircraft, rigidbody, gearDustMaterial,
-            damageSeamCapMaterial, tireAudioProfile);
+            tireAudioProfile);
         ConfigureRuntimeSystems(instance, visual, aircraft, centralPart);
         ConfigureCrewAndSensors(instance, visual, aircraft, centralPart, runtimeUiFallback, cockpitScreenRenderer);
         ConfigureCanopy(instance, visual, aircraft, centralPart);
         ConfigureWeapons(instance, visual, weaponManager, centralPart);
-        ConfigureRendererLists(visual, aircraft);
+        ConfigureRendererLists(instance, aircraft);
         PruneDonorScaffold(instance, visual);
-        CreateParadeFlagOverlays(visual, materialsRoot);
+        CreateParadeFlagOverlays(instance, visual, materialsRoot);
+        BindParadeFlagDamageRenderers(instance, centralPart);
 
-        Transform chute = FindDeep(visual.transform, "F117_DragChute");
-        Renderer[] allVisualRenderers = visual.GetComponentsInChildren<Renderer>(true)
-            .Where(renderer => chute == null || !renderer.transform.IsChildOf(chute))
+        Transform chute = FindDeep(instance.transform, "F117_DragChute");
+        Renderer[] allVisualRenderers = instance.GetComponentsInChildren<Renderer>(true)
+            .Where(renderer => !IsPilot(renderer.transform))
+            .Where(renderer => !(renderer is ParticleSystemRenderer))
+            .Where(renderer => chute == null ||
+                               (renderer.transform != chute && !renderer.transform.IsChildOf(chute)))
             .ToArray();
         Bounds visualBounds = LocalBounds(instance.transform, allVisualRenderers);
         if (visualBounds.size.sqrMagnitude < 100f)
@@ -289,7 +385,21 @@ internal static class F117AircraftAssembler
     {
         bool IsProduction(Transform transform)
         {
-            return transform == visual.transform || transform.IsChildOf(visual.transform);
+            if (transform == visual.transform || transform.IsChildOf(visual.transform))
+                return true;
+
+            // The two authored whole-wing meshes and moving aerodynamic surfaces are
+            // reparented to the AeroPart that physically owns them. Admit only objects
+            // below a real AeroPart; broad F117 name matching also preserves renamed
+            // donor cockpit widgets and defeats the cleanup audit.
+            for (Transform current = transform; current != null && current != root.transform;
+                 current = current.parent)
+                if (current.GetComponent("AeroPart") != null)
+                    return true;
+
+            // Central parade overlays have no intermediate AeroPart transform.
+            return transform.parent == root.transform &&
+                   transform.name.StartsWith(ParadeFlagOverlayPrefix, StringComparison.Ordinal);
         }
 
         Component powerSupply = FindComponent(root, "PowerSupply");
@@ -304,6 +414,8 @@ internal static class F117AircraftAssembler
 
             string typeName = component.GetType().Name;
             bool keep = RequiredDonorComponentTypes.Contains(typeName) ||
+                        (component.transform == root.transform &&
+                         (typeName == "AeroPart" || component is Collider)) ||
                         (component is Rigidbody && component.transform == root.transform) ||
                         (component is AudioSource && component.transform == powerSupply.transform) ||
                         (IsPilot(component.transform) &&
@@ -721,211 +833,773 @@ internal static class F117AircraftAssembler
         return material;
     }
 
-    private static Material CreateDamageSeamCapMaterial(string materialsRoot)
+    private static void CreateParadeFlagOverlays(GameObject root, GameObject visual, string materialsRoot)
     {
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null)
-            throw new InvalidOperationException("Universal Render Pipeline/Lit is unavailable for damage seam caps.");
-        Material material = new Material(shader) { name = "F117_DamageSeamCap" };
-        Color structuralBlack = new Color(0.006f, 0.007f, 0.008f, 1f);
-        material.SetColor("_BaseColor", structuralBlack);
-        material.SetColor("_Color", structuralBlack);
-        material.SetFloat("_Metallic", 0.05f);
-        material.SetFloat("_Smoothness", 0.15f);
-        material.SetFloat("_Surface", 0f);
-        material.SetFloat("_ZWrite", 1f);
-        if (material.HasProperty("_Cull"))
-            material.SetFloat("_Cull", (float)CullMode.Off);
-        material.SetOverrideTag("RenderType", "Opaque");
-        material.renderQueue = -1;
-        AssetDatabase.CreateAsset(material, materialsRoot + "/F117_DamageSeamCap.mat");
-        return material;
+        string[] hingeNames =
+        {
+            "F117_GearDoor_Nose_CloseHinge",
+            "F117_GearDoor_Left_Outer_CloseHinge",
+            "F117_GearDoor_Left_Inner_CloseHinge",
+            "F117_GearDoor_Right_Outer_CloseHinge",
+            "F117_GearDoor_Right_Inner_CloseHinge"
+        };
+        Transform[] hinges = hingeNames
+            .Select(name => FindDeep(visual.transform, name))
+            .ToArray();
+        if (hinges.Any(hinge => hinge == null))
+            throw new InvalidOperationException(
+                "Farewell Flag requires all five native landing-gear door close hinges.");
+
+        Quaternion[] authoredRotations = hinges
+            .Select(hinge => hinge.localRotation)
+            .ToArray();
+        try
+        {
+            // The imported doors are authored open. Generate against the actual
+            // clean-flight lower envelope, whose native closed hinge state is identity.
+            foreach (Transform hinge in hinges)
+                hinge.localRotation = Quaternion.identity;
+            CreateParadeFlagOverlaysClosed(root, visual, materialsRoot);
+        }
+        finally
+        {
+            for (int index = 0; index < hinges.Length; index++)
+                hinges[index].localRotation = authoredRotations[index];
+        }
     }
 
-    private static void CreateParadeFlagOverlays(GameObject visual, string materialsRoot)
+    private static void CreateParadeFlagOverlaysClosed(GameObject root, GameObject visual,
+        string materialsRoot)
     {
         Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(ParadeFlagTexturePath);
         if (texture == null)
             throw new InvalidOperationException("The deterministic F-117 parade-flag texture is unavailable.");
 
-        string[] gearDoorHingeNames =
-        {
-            "F117_GearDoor_Nose_CloseHinge",
-            "F117_GearDoor_Left_Outer_CloseHinge", "F117_GearDoor_Left_Inner_CloseHinge",
-            "F117_GearDoor_Right_Outer_CloseHinge", "F117_GearDoor_Right_Inner_CloseHinge"
-        };
-        Transform[] gearDoorHinges = gearDoorHingeNames
-            .Select(name => FindDeep(visual.transform, name))
+        MeshFilter[] allFilters = root.GetComponentsInChildren<MeshFilter>(true);
+        MeshFilter[] filters = ParadeFlagSurfaceNames
+            .Select(name => RequireParadeFlagFilter(allFilters, name))
             .ToArray();
-        if (gearDoorHinges.Any(hinge => hinge == null))
-            throw new InvalidOperationException("All five F-117 gear-door close hinges are required for flag projection.");
-        Quaternion[] savedRotations = gearDoorHinges.Select(hinge => hinge.localRotation).ToArray();
+        MeshFilter[] occluderFilters = ParadeFlagOccluderNames
+            .Select(name => RequireParadeFlagFilter(allFilters, name))
+            .ToArray();
+
+        Bounds planform;
+        List<ParadeSourceTriangle> candidates =
+            GatherParadeFlagCandidates(visual.transform, filters, out planform);
+        if (planform.size.x < 10f || planform.size.z < 15f)
+            throw new InvalidOperationException("The F-117 parade projection has invalid exterior-skin bounds.");
+        List<ParadeSourceTriangle> occluders =
+            GatherParadeFlagOccluders(visual.transform, occluderFilters);
+        ParadeSpatialIndex spatialIndex = new ParadeSpatialIndex(occluders);
+        var builders = ParadeFlagSurfaceNames.ToDictionary(
+            name => name, name => new ParadeMeshBuilder(name), StringComparer.Ordinal);
+
+        // Lower-envelope clipping is pure geometry: every candidate reads the
+        // immutable candidate/occluder lists and writes only its own result slot.
+        // Run that expensive stage across all available logical processors, then
+        // merge in canonical candidate order so generated meshes remain bit-for-bit
+        // deterministic and all Unity object creation stays on the editor thread.
+        var visibleByCandidate = new List<List<Vector2>>[candidates.Count];
+        int workerCount = Math.Max(1, Environment.ProcessorCount);
+        Debug.Log("F-117 Farewell Flag: clipping " + candidates.Count +
+            " underside candidates across " + workerCount + " logical processors.");
+        Parallel.For(0, candidates.Count,
+            new ParallelOptions { MaxDegreeOfParallelism = workerCount },
+            candidateIndex =>
+        {
+            ParadeSourceTriangle candidate = candidates[candidateIndex];
+            int[] nearbyOccluderIndices = spatialIndex.Query(candidate).ToArray();
+            List<List<Vector2>> visible = new List<List<Vector2>>
+            {
+                candidate.ProjectedTriangle()
+            };
+            foreach (int occluderIndex in nearbyOccluderIndices)
+            {
+                ParadeSourceTriangle occluder = occluders[occluderIndex];
+                // Every candidate already belongs to the approved exterior-skin
+                // material of its owner. Do not subtract other facets from that
+                // same authored surface; self-clipping is redundant, can carve
+                // legitimate door panels, and dominated build time on the dense
+                // central mesh. Separate moving owners still clip one another in
+                // the closed-airframe pose.
+                if (string.Equals(candidate.OwnerName, occluder.OwnerName,
+                        StringComparison.Ordinal))
+                    continue;
+                double blockingThreshold = ParadeBlockingHeightThreshold(
+                    candidate, occluder);
+                if (candidate.FaceKey.Equals(occluder.FaceKey) ||
+                    occluder.MinY >= candidate.MaxY - blockingThreshold ||
+                    !candidate.ProjectionOverlaps(occluder))
+                    continue;
+                List<Vector2> blocking = ParadeBlockingPolygon(candidate, occluder);
+                if (blocking.Count < 3)
+                    continue;
+
+                var remainder = new List<List<Vector2>>();
+                foreach (List<Vector2> polygon in visible)
+                    remainder.AddRange(SubtractConvexPolygon(polygon, blocking));
+                visible = remainder;
+                if (visible.Count == 0)
+                    break;
+            }
+
+            var resolved = new List<List<Vector2>>();
+            foreach (List<Vector2> rawPolygon in visible)
+            {
+                // Repeated float intersections can accumulate sub-micrometre drift
+                // beyond the authored source edge.  Reclip once to the exact welded
+                // source triangle before emission so every generated point remains
+                // on its declared exterior face and cannot form an external sliver.
+                List<Vector2> polygon = IntersectConvexPolygons(
+                    rawPolygon, candidate.ProjectedTriangle());
+                if (!ParadePolygonAreaIsResolved(polygon))
+                    continue;
+                EnsureParadePolygonVisible(candidate, polygon, occluders,
+                    nearbyOccluderIndices);
+                resolved.Add(polygon);
+            }
+            visibleByCandidate[candidateIndex] = resolved;
+        });
+
+        for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
+        {
+            ParadeSourceTriangle candidate = candidates[candidateIndex];
+            foreach (List<Vector2> polygon in visibleByCandidate[candidateIndex])
+                builders[candidate.OwnerName].AddPolygon(candidate, polygon,
+                    occluders, spatialIndex);
+        }
+
+        Shader previewShader = Shader.Find("Universal Render Pipeline/Lit");
+        if (previewShader == null)
+            throw new InvalidOperationException("Universal Render Pipeline/Lit is unavailable for the parade livery.");
+        Material aircraftSkin = AssetDatabase.LoadAssetAtPath<Material>(AircraftSkinTemplatePath);
+        Texture2D mirrorFinish = AssetDatabase.LoadAssetAtPath<Texture2D>(MirrorFinishTexturePath);
+        if (aircraftSkin == null || mirrorFinish == null)
+            throw new InvalidOperationException("Farewell Flag requires the native AircraftSkin template and mirror finish.");
+
+        TextureImporter flagImporter = AssetImporter.GetAtPath(ParadeFlagTexturePath) as TextureImporter;
+        if (flagImporter == null)
+            throw new InvalidOperationException("Farewell Flag source has no TextureImporter.");
+        bool restoreReadable = !flagImporter.isReadable;
+        var cleanVariants = new Dictionary<string, Texture2D>(StringComparer.Ordinal);
+        var damageVariants = new Dictionary<string, Texture2D>(StringComparer.Ordinal);
+        if (ParadeFlagFinishTints.Length != ParadeFlagFinishKeys.Length)
+            throw new InvalidOperationException("Farewell Flag finish keys and authored tints are out of sync.");
         try
         {
-            // Select and project gear-door triangles in the aerodynamically closed pose.
-            // The authored/runtime open rotations are restored even when generation fails.
-            foreach (Transform hinge in gearDoorHinges)
-                hinge.localRotation = Quaternion.identity;
-
-            MeshFilter[] filters = visual.GetComponentsInChildren<MeshFilter>(true)
-                .Where(IsParadeFlagSurface)
-                .ToArray();
-            if (filters.Length == 0)
-                throw new InvalidOperationException("No F-117 underside surfaces were found for the parade livery.");
-
-            Bounds planform = new Bounds();
-            bool initialized = false;
-            foreach (MeshFilter filter in filters)
-            foreach (Vector3 vertex in filter.sharedMesh.vertices)
+            if (restoreReadable)
             {
-                Vector3 point = visual.transform.InverseTransformPoint(filter.transform.TransformPoint(vertex));
-                if (!initialized)
-                {
-                    planform = new Bounds(point, Vector3.zero);
-                    initialized = true;
-                }
-                else
-                    planform.Encapsulate(point);
+                flagImporter.isReadable = true;
+                flagImporter.SaveAndReimport();
+                texture = AssetDatabase.LoadAssetAtPath<Texture2D>(ParadeFlagTexturePath);
             }
-            if (!initialized || planform.size.x < 10f || planform.size.z < 15f)
-                throw new InvalidOperationException("The F-117 parade projection has invalid planform bounds.");
-
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null)
-                throw new InvalidOperationException("Universal Render Pipeline/Lit is unavailable for the parade livery.");
-            Material material = new Material(shader) { name = "F117_ParadeFlag_Underside" };
-            material.SetTexture("_BaseMap", texture);
-            material.SetTexture("_MainTex", texture);
-            material.SetColor("_BaseColor", Color.white);
-            material.SetColor("_Color", Color.white);
-            material.SetFloat("_Metallic", 0.88f);
-            material.SetFloat("_Smoothness", 0.94f);
-            material.SetFloat("_AlphaClip", 0f);
-            if (material.HasProperty("_Cull"))
-                material.SetFloat("_Cull", (float)CullMode.Off);
-            material.DisableKeyword("_ALPHATEST_ON");
-            material.SetOverrideTag("RenderType", "Opaque");
-            material.renderQueue = -1;
-            AssetDatabase.CreateAsset(material, materialsRoot + "/F117_ParadeFlag_Underside.mat");
-
-            int overlayCount = 0;
-            for (int index = 0; index < filters.Length; index++)
-                if (CreateParadeFlagOverlay(visual.transform, filters[index], material, planform,
-                    materialsRoot, index))
-                    overlayCount++;
-            if (overlayCount < 5)
-                throw new InvalidOperationException("Too few F-117 underside overlays were generated for the parade livery.");
+            for (int index = 0; index < ParadeFlagFinishKeys.Length; index++)
+            {
+                string key = ParadeFlagFinishKeys[index];
+                Texture2D clean = CreateTintedParadeFlagTexture(texture, key,
+                    ParadeFlagFinishTints[index], materialsRoot);
+                Texture2D damaged = CreateDamageAlbedo(clean, "ParadeFlag_" + key, materialsRoot);
+                cleanVariants.Add(key, clean);
+                damageVariants.Add(key, damaged);
+                if (clean.isReadable)
+                {
+                    clean.Apply(false, true);
+                    EditorUtility.SetDirty(clean);
+                }
+            }
         }
         finally
         {
-            for (int index = 0; index < gearDoorHinges.Length; index++)
-                if (gearDoorHinges[index] != null)
-                    gearDoorHinges[index].localRotation = savedRotations[index];
-        }
-    }
-
-    private static bool IsParadeFlagSurface(MeshFilter filter)
-    {
-        if (filter == null || filter.sharedMesh == null || filter.GetComponent<Renderer>() == null)
-            return false;
-        for (Transform current = filter.transform; current != null; current = current.parent)
-            if (current.name.IndexOf("Rudder", StringComparison.OrdinalIgnoreCase) >= 0)
-                return false;
-        string name = filter.sharedMesh.name ?? filter.name;
-        if (name.IndexOf("CollisionMesh", StringComparison.OrdinalIgnoreCase) >= 0)
-            return false;
-        if (name.StartsWith("F117_RearBody_Skin_01", StringComparison.Ordinal) ||
-            name.StartsWith("F117_RearBody_Skin_02", StringComparison.Ordinal))
-            return false;
-        return name.IndexOf("_Skin_", StringComparison.Ordinal) >= 0 ||
-            name.StartsWith("F117_Exterior_Mesh", StringComparison.Ordinal) ||
-            name.StartsWith("F117_Elevon_", StringComparison.Ordinal) ||
-            name.StartsWith("F117_BayDoor_", StringComparison.Ordinal) ||
-            name.StartsWith("F117_GearDoor_", StringComparison.Ordinal) ||
-            name.StartsWith("F117_ChuteDoor_", StringComparison.Ordinal);
-    }
-
-    private static bool CreateParadeFlagOverlay(Transform visualRoot, MeshFilter filter, Material material,
-        Bounds planform, string materialsRoot, int assetIndex)
-    {
-        Mesh source = filter.sharedMesh;
-        Vector3[] sourceVertices = source.vertices;
-        Vector3[] sourceNormals = source.normals;
-        bool hasNormals = sourceNormals != null && sourceNormals.Length == sourceVertices.Length;
-        // Damage skins are already parented to their owning AeroPart. Keep their flag
-        // overlay on that same moving section so a detached wing does not leave an
-        // intact flag-shaped ghost attached to the fuselage.
-        bool anchorToVisualRoot = source.name.StartsWith("F117_Exterior_Mesh", StringComparison.Ordinal);
-        Transform movingAnchor = filter.transform.parent != null ? filter.transform.parent : filter.transform;
-        var vertices = new List<Vector3>();
-        var normals = new List<Vector3>();
-        var uvs = new List<Vector2>();
-        var triangles = new List<int>();
-
-        for (int subMesh = 0; subMesh < source.subMeshCount; subMesh++)
-        {
-            int[] sourceTriangles = source.GetTriangles(subMesh);
-            for (int triangle = 0; triangle + 2 < sourceTriangles.Length; triangle += 3)
+            if (restoreReadable)
             {
-                int a = sourceTriangles[triangle];
-                int b = sourceTriangles[triangle + 1];
-                int c = sourceTriangles[triangle + 2];
-                Vector3 localFaceNormal = Vector3.Cross(
-                    sourceVertices[b] - sourceVertices[a],
-                    sourceVertices[c] - sourceVertices[a]).normalized;
-                Vector3 localSelectionNormal = hasNormals
-                    ? (sourceNormals[a] + sourceNormals[b] + sourceNormals[c]).normalized
-                    : localFaceNormal;
-                Vector3 rootNormal = visualRoot.InverseTransformDirection(
-                    filter.transform.TransformDirection(localSelectionNormal)).normalized;
-                if (Vector3.Dot(rootNormal, Vector3.down) < 0.35f)
-                    continue;
-
-                int first = vertices.Count;
-                foreach (int sourceIndex in new[] { a, b, c })
+                flagImporter = AssetImporter.GetAtPath(ParadeFlagTexturePath) as TextureImporter;
+                if (flagImporter != null)
                 {
-                    Vector3 localNormal = hasNormals ? sourceNormals[sourceIndex].normalized : localFaceNormal;
-                    Vector3 rootPoint = visualRoot.InverseTransformPoint(
-                        filter.transform.TransformPoint(sourceVertices[sourceIndex]));
-                    Vector3 rootVertexNormal = visualRoot.InverseTransformDirection(
-                        filter.transform.TransformDirection(localNormal)).normalized;
-                    Vector3 movingPoint = movingAnchor.InverseTransformPoint(
-                        filter.transform.TransformPoint(sourceVertices[sourceIndex]));
-                    Vector3 movingNormal = movingAnchor.InverseTransformDirection(
-                        filter.transform.TransformDirection(localNormal)).normalized;
-                    Vector3 movingSurfaceNormal = movingAnchor.InverseTransformDirection(
-                        filter.transform.TransformDirection(localSelectionNormal)).normalized;
-                    Vector3 overlayPoint = anchorToVisualRoot
-                        ? rootPoint + Vector3.down * ParadeFlagSurfaceOffset
-                        : movingPoint + movingSurfaceNormal * ParadeFlagSurfaceOffset;
-                    float longitudinal = Mathf.InverseLerp(planform.max.z, planform.min.z, rootPoint.z);
-                    float spanwise = Mathf.InverseLerp(planform.min.x, planform.max.x, rootPoint.x);
-                    vertices.Add(overlayPoint);
-                    normals.Add(anchorToVisualRoot ? rootVertexNormal : movingNormal);
-                    uvs.Add(new Vector2(longitudinal, spanwise));
+                    flagImporter.isReadable = false;
+                    flagImporter.SaveAndReimport();
                 }
-                triangles.Add(first);
-                triangles.Add(first + 1);
-                triangles.Add(first + 2);
             }
         }
-        if (triangles.Count == 0)
+
+        Texture2D defaultClean = cleanVariants[ParadeFlagFinishKeys[0]];
+        Texture2D defaultDamage = damageVariants[ParadeFlagFinishKeys[0]];
+        Material material = new Material(aircraftSkin) { name = ParadeFlagMaterialName };
+        SetSavedTexture(material, "_Basecolor", defaultClean);
+        SetSavedTexture(material, "_BasecolorDmg", defaultDamage);
+        SetSavedTexture(material, "_Metallic", mirrorFinish);
+        // Keep the template's real native normal, damaged-normal, and AO assets.
+        // Unity's Texture2D.normalTexture/whiteTexture are transient built-ins;
+        // assigning them here serializes fileID 0 and silently strips the native
+        // AircraftSkin contract when the generated material is reloaded.
+        material.SetFloat("_HitPoints", 100f);
+        material.SetFloat("_Glossiness", 0f);
+        // A local valid shader keeps the bundled material loadable. Blueprinter patches
+        // this exact material back to AircraftSkin before the runtime profile hydrates
+        // the native clean/damaged maps and current hit-point value.
+        material.shader = previewShader;
+        material.SetTexture("_BaseMap", defaultClean);
+        material.SetTexture("_MainTex", defaultClean);
+        material.SetTexture("_MetallicGlossMap", mirrorFinish);
+        material.SetColor("_BaseColor", Color.white);
+        material.SetColor("_Color", Color.white);
+        material.SetFloat("_Metallic", 1f);
+        material.SetFloat("_Smoothness", 1f);
+        material.SetFloat("_AlphaClip", 0f);
+        if (material.HasProperty("_Cull"))
+            material.SetFloat("_Cull", (float)CullMode.Back);
+        material.DisableKeyword("_ALPHATEST_ON");
+        material.SetOverrideTag("RenderType", "Opaque");
+        material.renderQueue = -1;
+        AssetDatabase.CreateAsset(material, materialsRoot + "/" + ParadeFlagMaterialName + ".mat");
+
+        int overlayCount = 0;
+        for (int index = 0; index < filters.Length; index++)
+            if (CreateParadeFlagOverlay(visual.transform, filters[index], material, planform,
+                builders[filters[index].transform.name], materialsRoot, index))
+                overlayCount++;
+        if (overlayCount != ParadeFlagSurfaceNames.Length)
+            throw new InvalidOperationException("The F-117 parade livery generated " +
+                overlayCount + " of " + ParadeFlagSurfaceNames.Length +
+                " required exterior underside overlays.");
+    }
+
+    private static Texture2D CreateTintedParadeFlagTexture(Texture2D source, string key,
+        Color tint, string materialsRoot)
+    {
+        if (source == null || !source.isReadable)
+            throw new InvalidOperationException("Farewell Flag source must be readable while baking " + key + ".");
+        string outputPath = materialsRoot + "/F117_ParadeFlag_" + key + ".asset";
+        Texture2D existing = AssetDatabase.LoadAssetAtPath<Texture2D>(outputPath);
+        if (existing != null)
+            return existing;
+
+        Color32[] pixels = source.GetPixels32();
+        for (int index = 0; index < pixels.Length; index++)
+        {
+            Color32 pixel = pixels[index];
+            float red = Mathf.LinearToGammaSpace(Mathf.GammaToLinearSpace(pixel.r / 255f) * tint.r);
+            float green = Mathf.LinearToGammaSpace(Mathf.GammaToLinearSpace(pixel.g / 255f) * tint.g);
+            float blue = Mathf.LinearToGammaSpace(Mathf.GammaToLinearSpace(pixel.b / 255f) * tint.b);
+            pixels[index] = new Color(Mathf.Clamp01(red), Mathf.Clamp01(green),
+                Mathf.Clamp01(blue), pixel.a / 255f);
+        }
+        Texture2D output = new Texture2D(source.width, source.height, TextureFormat.RGBA32, true, false)
+        {
+            name = "F117_ParadeFlag_" + key,
+            filterMode = source.filterMode,
+            wrapMode = source.wrapMode,
+            anisoLevel = source.anisoLevel
+        };
+        output.SetPixels32(pixels);
+        output.Apply(true, false);
+        AssetDatabase.CreateAsset(output, outputPath);
+        return output;
+    }
+
+    private static MeshFilter RequireParadeFlagFilter(MeshFilter[] allFilters, string name)
+    {
+        MeshFilter[] matches = allFilters
+            .Where(filter => filter != null && filter.sharedMesh != null &&
+                filter.GetComponent<Renderer>() != null &&
+                string.Equals(filter.transform.name, name, StringComparison.Ordinal))
+            .ToArray();
+        if (matches.Length != 1)
+            throw new InvalidOperationException("Farewell Flag requires exactly one mesh named " +
+                name + "; found " + matches.Length + ".");
+        return matches[0];
+    }
+
+    internal static string ParadeFlagMaterialFamily(Material material)
+    {
+        if (material == null || string.IsNullOrEmpty(material.name))
+            return null;
+        string name = material.name;
+        if (name.StartsWith("F117_F117_EXTERNAL_", StringComparison.OrdinalIgnoreCase))
+            name = name.Substring("F117_".Length);
+        string canonical = CanonicalMaterialName(name);
+        for (int family = 1; family <= 7; family++)
+            if (string.Equals(canonical, "F117_EXTERNAL_" + family,
+                    StringComparison.OrdinalIgnoreCase))
+                return "F117_EXTERNAL_" + family;
+        return null;
+    }
+
+    internal static bool IsParadeFlagMaterial(Material material, string ownerName)
+    {
+        string family = ParadeFlagMaterialFamily(material);
+        if (family == null)
             return false;
+        switch (ownerName)
+        {
+            case "F117_Exterior_Mesh":
+                return family != "F117_EXTERNAL_7";
+            case "F117_Exterior_LeftWing_Mesh":
+            case "F117_Elevon_L_Inner_Mesh":
+            case "F117_Elevon_L_Outer_Mesh":
+                return family == "F117_EXTERNAL_3";
+            case "F117_Exterior_RightWing_Mesh":
+            case "F117_Elevon_R_Inner_Mesh":
+            case "F117_Elevon_R_Outer_Mesh":
+                return family == "F117_EXTERNAL_4";
+            case "F117_BayDoor_Left_Mesh":
+            case "F117_BayDoor_Right_Mesh":
+                // EXTERNAL_7 and EXTERNAL_7.001 are coincident internal door
+                // shells. The authored outward-visible door skin is EXTERNAL_5.
+                return family == "F117_EXTERNAL_5";
+            case "F117_GearDoor_Nose_Mesh":
+            case "F117_GearDoor_Left_Outer_Mesh":
+            case "F117_GearDoor_Left_Inner_Mesh":
+            case "F117_GearDoor_Right_Outer_Mesh":
+            case "F117_GearDoor_Right_Inner_Mesh":
+                // EXTERNAL_2 is the door's external skin. EXTERNAL_6 on the
+                // inner doors is linkage/mechanism geometry inside the well.
+                return family == "F117_EXTERNAL_2";
+            default:
+                return false;
+        }
+    }
+
+    private static List<ParadeSourceTriangle> GatherParadeFlagCandidates(Transform visualRoot,
+        MeshFilter[] filters, out Bounds planform)
+    {
+        planform = new Bounds();
+        bool initialized = false;
+        var candidates = new Dictionary<ParadeOwnedFaceKey, ParadeSourceTriangle>();
+        var eligibleCounts = new int[ParadeFlagSurfaceNames.Length];
+        var downwardCounts = new int[ParadeFlagSurfaceNames.Length];
+        for (int ownerIndex = 0; ownerIndex < filters.Length; ownerIndex++)
+        {
+            MeshFilter filter = filters[ownerIndex];
+            Mesh mesh = filter.sharedMesh;
+            Vector3[] vertices = mesh.vertices;
+            Material[] materials = filter.GetComponent<Renderer>().sharedMaterials;
+            for (int subMesh = 0; subMesh < mesh.subMeshCount; subMesh++)
+            {
+                if (subMesh >= materials.Length ||
+                    !IsParadeFlagMaterial(materials[subMesh], filter.transform.name))
+                    continue;
+                int[] triangles = mesh.GetTriangles(subMesh);
+                eligibleCounts[ownerIndex] += triangles.Length / 3;
+                for (int triangle = 0; triangle + 2 < triangles.Length; triangle += 3)
+                {
+                    Vector3 a = ParadeRootPoint(visualRoot, filter, vertices[triangles[triangle]]);
+                    Vector3 b = ParadeRootPoint(visualRoot, filter, vertices[triangles[triangle + 1]]);
+                    Vector3 c = ParadeRootPoint(visualRoot, filter, vertices[triangles[triangle + 2]]);
+                    foreach (Vector3 point in new[] { a, b, c })
+                    {
+                        Vector3 measured = ParadePointKey.From(point).ToVector3();
+                        if (!initialized)
+                        {
+                            planform = new Bounds(measured, Vector3.zero);
+                            initialized = true;
+                        }
+                        else
+                            planform.Encapsulate(measured);
+                    }
+
+                    ParadeSourceTriangle candidate =
+                        new ParadeSourceTriangle(filter.transform.name, a, b, c);
+                    Vector3 weldedCross = Vector3.Cross(
+                        candidate.B - candidate.A, candidate.C - candidate.A);
+                    double weldedMagnitude = ParadeMagnitude(weldedCross);
+                    // The built mesh uses the intentional 10 um welded vertices.
+                    // Classify direction on that exact geometry as well; raw FBX
+                    // normals can select a face whose welded game-space facet is no
+                    // longer downward, allowing a fan triangle to bridge across it.
+                    if (weldedMagnitude == 0d ||
+                        -weldedCross.y / weldedMagnitude < ParadeFlagMinimumDownwardDot)
+                        continue;
+                    downwardCounts[ownerIndex]++;
+                    if (!candidate.HasProjection)
+                        continue;
+                    var ownedKey = new ParadeOwnedFaceKey(
+                        filter.transform.name, candidate.FaceKey);
+                    if (candidates.ContainsKey(ownedKey))
+                        throw new InvalidOperationException("Farewell Flag source contains duplicate eligible face " +
+                            ownedKey + ".");
+                    candidates.Add(ownedKey, candidate);
+                }
+            }
+        }
+        if (!initialized)
+            throw new InvalidOperationException("Farewell Flag has no eligible source planform.");
+        var sourceDrift = new List<string>();
+        for (int owner = 0; owner < ParadeFlagSurfaceNames.Length; owner++)
+        {
+            if (eligibleCounts[owner] != ParadeFlagEligibleSourceTriangleCounts[owner] ||
+                downwardCounts[owner] != ParadeFlagDownwardSourceTriangleCounts[owner])
+                sourceDrift.Add(
+                    ParadeFlagSurfaceNames[owner] + ": expected eligible/downward " +
+                    ParadeFlagEligibleSourceTriangleCounts[owner] + "/" +
+                    ParadeFlagDownwardSourceTriangleCounts[owner] + ", found " +
+                    eligibleCounts[owner] + "/" + downwardCounts[owner]);
+        }
+        if (sourceDrift.Count != 0)
+            throw new InvalidOperationException("Farewell Flag source drift: " +
+                string.Join("; ", sourceDrift) + ".");
+        return candidates.Values
+            .OrderBy(candidate => Array.IndexOf(ParadeFlagSurfaceNames, candidate.OwnerName))
+            .ThenBy(candidate => candidate.FaceKey)
+            .ToList();
+    }
+
+    private static List<ParadeSourceTriangle> GatherParadeFlagOccluders(Transform visualRoot,
+        MeshFilter[] filters)
+    {
+        var occluders = new Dictionary<ParadeFaceKey, ParadeSourceTriangle>();
+        var uniqueFaces = new HashSet<ParadeFaceKey>();
+        foreach (MeshFilter filter in filters)
+        {
+            Mesh mesh = filter.sharedMesh;
+            Vector3[] vertices = mesh.vertices;
+            Material[] materials = filter.GetComponent<Renderer>().sharedMaterials;
+            for (int subMesh = 0; subMesh < mesh.subMeshCount; subMesh++)
+            {
+                // Only the same authored exterior-skin families that can receive
+                // the flag may block it. Internal shells, linkages, wells, and
+                // decal cards are not part of the closed exterior envelope.
+                if (subMesh >= materials.Length ||
+                    !IsParadeFlagMaterial(materials[subMesh], filter.transform.name))
+                    continue;
+                int[] triangles = mesh.GetTriangles(subMesh);
+                for (int triangle = 0; triangle + 2 < triangles.Length; triangle += 3)
+                {
+                    ParadeSourceTriangle occluder = new ParadeSourceTriangle(
+                        filter.transform.name,
+                        ParadeRootPoint(visualRoot, filter, vertices[triangles[triangle]]),
+                        ParadeRootPoint(visualRoot, filter, vertices[triangles[triangle + 1]]),
+                        ParadeRootPoint(visualRoot, filter, vertices[triangles[triangle + 2]]));
+                    if (!uniqueFaces.Add(occluder.FaceKey) || !occluder.HasProjection)
+                        continue;
+                    occluders.Add(occluder.FaceKey, occluder);
+                }
+            }
+        }
+        if (uniqueFaces.Count != ParadeFlagUniqueOccluderFaceCount ||
+            occluders.Count != ParadeFlagProjectedOccluderFaceCount)
+            throw new InvalidOperationException("Farewell Flag occluder manifest drift: expected " +
+                ParadeFlagUniqueOccluderFaceCount + " unique / " +
+                ParadeFlagProjectedOccluderFaceCount + " projected faces, found " +
+                uniqueFaces.Count + " / " + occluders.Count + ".");
+        return occluders.Values.OrderBy(occluder => occluder.FaceKey).ToList();
+    }
+
+    private static Vector3 ParadeRootPoint(Transform visualRoot, MeshFilter filter,
+        Vector3 localPoint)
+    {
+        return visualRoot.InverseTransformPoint(filter.transform.TransformPoint(localPoint));
+    }
+
+    private static List<Vector2> ParadeBlockingPolygon(ParadeSourceTriangle candidate,
+        ParadeSourceTriangle occluder)
+    {
+        List<Vector2> intersection = IntersectConvexPolygons(
+            candidate.ProjectedTriangle(), occluder.ProjectedTriangle());
+        return intersection.Count < 3
+            ? new List<Vector2>()
+            : ClipParadeHeight(intersection, candidate, occluder);
+    }
+
+    private static List<Vector2> IntersectConvexPolygons(List<Vector2> subject,
+        List<Vector2> clip)
+    {
+        List<Vector2> result = CleanParadePolygon(subject);
+        clip = CleanParadePolygon(clip);
+        for (int edge = 0; edge < clip.Count && result.Count >= 3; edge++)
+            result = ClipParadeEdge(result, clip[edge], clip[(edge + 1) % clip.Count], true);
+        return CleanParadePolygon(result);
+    }
+
+    private static IEnumerable<List<Vector2>> SubtractConvexPolygon(List<Vector2> subject,
+        List<Vector2> clip)
+    {
+        var outsidePieces = new List<List<Vector2>>();
+        List<Vector2> remainder = CleanParadePolygon(subject);
+        clip = CleanParadePolygon(clip);
+        for (int edge = 0; edge < clip.Count && remainder.Count >= 3; edge++)
+        {
+            Vector2 a = clip[edge];
+            Vector2 b = clip[(edge + 1) % clip.Count];
+            List<Vector2> outside = ClipParadeEdge(remainder, a, b, false);
+            if (outside.Count >= 3)
+                outsidePieces.Add(outside);
+            remainder = ClipParadeEdge(remainder, a, b, true);
+        }
+        return outsidePieces;
+    }
+
+    private static List<Vector2> ClipParadeEdge(List<Vector2> polygon, Vector2 a,
+        Vector2 b, bool keepInside)
+    {
+        var result = new List<Vector2>();
+        if (polygon.Count == 0)
+            return result;
+        Vector2 previous = polygon[polygon.Count - 1];
+        double previousValue = ParadeCrossDouble(b - a, previous - a);
+        bool previousInside = keepInside
+            ? previousValue >= 0d
+            : previousValue <= 0d;
+        foreach (Vector2 current in polygon)
+        {
+            double currentValue = ParadeCrossDouble(b - a, current - a);
+            bool currentInside = keepInside
+                ? currentValue >= 0d
+                : currentValue <= 0d;
+            if (currentInside != previousInside)
+            {
+                double denominator = previousValue - currentValue;
+                if (denominator != 0d)
+                    result.Add(ParadeInterpolate(previous, current,
+                        previousValue / denominator));
+            }
+            if (currentInside)
+                result.Add(current);
+            previous = current;
+            previousValue = currentValue;
+            previousInside = currentInside;
+        }
+        return CleanParadePolygon(result);
+    }
+
+    private static List<Vector2> ClipParadeHeight(List<Vector2> polygon,
+        ParadeSourceTriangle candidate, ParadeSourceTriangle occluder)
+    {
+        var result = new List<Vector2>();
+        if (polygon.Count == 0)
+            return result;
+        Vector2 previous = polygon[polygon.Count - 1];
+        double blockingThreshold = ParadeBlockingHeightThreshold(candidate, occluder);
+        double previousValue = candidate.HeightAtPrecise(previous) -
+            blockingThreshold - occluder.HeightAtPrecise(previous);
+        bool previousInside = previousValue >= 0d;
+        foreach (Vector2 current in polygon)
+        {
+            double currentValue = candidate.HeightAtPrecise(current) -
+                blockingThreshold - occluder.HeightAtPrecise(current);
+            bool currentInside = currentValue >= 0d;
+            if (currentInside != previousInside)
+            {
+                double denominator = previousValue - currentValue;
+                if (denominator != 0d)
+                    result.Add(ParadeInterpolate(previous, current,
+                        previousValue / denominator));
+            }
+            if (currentInside)
+                result.Add(current);
+            previous = current;
+            previousValue = currentValue;
+            previousInside = currentInside;
+        }
+        return CleanParadePolygon(result);
+    }
+
+    private static double ParadeBlockingHeightThreshold(ParadeSourceTriangle candidate,
+        ParadeSourceTriangle occluder)
+    {
+        // Clipping happens before X/Z and the reconstructed candidate Y are welded
+        // to the 10 um output grid.  Propagate that measured half-cell displacement
+        // through the relative height plane so quantization cannot move a fragment
+        // back underneath a steep exterior/door facet after it was clipped.
+        double halfCell = ParadeFlagWeldTolerance * 0.5d;
+        double relativeX = candidate.HeightGradientX - occluder.HeightGradientX;
+        double relativeZ = candidate.HeightGradientZ - occluder.HeightGradientZ;
+        double maximumWeldError = halfCell *
+            (Math.Abs(relativeX) + Math.Abs(relativeZ));
+        maximumWeldError += halfCell; // reconstructed candidate-Y rounding
+        // Blocking begins earlier by the maximum displacement, so no point that
+        // survives clipping can cross the validator's physical clearance after weld.
+        return ParadeFlagVisibilityClearance - maximumWeldError;
+    }
+
+    private static Vector2 ParadeInterpolate(Vector2 from, Vector2 to, double amount)
+    {
+        // Vector2.Lerp performs both the ratio conversion and multiplication in
+        // float, which displaced metre-scale mesh intersections by up to 0.5 um.
+        // Preserve double precision until the final Vector2 storage operation.
+        amount = Math.Max(0d, Math.Min(1d, amount));
+        return new Vector2(
+            (float)((double)from.x + ((double)to.x - from.x) * amount),
+            (float)((double)from.y + ((double)to.y - from.y) * amount));
+    }
+
+    private static List<Vector2> CleanParadePolygon(IEnumerable<Vector2> points)
+    {
+        var result = new List<Vector2>();
+        foreach (Vector2 point in points)
+        {
+            if (result.Count == 0 ||
+                (result[result.Count - 1] - point).sqrMagnitude >
+                ParadeFlagCoordinateEpsilon * ParadeFlagCoordinateEpsilon)
+                result.Add(point);
+        }
+        if (result.Count > 1 &&
+            (result[0] - result[result.Count - 1]).sqrMagnitude <=
+            ParadeFlagCoordinateEpsilon * ParadeFlagCoordinateEpsilon)
+            result.RemoveAt(result.Count - 1);
+
+        bool changed;
+        do
+        {
+            changed = false;
+            for (int index = 0; index < result.Count && result.Count >= 3; index++)
+            {
+                Vector2 previous = result[(index + result.Count - 1) % result.Count];
+                Vector2 current = result[index];
+                Vector2 next = result[(index + 1) % result.Count];
+                if (Math.Abs(ParadeCrossDouble(
+                        current - previous, next - current)) >
+                    ParadeFlagAreaEpsilon)
+                    continue;
+                result.RemoveAt(index);
+                changed = true;
+                break;
+            }
+        } while (changed);
+
+        double area = ParadeSignedArea(result);
+        if (result.Count < 3 || Math.Abs(area) <= ParadeFlagAreaEpsilon)
+            return new List<Vector2>();
+        if (area < 0f)
+            result.Reverse();
+        return result;
+    }
+
+    private static double ParadeSignedArea(IReadOnlyList<Vector2> polygon)
+    {
+        if (polygon.Count < 3)
+            return 0d;
+        Vector2 origin = polygon[0];
+        double twiceArea = 0d;
+        for (int index = 1; index + 1 < polygon.Count; index++)
+            twiceArea += ParadeCrossDouble(
+                polygon[index] - origin, polygon[index + 1] - origin);
+        return twiceArea * 0.5d;
+    }
+
+    internal static bool ParadePolygonAreaIsResolved(IReadOnlyList<Vector2> polygon)
+    {
+        if (polygon.Count < 3)
+            return false;
+        double perimeter = 0d;
+        for (int index = 0; index < polygon.Count; index++)
+            perimeter += Vector2.Distance(polygon[index],
+                polygon[(index + 1) % polygon.Count]);
+        double twiceArea = Math.Abs(ParadeSignedArea(polygon)) * 2d;
+        // Each welded endpoint can move by sqrt(2) * tolerance in projection.
+        // Propagate that coordinate uncertainty around the measured perimeter;
+        // faces below this bound are indistinguishable from a line at 10 um.
+        double weldAreaUncertainty =
+            2d * Math.Sqrt(2d) * ParadeFlagWeldTolerance * perimeter +
+            4d * polygon.Count * ParadeFlagWeldTolerance * ParadeFlagWeldTolerance;
+        return twiceArea > weldAreaUncertainty;
+    }
+
+    private static double ParadeCrossDouble(Vector2 a, Vector2 b)
+    {
+        return (double)a.x * b.y - (double)a.y * b.x;
+    }
+
+    private static void EnsureParadePolygonVisible(ParadeSourceTriangle candidate,
+        List<Vector2> polygon, List<ParadeSourceTriangle> occluders,
+        IReadOnlyList<int> nearbyOccluderIndices)
+    {
+        if (polygon.Count < 3)
+            return;
+        Vector2 centroid = Vector2.zero;
+        foreach (Vector2 point in polygon)
+            centroid += point;
+        centroid /= polygon.Count;
+        foreach (int index in nearbyOccluderIndices)
+        {
+            ParadeSourceTriangle occluder = occluders[index];
+            if (string.Equals(candidate.OwnerName, occluder.OwnerName,
+                    StringComparison.Ordinal))
+                continue;
+            double blockingThreshold = ParadeBlockingHeightThreshold(
+                candidate, occluder);
+            if (candidate.FaceKey.Equals(occluder.FaceKey) ||
+                occluder.MinY >= candidate.MaxY - blockingThreshold ||
+                !occluder.ContainsProjectedPoint(centroid))
+                continue;
+            double candidateHeight = candidate.HeightAtPrecise(centroid);
+            double occluderHeight = occluder.HeightAtPrecise(centroid);
+            if (occluderHeight >= candidateHeight - blockingThreshold -
+                ParadeFlagCoordinateEpsilon)
+                continue;
+            // The inexpensive point/height test can conservatively flag overlap
+            // inside its tolerance band. Only suspicious fragments pay for the
+            // exact resolved candidate/occluder blocking intersection below.
+            List<Vector2> blocking = ParadeBlockingPolygon(candidate, occluder);
+            bool centroidInBlocking = blocking.Count >= 3 &&
+                Enumerable.Range(0, blocking.Count).All(edge =>
+                    ParadeCrossDouble(blocking[(edge + 1) % blocking.Count] - blocking[edge],
+                        centroid - blocking[edge]) >= -ParadeFlagAreaEpsilon);
+            if (!centroidInBlocking)
+                continue;
+            List<List<Vector2>> recut = SubtractConvexPolygon(polygon, blocking).ToList();
+            throw new InvalidOperationException("Farewell Flag lower-envelope clipping left a hidden " +
+                candidate.OwnerName + " fragment beneath " + occluder.OwnerName +
+                "; candidate face=" + candidate.FaceKey +
+                "; occluder face=" + occluder.FaceKey +
+                "; centroid=" + centroid.ToString("R") +
+                "; polygon area=" + ParadeSignedArea(polygon).ToString("R") +
+                "; candidate Y=" + candidateHeight.ToString("R") +
+                "; occluder Y=" + occluderHeight.ToString("R") +
+                "; hidden depth=" + (candidateHeight - occluderHeight).ToString("R") +
+                "; blocking vertices=" + blocking.Count +
+                "; blocking area=" + Math.Abs(ParadeSignedArea(blocking)).ToString("R") +
+                "; recut areas=" + string.Join(",", recut.Select(piece =>
+                    Math.Abs(ParadeSignedArea(piece)).ToString("R"))) + ".");
+        }
+    }
+
+    private static bool CreateParadeFlagOverlay(Transform visualRoot, MeshFilter filter,
+        Material material, Bounds planform, ParadeMeshBuilder builder,
+        string materialsRoot, int assetIndex)
+    {
+        if (builder.TriangleCount == 0)
+            return false;
+
+        // Only the center remains on the visual root. Every wing, bay door, and
+        // elevon overlay follows the exact owner that moves or detaches it.
+        bool anchorToVisualRoot = string.Equals(filter.transform.name,
+            "F117_Exterior_Mesh", StringComparison.Ordinal);
+        Transform movingAnchor = filter.transform.parent != null
+            ? filter.transform.parent
+            : filter.transform;
+        Transform overlayAnchor = anchorToVisualRoot ? visualRoot : movingAnchor;
+        List<Vector3> rootVertices = builder.RootVertices;
+        List<Vector3> rootNormals = builder.RootNormals;
+        var vertices = new List<Vector3>(rootVertices.Count);
+        var normals = new List<Vector3>(rootVertices.Count);
+        var uvs = new List<Vector2>(rootVertices.Count);
+        for (int index = 0; index < rootVertices.Count; index++)
+        {
+            Vector3 rootPoint = rootVertices[index];
+            Vector3 offsetPoint = rootPoint + Vector3.down * ParadeFlagSurfaceOffset;
+            vertices.Add(overlayAnchor.InverseTransformPoint(
+                visualRoot.TransformPoint(offsetPoint)));
+            normals.Add(overlayAnchor.InverseTransformDirection(
+                visualRoot.TransformDirection(rootNormals[index])).normalized);
+            uvs.Add(new Vector2(
+                Mathf.InverseLerp(planform.max.z, planform.min.z, rootPoint.z),
+                Mathf.InverseLerp(planform.min.x, planform.max.x, rootPoint.x)));
+        }
 
         Mesh overlayMesh = new Mesh
         {
-            name = ParadeFlagOverlayPrefix + source.name,
+            name = ParadeFlagOverlayPrefix + filter.transform.name,
             indexFormat = vertices.Count > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16
         };
         overlayMesh.SetVertices(vertices);
         overlayMesh.SetNormals(normals);
         overlayMesh.SetUVs(0, uvs);
-        overlayMesh.SetTriangles(triangles, 0, true);
-        string safeName = assetIndex.ToString("D2") + "_" + SafeName(source.name);
+        overlayMesh.SetTriangles(builder.Triangles, 0, true);
+        string safeName = assetIndex.ToString("D2") + "_" + SafeName(filter.transform.name);
         AssetDatabase.CreateAsset(overlayMesh, materialsRoot + "/" + safeName + "_ParadeFlag.asset");
 
-        GameObject overlay = new GameObject(ParadeFlagOverlayPrefix + safeName);
-        overlay.transform.SetParent(anchorToVisualRoot ? visualRoot : movingAnchor, false);
+        GameObject overlay = new GameObject(ParadeFlagOverlayPrefix + filter.transform.name);
+        overlay.transform.SetParent(overlayAnchor, false);
         MeshFilter overlayFilter = overlay.AddComponent<MeshFilter>();
         overlayFilter.sharedMesh = overlayMesh;
         MeshRenderer overlayRenderer = overlay.AddComponent<MeshRenderer>();
@@ -934,6 +1608,612 @@ internal static class F117AircraftAssembler
         overlayRenderer.receiveShadows = true;
         overlayRenderer.enabled = false;
         return true;
+    }
+
+    private readonly struct ParadePointKey : IEquatable<ParadePointKey>,
+        IComparable<ParadePointKey>
+    {
+        internal readonly long X;
+        internal readonly long Y;
+        internal readonly long Z;
+
+        private ParadePointKey(long x, long y, long z)
+        {
+            X = x;
+            Y = y;
+            Z = z;
+        }
+
+        internal static ParadePointKey From(Vector3 point)
+        {
+            return new ParadePointKey(
+                ParadeQuantize(point.x),
+                ParadeQuantize(point.y),
+                ParadeQuantize(point.z));
+        }
+
+        internal Vector3 ToVector3()
+        {
+            return new Vector3(
+                (float)(X * ParadeFlagWeldTolerance),
+                (float)(Y * ParadeFlagWeldTolerance),
+                (float)(Z * ParadeFlagWeldTolerance));
+        }
+
+        public int CompareTo(ParadePointKey other)
+        {
+            int comparison = X.CompareTo(other.X);
+            if (comparison != 0)
+                return comparison;
+            comparison = Y.CompareTo(other.Y);
+            return comparison != 0 ? comparison : Z.CompareTo(other.Z);
+        }
+
+        public bool Equals(ParadePointKey other)
+        {
+            return X == other.X && Y == other.Y && Z == other.Z;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ParadePointKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 31 + X.GetHashCode();
+                hash = hash * 31 + Y.GetHashCode();
+                hash = hash * 31 + Z.GetHashCode();
+                return hash;
+            }
+        }
+
+        public override string ToString()
+        {
+            return X + "," + Y + "," + Z;
+        }
+    }
+
+    private readonly struct ParadeFaceKey : IEquatable<ParadeFaceKey>,
+        IComparable<ParadeFaceKey>
+    {
+        internal readonly ParadePointKey A;
+        internal readonly ParadePointKey B;
+        internal readonly ParadePointKey C;
+
+        internal ParadeFaceKey(ParadePointKey a, ParadePointKey b, ParadePointKey c)
+        {
+            var points = new[] { a, b, c };
+            Array.Sort(points);
+            A = points[0];
+            B = points[1];
+            C = points[2];
+        }
+
+        public int CompareTo(ParadeFaceKey other)
+        {
+            int comparison = A.CompareTo(other.A);
+            if (comparison != 0)
+                return comparison;
+            comparison = B.CompareTo(other.B);
+            return comparison != 0 ? comparison : C.CompareTo(other.C);
+        }
+
+        public bool Equals(ParadeFaceKey other)
+        {
+            return A.Equals(other.A) && B.Equals(other.B) && C.Equals(other.C);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ParadeFaceKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = A.GetHashCode();
+                hash = hash * 31 + B.GetHashCode();
+                hash = hash * 31 + C.GetHashCode();
+                return hash;
+            }
+        }
+
+        public override string ToString()
+        {
+            return A + "|" + B + "|" + C;
+        }
+    }
+
+    private readonly struct ParadeOwnedFaceKey : IEquatable<ParadeOwnedFaceKey>
+    {
+        private readonly string owner;
+        private readonly ParadeFaceKey face;
+
+        internal ParadeOwnedFaceKey(string owner, ParadeFaceKey face)
+        {
+            this.owner = owner;
+            this.face = face;
+        }
+
+        public bool Equals(ParadeOwnedFaceKey other)
+        {
+            return string.Equals(owner, other.owner, StringComparison.Ordinal) &&
+                face.Equals(other.face);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ParadeOwnedFaceKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (owner == null ? 0 : owner.GetHashCode()) * 397 ^ face.GetHashCode();
+            }
+        }
+
+        public override string ToString()
+        {
+            return owner + ":" + face;
+        }
+    }
+
+    private sealed class ParadeSourceTriangle
+    {
+        internal readonly string OwnerName;
+        internal readonly Vector3 A;
+        internal readonly Vector3 B;
+        internal readonly Vector3 C;
+        internal readonly ParadeFaceKey FaceKey;
+        internal readonly Vector3 Normal;
+        internal readonly bool HasProjection;
+        private readonly List<Vector2> projection;
+        internal readonly float MinX;
+        internal readonly float MaxX;
+        internal readonly float MinY;
+        internal readonly float MaxY;
+        internal readonly float MinZ;
+        internal readonly float MaxZ;
+        internal readonly double HeightGradientX;
+        internal readonly double HeightGradientZ;
+
+        internal ParadeSourceTriangle(string ownerName, Vector3 a, Vector3 b, Vector3 c)
+        {
+            OwnerName = ownerName;
+            ParadePointKey keyA = ParadePointKey.From(a);
+            ParadePointKey keyB = ParadePointKey.From(b);
+            ParadePointKey keyC = ParadePointKey.From(c);
+            A = keyA.ToVector3();
+            B = keyB.ToVector3();
+            C = keyC.ToVector3();
+            FaceKey = new ParadeFaceKey(keyA, keyB, keyC);
+            Vector3 cross = Vector3.Cross(B - A, C - A);
+            Normal = cross.sqrMagnitude <= ParadeFlagAreaEpsilon * ParadeFlagAreaEpsilon
+                ? Vector3.zero
+                : cross.normalized;
+            // A face is a valid lower-envelope height field only when its X/Z
+            // projection is resolvable at the same 10 um precision used to weld it.
+            // An absolute cross.y floor is mesh-scale dependent and admitted nearly
+            // vertical slivers whose height-plane extrapolation reached kilometres.
+            projection = CleanParadePolygon(new[]
+            {
+                new Vector2(A.x, A.z),
+                new Vector2(B.x, B.z),
+                new Vector2(C.x, C.z)
+            });
+            HasProjection = ParadePolygonAreaIsResolved(projection);
+            double abx = B.x - A.x;
+            double aby = B.y - A.y;
+            double abz = B.z - A.z;
+            double acx = C.x - A.x;
+            double acy = C.y - A.y;
+            double acz = C.z - A.z;
+            double normalX = aby * acz - abz * acy;
+            double normalY = abz * acx - abx * acz;
+            double normalZ = abx * acy - aby * acx;
+            HeightGradientX = HasProjection ? -normalX / normalY : 0d;
+            HeightGradientZ = HasProjection ? -normalZ / normalY : 0d;
+            MinX = Mathf.Min(A.x, Mathf.Min(B.x, C.x));
+            MaxX = Mathf.Max(A.x, Mathf.Max(B.x, C.x));
+            MinY = Mathf.Min(A.y, Mathf.Min(B.y, C.y));
+            MaxY = Mathf.Max(A.y, Mathf.Max(B.y, C.y));
+            MinZ = Mathf.Min(A.z, Mathf.Min(B.z, C.z));
+            MaxZ = Mathf.Max(A.z, Mathf.Max(B.z, C.z));
+        }
+
+        internal List<Vector2> ProjectedTriangle()
+        {
+            // The welded source triangle is immutable. IntersectConvexPolygons
+            // cleans into new lists before clipping, so sharing this cached source
+            // projection cannot mutate it.
+            return projection;
+        }
+
+        internal float HeightAt(Vector2 point)
+        {
+            return (float)HeightAtPrecise(point);
+        }
+
+        internal double HeightAtPrecise(Vector2 point)
+        {
+            return A.y + HeightGradientX * (point.x - A.x) +
+                HeightGradientZ * (point.y - A.z);
+        }
+
+        internal bool ProjectionOverlaps(ParadeSourceTriangle other)
+        {
+            return MaxX >= other.MinX - ParadeFlagCoordinateEpsilon &&
+                other.MaxX >= MinX - ParadeFlagCoordinateEpsilon &&
+                MaxZ >= other.MinZ - ParadeFlagCoordinateEpsilon &&
+                other.MaxZ >= MinZ - ParadeFlagCoordinateEpsilon;
+        }
+
+        internal bool ContainsProjectedPoint(Vector2 point)
+        {
+            for (int edge = 0; edge < projection.Count; edge++)
+                if (ParadeCrossDouble(projection[(edge + 1) % projection.Count] - projection[edge],
+                        point - projection[edge]) < -ParadeFlagAreaEpsilon)
+                    return false;
+            return projection.Count == 3;
+        }
+    }
+
+    private readonly struct ParadeGridKey : IEquatable<ParadeGridKey>
+    {
+        internal readonly int X;
+        internal readonly int Z;
+
+        internal ParadeGridKey(int x, int z)
+        {
+            X = x;
+            Z = z;
+        }
+
+        public bool Equals(ParadeGridKey other)
+        {
+            return X == other.X && Z == other.Z;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ParadeGridKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return X * 397 ^ Z;
+            }
+        }
+    }
+
+    private sealed class ParadeSpatialIndex
+    {
+        private readonly Dictionary<ParadeGridKey, List<int>> cells =
+            new Dictionary<ParadeGridKey, List<int>>();
+
+        internal ParadeSpatialIndex(IReadOnlyList<ParadeSourceTriangle> triangles)
+        {
+            for (int index = 0; index < triangles.Count; index++)
+            {
+                ParadeSourceTriangle triangle = triangles[index];
+                int minX = ParadeCell(triangle.MinX);
+                int maxX = ParadeCell(triangle.MaxX);
+                int minZ = ParadeCell(triangle.MinZ);
+                int maxZ = ParadeCell(triangle.MaxZ);
+                for (int x = minX; x <= maxX; x++)
+                for (int z = minZ; z <= maxZ; z++)
+                {
+                    var key = new ParadeGridKey(x, z);
+                    if (!cells.TryGetValue(key, out List<int> values))
+                    {
+                        values = new List<int>();
+                        cells.Add(key, values);
+                    }
+                    values.Add(index);
+                }
+            }
+        }
+
+        internal IEnumerable<int> Query(ParadeSourceTriangle triangle)
+        {
+            var matches = new HashSet<int>();
+            for (int x = ParadeCell(triangle.MinX); x <= ParadeCell(triangle.MaxX); x++)
+            for (int z = ParadeCell(triangle.MinZ); z <= ParadeCell(triangle.MaxZ); z++)
+                if (cells.TryGetValue(new ParadeGridKey(x, z), out List<int> values))
+                    foreach (int value in values)
+                        matches.Add(value);
+            return matches.OrderBy(value => value);
+        }
+
+        internal IEnumerable<int> Query(Vector2 point)
+        {
+            return cells.TryGetValue(new ParadeGridKey(
+                    ParadeCell(point.x), ParadeCell(point.y)), out List<int> values)
+                ? values
+                : Enumerable.Empty<int>();
+        }
+    }
+
+    private sealed class ParadeMeshBuilder
+    {
+        private readonly string ownerName;
+        private readonly Dictionary<ParadePointKey, int> vertexIndices =
+            new Dictionary<ParadePointKey, int>();
+        private readonly List<ParadePointKey> vertexKeys = new List<ParadePointKey>();
+        private readonly List<Vector3> normalSums = new List<Vector3>();
+        private readonly Dictionary<ParadeFaceKey, ParadeFaceKey> faces =
+            new Dictionary<ParadeFaceKey, ParadeFaceKey>();
+        internal readonly List<int> Triangles = new List<int>();
+
+        internal ParadeMeshBuilder(string ownerName)
+        {
+            this.ownerName = ownerName;
+        }
+
+        internal int TriangleCount => Triangles.Count / 3;
+
+        internal List<Vector3> RootVertices =>
+            vertexKeys.Select(key => key.ToVector3()).ToList();
+
+        internal List<Vector3> RootNormals =>
+            normalSums.Select(normal => normal.sqrMagnitude <=
+                    ParadeFlagAreaEpsilon * ParadeFlagAreaEpsilon
+                ? Vector3.down
+                : ParadeNormalize(normal, Vector3.down)).ToList();
+
+        internal void AddPolygon(ParadeSourceTriangle source, List<Vector2> polygon,
+            IReadOnlyList<ParadeSourceTriangle> occluders,
+            ParadeSpatialIndex spatialIndex)
+        {
+            polygon = CleanParadePolygon(polygon);
+            if (polygon.Count < 3)
+                return;
+            int first = 0;
+            for (int index = 1; index < polygon.Count; index++)
+                if (ParadeProjectedPoint(source, polygon[index])
+                    .CompareTo(ParadeProjectedPoint(source, polygon[first])) < 0)
+                    first = index;
+            if (first != 0)
+                polygon = polygon.Skip(first).Concat(polygon.Take(first)).ToList();
+
+            for (int index = 1; index + 1 < polygon.Count; index++)
+            {
+                ParadePointKey a = ParadeProjectedPoint(source, polygon[0]);
+                ParadePointKey b = ParadeProjectedPoint(source, polygon[index]);
+                ParadePointKey c = ParadeProjectedPoint(source, polygon[index + 1]);
+                Vector3 firstPoint = a.ToVector3();
+                Vector3 secondPoint = b.ToVector3();
+                Vector3 thirdPoint = c.ToVector3();
+                Vector2 projectedAb = new Vector2(secondPoint.x - firstPoint.x,
+                    secondPoint.z - firstPoint.z);
+                Vector2 projectedAc = new Vector2(thirdPoint.x - firstPoint.x,
+                    thirdPoint.z - firstPoint.z);
+                double projectedTwiceArea = Math.Abs(
+                    ParadeCrossDouble(projectedAb, projectedAc));
+                double projectedWeldUncertainty =
+                    2d * Math.Sqrt(2d) * ParadeFlagWeldTolerance *
+                    (projectedAb.magnitude + projectedAc.magnitude) +
+                    4d * ParadeFlagWeldTolerance * ParadeFlagWeldTolerance;
+                // Adjacent source faces can independently emit a shared-edge sliver.
+                // After the 10 um weld, reject it only when its projected area is
+                // indistinguishable from that edge within the quantified weld error.
+                if (projectedTwiceArea <= projectedWeldUncertainty)
+                    continue;
+                Vector3 cross = Vector3.Cross(secondPoint - firstPoint,
+                    thirdPoint - firstPoint);
+                if (cross.sqrMagnitude <=
+                    ParadeFlagAreaEpsilon * ParadeFlagAreaEpsilon)
+                    continue;
+                // Unity returns Vector3.zero when Normalize sees a vector shorter
+                // than 1e-5.  Clipped overlay facets are legitimately much smaller,
+                // so use the exact cross-Y sign instead of normalization for winding.
+                if (cross.y > 0f)
+                {
+                    ParadePointKey swap = b;
+                    b = c;
+                    c = swap;
+                    secondPoint = b.ToVector3();
+                    thirdPoint = c.ToVector3();
+                    cross = Vector3.Cross(secondPoint - firstPoint,
+                        thirdPoint - firstPoint);
+                }
+                if (!ParadeOutputFaceIsValid(source, firstPoint, secondPoint,
+                        thirdPoint, occluders, spatialIndex))
+                    continue;
+
+                var face = new ParadeFaceKey(a, b, c);
+                if (faces.TryGetValue(face, out ParadeFaceKey firstSource))
+                {
+                    // Polygon subtraction may partition one source face into pieces
+                    // that become the same triangle after the intentional 10 um weld.
+                    // Canonicalize that single-source result, but continue to reject
+                    // coincident output produced by different authored source faces.
+                    if (firstSource.Equals(source.FaceKey))
+                        continue;
+                    throw new InvalidOperationException("Farewell Flag generated duplicate face on " +
+                        ownerName + ": " + face + "; first source=" + firstSource +
+                        "; duplicate source=" + source.FaceKey + ".");
+                }
+                faces.Add(face, source.FaceKey);
+                Vector3 weightedNormal = cross;
+                int ia = AddVertex(a, weightedNormal);
+                int ib = AddVertex(b, weightedNormal);
+                int ic = AddVertex(c, weightedNormal);
+                Triangles.Add(ia);
+                Triangles.Add(ib);
+                Triangles.Add(ic);
+            }
+        }
+
+        private int AddVertex(ParadePointKey key, Vector3 normal)
+        {
+            if (!vertexIndices.TryGetValue(key, out int index))
+            {
+                index = vertexKeys.Count;
+                vertexIndices.Add(key, index);
+                vertexKeys.Add(key);
+                normalSums.Add(Vector3.zero);
+            }
+            normalSums[index] += normal;
+            return index;
+        }
+    }
+
+    private static bool ParadeOutputFaceIsValid(ParadeSourceTriangle source,
+        Vector3 a, Vector3 b, Vector3 c,
+        IReadOnlyList<ParadeSourceTriangle> occluders,
+        ParadeSpatialIndex spatialIndex)
+    {
+        const float sourceTolerance = 0.00003f;
+        Vector3 centroid = (a + b + c) / 3f;
+        foreach (Vector3 point in new[] { a, b, c, centroid })
+            if (ParadePointTriangleDistance(point, source.A, source.B, source.C) >
+                sourceTolerance)
+                return false;
+
+        Vector3[] visibilitySamples =
+        {
+            centroid,
+            a * 0.6f + b * 0.2f + c * 0.2f,
+            a * 0.2f + b * 0.6f + c * 0.2f,
+            a * 0.2f + b * 0.2f + c * 0.6f
+        };
+        foreach (Vector3 point in visibilitySamples)
+        {
+            Vector2 projected = new Vector2(point.x, point.z);
+            foreach (int index in spatialIndex.Query(projected))
+            {
+                ParadeSourceTriangle occluder = occluders[index];
+                if (string.Equals(source.OwnerName, occluder.OwnerName,
+                        StringComparison.Ordinal))
+                    continue;
+                if (point.x < occluder.MinX || point.x > occluder.MaxX ||
+                    point.z < occluder.MinZ || point.z > occluder.MaxZ ||
+                    !occluder.ContainsProjectedPoint(projected))
+                    continue;
+                if (occluder.HeightAtPrecise(projected) <
+                    point.y - ParadeFlagVisibilityClearance -
+                    ParadeFlagCoordinateEpsilon)
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    private static double ParadePointTriangleDistance(Vector3 point,
+        Vector3 a, Vector3 b, Vector3 c)
+    {
+        Vector3 ab = b - a;
+        Vector3 ac = c - a;
+        Vector3 ap = point - a;
+        double d1 = ParadeDot(ab, ap);
+        double d2 = ParadeDot(ac, ap);
+        if (d1 <= 0d && d2 <= 0d)
+            return ParadeMagnitude(ap);
+
+        Vector3 bp = point - b;
+        double d3 = ParadeDot(ab, bp);
+        double d4 = ParadeDot(ac, bp);
+        if (d3 >= 0d && d4 <= d3)
+            return ParadeMagnitude(bp);
+
+        double vc = d1 * d4 - d3 * d2;
+        if (vc <= 0d && d1 >= 0d && d3 <= 0d)
+        {
+            double denominator = d1 - d3;
+            return denominator == 0d ? ParadeMagnitude(ap) :
+                ParadeMagnitude(point - (a + ab * (float)(d1 / denominator)));
+        }
+
+        Vector3 cp = point - c;
+        double d5 = ParadeDot(ab, cp);
+        double d6 = ParadeDot(ac, cp);
+        if (d6 >= 0d && d5 <= d6)
+            return ParadeMagnitude(cp);
+
+        double vb = d5 * d2 - d1 * d6;
+        if (vb <= 0d && d2 >= 0d && d6 <= 0d)
+        {
+            double denominator = d2 - d6;
+            return denominator == 0d ? ParadeMagnitude(ap) :
+                ParadeMagnitude(point - (a + ac * (float)(d2 / denominator)));
+        }
+
+        double va = d3 * d6 - d5 * d4;
+        if (va <= 0d && d4 - d3 >= 0d && d5 - d6 >= 0d)
+        {
+            Vector3 bc = c - b;
+            double numerator = d4 - d3;
+            double denominator = numerator + d5 - d6;
+            return denominator == 0d ? ParadeMagnitude(bp) :
+                ParadeMagnitude(point - (b + bc * (float)(numerator / denominator)));
+        }
+
+        Vector3 cross = Vector3.Cross(ab, ac);
+        double crossMagnitude = ParadeMagnitude(cross);
+        return crossMagnitude == 0d
+            ? Math.Min(ParadePointSegmentDistance(point, a, b),
+                Math.Min(ParadePointSegmentDistance(point, b, c),
+                    ParadePointSegmentDistance(point, c, a)))
+            : Math.Abs(ParadeDot(ap, cross)) / crossMagnitude;
+    }
+
+    private static double ParadePointSegmentDistance(Vector3 point,
+        Vector3 a, Vector3 b)
+    {
+        Vector3 edge = b - a;
+        double lengthSquared = ParadeDot(edge, edge);
+        if (lengthSquared == 0d)
+            return ParadeMagnitude(point - a);
+        double amount = Math.Max(0d, Math.Min(1d,
+            ParadeDot(point - a, edge) / lengthSquared));
+        return ParadeMagnitude(point - (a + edge * (float)amount));
+    }
+
+    private static double ParadeDot(Vector3 a, Vector3 b)
+    {
+        return (double)a.x * b.x + (double)a.y * b.y + (double)a.z * b.z;
+    }
+
+    private static double ParadeMagnitude(Vector3 value)
+    {
+        return Math.Sqrt(ParadeDot(value, value));
+    }
+
+    private static ParadePointKey ParadeProjectedPoint(ParadeSourceTriangle source,
+        Vector2 point)
+    {
+        return ParadePointKey.From(new Vector3(point.x, source.HeightAt(point), point.y));
+    }
+
+    private static Vector3 ParadeNormalize(Vector3 value, Vector3 fallback)
+    {
+        double magnitude = Math.Sqrt((double)value.x * value.x +
+            (double)value.y * value.y + (double)value.z * value.z);
+        return magnitude == 0d
+            ? fallback
+            : new Vector3((float)(value.x / magnitude),
+                (float)(value.y / magnitude), (float)(value.z / magnitude));
+    }
+
+    private static long ParadeQuantize(float value)
+    {
+        return (long)Math.Round(value / ParadeFlagWeldTolerance,
+            MidpointRounding.AwayFromZero);
+    }
+
+    private static int ParadeCell(float value)
+    {
+        return Mathf.FloorToInt(value / ParadeFlagSpatialCell);
     }
 
     private static void ApplyProductionTextures(Material target, string materialName, string materialsRoot)
@@ -1118,11 +2398,13 @@ internal static class F117AircraftAssembler
 
         string sourcePath = AssetDatabase.GetAssetPath(source);
         TextureImporter importer = AssetImporter.GetAtPath(sourcePath) as TextureImporter;
-        if (importer == null)
-            throw new InvalidOperationException("Damage texture source has no TextureImporter: " + sourcePath);
-        bool wasReadable = importer.isReadable;
-        if (!wasReadable)
+        bool restoreImporterReadability = false;
+        if (!source.isReadable)
         {
+            if (importer == null)
+                throw new InvalidOperationException("Damage texture source is not readable and has no TextureImporter: " +
+                    sourcePath);
+            restoreImporterReadability = true;
             importer.isReadable = true;
             importer.SaveAndReimport();
             source = AssetDatabase.LoadAssetAtPath<Texture2D>(sourcePath);
@@ -1210,7 +2492,7 @@ internal static class F117AircraftAssembler
         output.Apply(true, true);
         AssetDatabase.CreateAsset(output, outputPath);
 
-        if (!wasReadable)
+        if (restoreImporterReadability)
         {
             importer = AssetImporter.GetAtPath(sourcePath) as TextureImporter;
             importer.isReadable = false;
@@ -1223,6 +2505,19 @@ internal static class F117AircraftAssembler
     {
         if (string.IsNullOrEmpty(materialName) || TextureStems.ContainsKey(materialName))
             return materialName;
+
+        // AssetDatabase.CreateAsset adopts the deterministic NN_<source> filename as
+        // the material object's name. Strip that build-order prefix only when the
+        // remainder is an exact production material. This keeps the underside and
+        // damage whitelists strict while allowing them to survive a real Unity build.
+        if (materialName.Length > 3 && char.IsDigit(materialName[0]) &&
+            char.IsDigit(materialName[1]) && materialName[2] == '_')
+        {
+            string unnumbered = materialName.Substring(3);
+            if (TextureStems.ContainsKey(unnumbered))
+                return unnumbered;
+            materialName = unnumbered;
+        }
 
         // Blender appends .001, .002, ... when distinct source slots share a name.
         // Unity's generated asset name uses underscores, so accept that spelling too.
@@ -1260,10 +2555,33 @@ internal static class F117AircraftAssembler
 
     private static void ConfigureSurface(Material target, string materialName)
     {
+        bool structure = materialName.IndexOf("AircraftStructure",
+            StringComparison.OrdinalIgnoreCase) >= 0;
         bool glass = materialName.IndexOf("glass", StringComparison.OrdinalIgnoreCase) >= 0 ||
             materialName.Equals("HUD", StringComparison.OrdinalIgnoreCase);
         bool decal = materialName.IndexOf("decal", StringComparison.OrdinalIgnoreCase) >= 0;
+        bool exteriorDecal = string.Equals(materialName, "F117A_external_decals_new",
+            StringComparison.OrdinalIgnoreCase);
         bool cutout = materialName.IndexOf("landing_gear_knob", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        if (structure)
+        {
+            // Each real root interface has two coincident, oppositely wound owner faces.
+            // Back-face culling renders the correct mate from either detached side and
+            // prevents intact co-planar faces from double-rendering or bleeding through.
+            if (target.HasProperty("_Cull"))
+                target.SetFloat("_Cull", (float)CullMode.Back);
+            target.SetFloat("_Surface", 0f);
+            target.SetFloat("_AlphaClip", 0f);
+            target.SetFloat("_SrcBlend", (float)BlendMode.One);
+            target.SetFloat("_DstBlend", (float)BlendMode.Zero);
+            target.SetFloat("_ZWrite", 1f);
+            target.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            target.DisableKeyword("_ALPHATEST_ON");
+            target.SetOverrideTag("RenderType", "Opaque");
+            target.renderQueue = -1;
+            return;
+        }
 
         // The source model uses a single detailed shell instead of separate interior and
         // exterior meshes. Render both faces so looking through the canopy cannot reveal
@@ -1271,7 +2589,42 @@ internal static class F117AircraftAssembler
         if (target.HasProperty("_Cull"))
             target.SetFloat("_Cull", (float)CullMode.Off);
 
-        if (glass || decal)
+        if (exteriorDecal)
+        {
+            // These are opaque painted insignia and stencil cards with a transparent
+            // atlas background. A blended, non-depth-writing pass is sorted only at
+            // renderer granularity; after the airframe was divided into real damage
+            // renderers it fought the supporting wing/fuselage depth and exposed the
+            // cards as clipped, reflective rectangles. Keep the authored RGBA atlas,
+            // but render its visible texels as matte alpha-tested paint.
+            target.SetColor("_BaseColor", Color.white);
+            target.SetColor("_Color", Color.white);
+            if (target.HasProperty("_MetallicGlossMap"))
+                target.SetTexture("_MetallicGlossMap", null);
+            target.SetFloat("_Metallic", 0f);
+            target.SetFloat("_Smoothness", 0.25f);
+            if (target.HasProperty("_EnvironmentReflections"))
+                target.SetFloat("_EnvironmentReflections", 0f);
+            target.SetFloat("_Surface", 0f);
+            target.SetFloat("_Blend", 0f);
+            target.SetFloat("_AlphaClip", 1f);
+            target.SetFloat("_Cutoff", 0.1f);
+            target.SetFloat("_SrcBlend", (float)BlendMode.One);
+            target.SetFloat("_DstBlend", (float)BlendMode.Zero);
+            if (target.HasProperty("_SrcBlendAlpha"))
+                target.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            if (target.HasProperty("_DstBlendAlpha"))
+                target.SetFloat("_DstBlendAlpha", (float)BlendMode.Zero);
+            target.SetFloat("_ZWrite", 1f);
+            target.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            target.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            target.DisableKeyword("_ALPHAMODULATE_ON");
+            target.DisableKeyword("_METALLICSPECGLOSSMAP");
+            EnableLocalKeyword(target, "_ALPHATEST_ON");
+            target.SetOverrideTag("RenderType", "TransparentCutout");
+            target.renderQueue = (int)RenderQueue.AlphaTest;
+        }
+        else if (glass || decal)
         {
             bool exteriorGlass = materialName.IndexOf("ext_glass", StringComparison.OrdinalIgnoreCase) >= 0;
             Color tint = decal
@@ -1341,11 +2694,8 @@ internal static class F117AircraftAssembler
         return string.IsNullOrEmpty(result) ? "Material" : result;
     }
     private static Component ConfigurePhysics(GameObject root, GameObject visual, Component aircraft, Rigidbody rigidbody,
-        Material gearDustMaterial, Material damageSeamCapMaterial, TireAudioProfile tireAudioProfile)
+        Material gearDustMaterial, TireAudioProfile tireAudioProfile)
     {
-        // Working Blueprinter aircraft author one root AeroPart and allow Aircraft.SetComplexPhysics
-        // to split its connected child-part graph into rigidbodies. The prefab Rigidbody is only a
-        // seed; AircraftDefinition.mass supplies the simple-physics mass at runtime.
         rigidbody.mass = 1f;
         rigidbody.drag = 0f;
         rigidbody.angularDrag = 0.025f;
@@ -1355,131 +2705,64 @@ internal static class F117AircraftAssembler
         rigidbody.ResetCenterOfMass();
         rigidbody.ResetInertiaTensor();
 
-        // Landing-gear mass is included in the central body. LandingGear.BreakWheel subtracts
-        // its serialized mass from this attached part, so counting it outside the AeroPart graph
-        // made both the intact and broken-aircraft masses wrong.
-        // The complex-physics graph is the aircraft's dry mass. Fuel and selected weapon
-        // mounts are added separately by the game when it calculates gross weight.
-        // It must therefore add up to the 13,380 kg empty weight, not the 23,814 kg MTOW.
-        // BalanceDryCenterOfMass below positions the central body's referenced
-        // mass point so the complete graph—not merely its part origins—has the
-        // required tricycle-gear margin.
-        Component central = ConfigureAeroPart(visual, 6990f, CentralBodyLiftArea, 0.42f, 0, aircraft, rigidbody,
-            Locator(visual, "LOC_CenterOfMass"), null, 0f);
+        // The model contains one continuous center body and two authored whole-wing
+        // islands. Preserve every established mass/lift/drag total and let the existing
+        // CG/static-margin solvers position their result on that real three-part graph.
+        Component central = ConfigureAeroPart(root, DryCentralMass,
+            CentralBodyLiftArea + NoseLiftArea + RearBodyLiftArea, 0.78f,
+            0, aircraft, rigidbody, Locator(visual, "LOC_CenterOfMass"), null, 0f);
         AddDirectBoxCollider(central, new Vector3(0f, 0.08f, 0.4f),
             new Vector3(3.4f, 1.05f, 10.2f));
-
-        Component nose = AddPart(central.transform, "F117_Nose", new Vector3(0f, 0.02f, 5.5f),
-            2250f, NoseLiftArea, 0.12f, 0, aircraft, rigidbody, central, 260000f);
-        AddDirectBoxCollider(nose, Vector3.zero, new Vector3(2.2f, 0.78f, 4.1f));
-
-        Component rear = AddPart(central.transform, "F117_RearBody", new Vector3(0f, 0.16f, -3.2f),
-            1010f, RearBodyLiftArea, 0.24f, 0, aircraft, rigidbody, central, 320000f);
-        // The central fuselage collider already covers most of this part. Keep only a
-        // compact tail collision volume here so the rear body cannot overlap both wing
-        // rigidbodies when Aircraft.SetComplexPhysics splits the graph.
-        AddDirectBoxCollider(rear, new Vector3(0f, 0f, -1.35f),
+        AddDirectBoxCollider(central, new Vector3(0f, 0.02f, 5.5f),
+            new Vector3(2.2f, 0.78f, 4.1f));
+        AddDirectBoxCollider(central, new Vector3(0f, 0.16f, -4.55f),
             new Vector3(2.8f, 0.7f, 1.5f));
 
-        // Match the stock aircraft pattern: a strongly attached wing root carries an
-        // inner panel, which carries a replaceable outer panel/tip. The measured mass,
-        // lift and drag fractions preserve the established whole-wing totals exactly.
-        // Part origins use the projected planform centroids, giving detached sections
-        // physically meaningful mass points instead of one point for the entire wing.
-        Component leftWingRoot = AddPart(central.transform, "F117_Wing_Left_Root",
-            new Vector3(-2.40313f, -0.02f, -0.33696f), 785f * WingRootAreaFraction,
-            MainWingLiftArea * WingRootAreaFraction, 0.08f * WingRootAreaFraction,
-            0, aircraft, rigidbody, central, 360000f);
-        Component leftWingInner = AddPart(leftWingRoot.transform, "F117_Wing_Left_Inner",
-            new Vector3(-1.71257f, 0f, -2.96440f), 785f * WingInnerAreaFraction,
-            MainWingLiftArea * WingInnerAreaFraction, 0.08f * WingInnerAreaFraction,
-            0, aircraft, rigidbody, leftWingRoot, 360000f);
-        Component leftWingOuter = AddPart(leftWingInner.transform, "F117_Wing_Left_Outer",
-            new Vector3(-1.61712f, 0f, -2.78229f), 785f * WingOuterAreaFraction,
-            MainWingLiftArea * WingOuterAreaFraction, 0.08f * WingOuterAreaFraction,
-            0, aircraft, rigidbody, leftWingInner, 360000f);
+        // This is the area/mass-weighted centroid of the prior three wing nodes.
+        // Consolidation therefore preserves each whole wing's first moment exactly.
+        Component leftWing = AddPart(central.transform, "F117_Wing_Left",
+            new Vector3(-3.4160013f, -0.02f, -2.087698f), 785f,
+            MainWingLiftArea, 0.08f, 0, aircraft, rigidbody, central, 360000f);
+        Component rightWing = AddPart(central.transform, "F117_Wing_Right",
+            new Vector3(3.4160013f, -0.02f, -2.087698f), 785f,
+            MainWingLiftArea, 0.08f, 0, aircraft, rigidbody, central, 360000f);
 
-        Component rightWingRoot = AddPart(central.transform, "F117_Wing_Right_Root",
-            new Vector3(2.40313f, -0.02f, -0.33696f), 785f * WingRootAreaFraction,
-            MainWingLiftArea * WingRootAreaFraction, 0.08f * WingRootAreaFraction,
-            0, aircraft, rigidbody, central, 360000f);
-        Component rightWingInner = AddPart(rightWingRoot.transform, "F117_Wing_Right_Inner",
-            new Vector3(1.71257f, 0f, -2.96440f), 785f * WingInnerAreaFraction,
-            MainWingLiftArea * WingInnerAreaFraction, 0.08f * WingInnerAreaFraction,
-            0, aircraft, rigidbody, rightWingRoot, 360000f);
-        Component rightWingOuter = AddPart(rightWingInner.transform, "F117_Wing_Right_Outer",
-            new Vector3(1.61712f, 0f, -2.78229f), 785f * WingOuterAreaFraction,
-            MainWingLiftArea * WingOuterAreaFraction, 0.08f * WingOuterAreaFraction,
-            0, aircraft, rigidbody, rightWingInner, 360000f);
-
-        // The F-117 is a blended lifting body. Preserve the proven total lifting area and
-        // aerodynamic centroid, but distribute it across the forebody, center body, rear
-        // body and both wings instead of concentrating it in two point forces. These fixed
-        // physics axes carry incidence without rotating colliders or depending on renderers.
         BindFixedLiftAxis(central, visual.transform);
-        BindFixedLiftAxis(nose, visual.transform);
-        BindFixedLiftAxis(rear, visual.transform);
-        Component[] fixedLiftParts =
-        {
-            central, nose, rear,
-            leftWingRoot, leftWingInner, leftWingOuter,
-            rightWingRoot, rightWingInner, rightWingOuter
-        };
-        foreach (Component fixedLiftPart in fixedLiftParts)
-            BindFixedLiftAxis(fixedLiftPart, visual.transform);
+        BindFixedLiftAxis(leftWing, visual.transform);
+        BindFixedLiftAxis(rightWing, visual.transform);
+        Component[] fixedLiftParts = { central, leftWing, rightWing };
 
-        // The source fixed exterior is one renderer. Leaving it on CentralBody makes
-        // detached noses, wings and tails physically real but visually invisible.
-        // Split every triangle once and parent each compact renderer to its owning
-        // AeroPart, matching the working aircraft damage graph.
-        PartitionExteriorForDamage(visual, central, nose, rear,
-            leftWingRoot, leftWingInner, leftWingOuter,
-            rightWingRoot, rightWingInner, rightWingOuter, damageSeamCapMaterial);
+        BindAuthoredDamageSections(visual, central, leftWing, rightWing);
 
-        // The imported left/right hinge frames differ slightly because they were authored as
-        // independent model parts. Average all four measured axes into one canonical swept
-        // hinge and mirror it exactly. Otherwise equal pitch commands create a small uncancelled
-        // lateral/rolling force, first noticeable during rotation and again in hard pitch pulls.
         Vector3[] elevonHingeAxes = CalculateMirroredElevonHingeAxes(visual);
-
-        // The source animation's smaller neutral-to-stop travel is +22.5323 degrees.
-        // ControlSurface adds pitch and roll without a final combined clamp, so keep
-        // their absolute sum at that geometric limit instead of allowing 33-40 degrees.
-        AddControlSurface(visual, "F117_Elevon_L_Inner", 40f, InnerElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWingInner, false,
+        AddControlSurface(visual, "F117_Elevon_L_Inner", 40f, InnerElevonArea,
+            -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWing, false,
             InnerElevonLeftNeutralCorrection, elevonHingeAxes[0]);
-        AddControlSurface(visual, "F117_Elevon_R_Inner", 40f, InnerElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWingInner, false,
+        AddControlSurface(visual, "F117_Elevon_R_Inner", 40f, InnerElevonArea,
+            -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWing, false,
             InnerElevonRightNeutralCorrection, elevonHingeAxes[1]);
-        AddControlSurface(visual, "F117_Elevon_L_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWingOuter, false, 0f,
+        AddControlSurface(visual, "F117_Elevon_L_Outer", 40f, OuterElevonArea,
+            -ElevonPitchTravel, -ElevonRollTravel, 0f, aircraft, rigidbody, leftWing, false, 0f,
             elevonHingeAxes[0]);
-        AddControlSurface(visual, "F117_Elevon_R_Outer", 40f, OuterElevonArea, -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWingOuter, false, 0f,
+        AddControlSurface(visual, "F117_Elevon_R_Outer", 40f, OuterElevonArea,
+            -ElevonPitchTravel, ElevonRollTravel, 0f, aircraft, rigidbody, rightWing, false, 0f,
             elevonHingeAxes[1]);
-        SymmetrizeElevonForcePoints(visual);
-        // Both source rudder drivers use the same signed local-Z hinge axis, so their
-        // ranges must keep the same sign. Runtime telemetry also proves the global sign:
-        // positive yaw rate makes ControlsFilter request negative yaw, and negative
-        // travel must produce the opposing tail moment instead of reinforcing the rate.
-        AddControlSurface(visual, "F117_Rudder_L", 25f, FullVerticalTailArea, 0f, 0f, RudderYawTravel,
-            aircraft, rigidbody, rear, true, 0f, null);
-        AddControlSurface(visual, "F117_Rudder_R", 25f, FullVerticalTailArea, 0f, 0f, RudderYawTravel,
-            aircraft, rigidbody, rear, true, 0f, null);
+        SymmetrizeElevonForcePoints(root, visual);
 
-        // The engines occupy the rear-body collision volume. They must be physical
-        // children of that body so each native FixedJoint has enableCollision=false
-        // against the part it intersects. Making them siblings under CentralBody lets
-        // both engine proxy colliders strike RearCollider during complex-physics startup,
-        // which breaks the rear-body joint and drops the complete tail/rudder assembly.
-        ConfigureEngines(rear.transform, visual, aircraft, rigidbody, rear);
+        AddControlSurface(visual, "F117_Rudder_L", 25f, FullVerticalTailArea,
+            0f, 0f, RudderYawTravel, aircraft, rigidbody, central, true, 0f, null);
+        AddControlSurface(visual, "F117_Rudder_R", 25f, FullVerticalTailArea,
+            0f, 0f, RudderYawTravel, aircraft, rigidbody, central, true, 0f, null);
+
+        ConfigureEngines(central.transform, visual, aircraft, rigidbody, central);
         ConfigureLandingGear(visual, aircraft, central, gearDustMaterial, tireAudioProfile);
-        float dryCenterOfMassZ = BalanceDryCenterOfMass(visual, central);
-        BalancePitchStaticMargin(visual, dryCenterOfMassZ, fixedLiftParts);
-        // Native bullets and explosions use collider.gameObject.GetComponent<IDamageable>();
-        // they do not walk to a parent AeroPart. Every physical part must therefore own
-        // its actual hitbox directly, which also gives UnitPart.Awake a finite collisionSize.
-        RequireDirectAeroPartColliders(visual);
+        float dryCenterOfMassZ = BalanceDryCenterOfMass(root, visual, central);
+        BalancePitchStaticMargin(root, visual, dryCenterOfMassZ, fixedLiftParts);
+        RequireDirectAeroPartColliders(root);
         return central;
     }
 
-    private static float BalanceDryCenterOfMass(GameObject visual, Component centralPart)
+    private static float BalanceDryCenterOfMass(GameObject root, GameObject visual, Component centralPart)
     {
         Transform leftContact = Locator(visual, "LOC_Gear_Left_Contact");
         Transform rightContact = Locator(visual, "LOC_Gear_Right_Contact");
@@ -1491,7 +2774,7 @@ internal static class F117AircraftAssembler
         float otherMomentZ = 0f;
         float centralMass = 0f;
         Transform centralMassPoint = null;
-        foreach (Component part in visual.GetComponentsInChildren<Component>(true)
+        foreach (Component part in root.GetComponentsInChildren<Component>(true)
                      .Where(component => component != null && component.GetType().Name == "AeroPart"))
         {
             SerializedObject data = new SerializedObject(part);
@@ -1521,10 +2804,10 @@ internal static class F117AircraftAssembler
         return targetCenterZ;
     }
 
-    private static void BalancePitchStaticMargin(GameObject visual, float dryCenterOfMassZ,
+    private static void BalancePitchStaticMargin(GameObject root, GameObject visual, float dryCenterOfMassZ,
         Component[] fixedLiftParts)
     {
-        Component[] pitchControlParts = FindComponents(visual, "ControlSurface")
+        Component[] pitchControlParts = FindComponents(root, "ControlSurface")
             .Where(control =>
             {
                 SerializedObject controlData = new SerializedObject(control);
@@ -1653,7 +2936,7 @@ internal static class F117AircraftAssembler
         Set(data, "structuralThreshold", -25f);
         Set(data, "integrityThreshold", float.MinValue);
         SerializedProperty armor = Require(data, "armorProperties");
-        // Exact common FastBomber1 structural profile. The F-117 uses 17 coherent
+        // Exact common FastBomber1 structural profile. The F-117 uses 11 coherent
         // AeroParts versus the donor's 35, so this restores stock-scale survivability without
         // inventing extra hit points or making the aircraft unusually armored.
         Set(armor, "pierceArmor", 20f);
@@ -1769,598 +3052,183 @@ internal static class F117AircraftAssembler
         return collider;
     }
 
-    private sealed class DamageVertex
+    private static void BindAuthoredDamageSections(GameObject visual, Component central,
+        Component leftWing, Component rightWing)
     {
-        internal Vector3 Position;
-        internal Vector3 Normal;
-        internal Vector4 Tangent;
-        internal Color Color;
-        internal readonly Vector4[] Uvs = new Vector4[8];
+        Renderer centralRenderer = RequireAuthoredDamageRenderer(visual,
+            "F117_Exterior_Mesh", 15);
+        Renderer leftRenderer = RequireAuthoredDamageRenderer(visual,
+            "F117_Exterior_LeftWing_Mesh", 7);
+        Renderer rightRenderer = RequireAuthoredDamageRenderer(visual,
+            "F117_Exterior_RightWing_Mesh", 8);
 
-        internal static DamageVertex Lerp(DamageVertex first, DamageVertex second, float amount)
-        {
-            Vector3 tangent = Vector3.Lerp(
-                new Vector3(first.Tangent.x, first.Tangent.y, first.Tangent.z),
-                new Vector3(second.Tangent.x, second.Tangent.y, second.Tangent.z), amount).normalized;
-            var result = new DamageVertex
-            {
-                Position = Vector3.Lerp(first.Position, second.Position, amount),
-                Normal = Vector3.Lerp(first.Normal, second.Normal, amount).normalized,
-                Tangent = new Vector4(tangent.x, tangent.y, tangent.z,
-                    amount < 0.5f ? first.Tangent.w : second.Tangent.w),
-                Color = UnityEngine.Color.Lerp(first.Color, second.Color, amount)
-            };
-            for (int channel = 0; channel < result.Uvs.Length; channel++)
-                result.Uvs[channel] = Vector4.Lerp(first.Uvs[channel], second.Uvs[channel], amount);
-            return result;
-        }
+        // The source model owns these three real geometric islands. Reparent only
+        // the two wings, preserving their authored world pose, so detachment follows
+        // the measured root contours instead of a generated plane cut.
+        leftRenderer.transform.SetParent(leftWing.transform, true);
+        rightRenderer.transform.SetParent(rightWing.transform, true);
+
+        ConfigureDamageRenderers(central, new[] { centralRenderer });
+        ConfigureDamageRenderers(leftWing, new[] { leftRenderer });
+        ConfigureDamageRenderers(rightWing, new[] { rightRenderer });
+        AddDirectPlanformDamageCollider(leftWing, new[] { leftRenderer });
+        AddDirectPlanformDamageCollider(rightWing, new[] { rightRenderer });
     }
 
-    private sealed class DamageMeshBuilder
+    private static void BindParadeFlagDamageRenderers(GameObject root, Component central)
     {
-        private sealed class VertexComparer : IEqualityComparer<DamageVertex>
+        if (root == null || central == null)
+            throw new InvalidOperationException("Farewell Flag damage ownership requires the F-117 root and central AeroPart.");
+
+        Renderer BaseRenderer(string name)
         {
-            private readonly bool hasNormals;
-            private readonly bool hasTangents;
-            private readonly bool hasColors;
-            private readonly bool[] hasUvs;
-
-            internal VertexComparer(bool hasNormals, bool hasTangents, bool hasColors, bool[] hasUvs)
-            {
-                this.hasNormals = hasNormals;
-                this.hasTangents = hasTangents;
-                this.hasColors = hasColors;
-                this.hasUvs = hasUvs;
-            }
-
-            public bool Equals(DamageVertex first, DamageVertex second)
-            {
-                if (ReferenceEquals(first, second))
-                    return true;
-                if (first == null || second == null || !first.Position.Equals(second.Position) ||
-                    hasNormals && !first.Normal.Equals(second.Normal) ||
-                    hasTangents && !first.Tangent.Equals(second.Tangent) ||
-                    hasColors && !first.Color.Equals(second.Color))
-                    return false;
-                for (int channel = 0; channel < hasUvs.Length; channel++)
-                    if (hasUvs[channel] && !first.Uvs[channel].Equals(second.Uvs[channel]))
-                        return false;
-                return true;
-            }
-
-            public int GetHashCode(DamageVertex vertex)
-            {
-                unchecked
-                {
-                    int hash = vertex.Position.GetHashCode();
-                    if (hasNormals)
-                        hash = hash * 397 ^ vertex.Normal.GetHashCode();
-                    if (hasTangents)
-                        hash = hash * 397 ^ vertex.Tangent.GetHashCode();
-                    if (hasColors)
-                        hash = hash * 397 ^ vertex.Color.GetHashCode();
-                    for (int channel = 0; channel < hasUvs.Length; channel++)
-                        if (hasUvs[channel])
-                            hash = hash * 397 ^ vertex.Uvs[channel].GetHashCode();
-                    return hash;
-                }
-            }
+            Renderer renderer = RequireUniqueNamedComponent<Renderer>(root, name);
+            if (!renderer.sharedMaterials.Any(material => material != null &&
+                    UsesAircraftSkin(material.name)))
+                throw new InvalidOperationException(name +
+                    " must retain an AircraftSkin exterior material for native damage blending.");
+            return renderer;
         }
 
-        private readonly Transform owner;
-        private readonly Transform visual;
-        private readonly bool hasNormals;
-        private readonly bool hasTangents;
-        private readonly bool hasColors;
-        private readonly bool[] hasUvs;
-        private readonly List<Vector3> vertices = new List<Vector3>();
-        private readonly List<Vector3> normals = new List<Vector3>();
-        private readonly List<Vector4> tangents = new List<Vector4>();
-        private readonly List<Color> colors = new List<Color>();
-        private readonly List<Vector4>[] uvs = Enumerable.Range(0, 8).Select(_ => new List<Vector4>()).ToArray();
-        private readonly List<int> triangles = new List<int>();
-        private readonly Dictionary<DamageVertex, int> vertexIndices;
-
-        internal DamageMeshBuilder(Transform owner, Transform visual, bool hasNormals,
-            bool hasTangents, bool hasColors, bool[] hasUvs)
+        Renderer OverlayRenderer(string sourceName)
         {
-            this.owner = owner;
-            this.visual = visual;
-            this.hasNormals = hasNormals;
-            this.hasTangents = hasTangents;
-            this.hasColors = hasColors;
-            this.hasUvs = hasUvs;
-            vertexIndices = new Dictionary<DamageVertex, int>(
-                new VertexComparer(hasNormals, hasTangents, hasColors, hasUvs));
+            Renderer renderer = RequireUniqueNamedComponent<Renderer>(root,
+                ParadeFlagOverlayPrefix + sourceName);
+            if (renderer.sharedMaterials.Length != 1 || renderer.sharedMaterial == null ||
+                !string.Equals(renderer.sharedMaterial.name, ParadeFlagMaterialName,
+                    StringComparison.Ordinal))
+                throw new InvalidOperationException(renderer.name +
+                    " must retain the single native Farewell Flag material.");
+            return renderer;
         }
 
-        internal bool IsEmpty => triangles.Count == 0;
-
-        internal void AddPolygon(IReadOnlyList<DamageVertex> polygon)
+        Component Owner(string name)
         {
-            if (polygon == null || polygon.Count < 3)
-                return;
-            for (int triangle = 1; triangle < polygon.Count - 1; triangle++)
-            {
-                AddVertex(polygon[0]);
-                AddVertex(polygon[triangle]);
-                AddVertex(polygon[triangle + 1]);
-            }
+            Transform ownerTransform = RequireUniqueNamedComponent<Transform>(root, name);
+            Component owner = ownerTransform.GetComponent("AeroPart");
+            if (owner == null)
+                throw new InvalidOperationException(name + " has no AeroPart damage owner.");
+            return owner;
         }
 
-        private void AddVertex(DamageVertex vertex)
+        AppendDamageRenderers(central, new[]
         {
-            if (vertexIndices.TryGetValue(vertex, out int existingIndex))
-            {
-                triangles.Add(existingIndex);
-                return;
-            }
-            int index = vertices.Count;
-            vertexIndices.Add(vertex, index);
-            Vector3 worldPoint = visual.TransformPoint(vertex.Position);
-            vertices.Add(owner.InverseTransformPoint(worldPoint));
-            if (hasNormals)
-                normals.Add(owner.InverseTransformDirection(
-                    visual.TransformDirection(vertex.Normal)).normalized);
-            if (hasTangents)
-            {
-                Vector3 tangent = owner.InverseTransformDirection(visual.TransformDirection(
-                    new Vector3(vertex.Tangent.x, vertex.Tangent.y, vertex.Tangent.z))).normalized;
-                tangents.Add(new Vector4(tangent.x, tangent.y, tangent.z, vertex.Tangent.w));
-            }
-            if (hasColors)
-                colors.Add(vertex.Color);
-            for (int channel = 0; channel < hasUvs.Length; channel++)
-                if (hasUvs[channel])
-                    uvs[channel].Add(vertex.Uvs[channel]);
-            triangles.Add(index);
-        }
+            BaseRenderer("F117_BayDoor_Left_Mesh"),
+            BaseRenderer("F117_BayDoor_Right_Mesh"),
+            BaseRenderer("F117_GearDoor_Nose_Mesh"),
+            BaseRenderer("F117_GearDoor_Left_Outer_Mesh"),
+            BaseRenderer("F117_GearDoor_Left_Inner_Mesh"),
+            BaseRenderer("F117_GearDoor_Right_Outer_Mesh"),
+            BaseRenderer("F117_GearDoor_Right_Inner_Mesh"),
+            OverlayRenderer("F117_Exterior_Mesh"),
+            OverlayRenderer("F117_BayDoor_Left_Mesh"),
+            OverlayRenderer("F117_BayDoor_Right_Mesh"),
+            OverlayRenderer("F117_GearDoor_Nose_Mesh"),
+            OverlayRenderer("F117_GearDoor_Left_Outer_Mesh"),
+            OverlayRenderer("F117_GearDoor_Left_Inner_Mesh"),
+            OverlayRenderer("F117_GearDoor_Right_Outer_Mesh"),
+            OverlayRenderer("F117_GearDoor_Right_Inner_Mesh")
+        });
+        AppendDamageRenderers(Owner("F117_Wing_Left"), new[]
+        {
+            OverlayRenderer("F117_Exterior_LeftWing_Mesh")
+        });
+        AppendDamageRenderers(Owner("F117_Wing_Right"), new[]
+        {
+            OverlayRenderer("F117_Exterior_RightWing_Mesh")
+        });
 
-        internal Mesh Build(string name)
+        string[] controlOwners =
         {
-            var mesh = new Mesh
-            {
-                name = name,
-                indexFormat = vertices.Count > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16
-            };
-            mesh.SetVertices(vertices);
-            if (hasNormals)
-                mesh.SetNormals(normals);
-            if (hasTangents)
-                mesh.SetTangents(tangents);
-            if (hasColors)
-                mesh.SetColors(colors);
-            for (int channel = 0; channel < hasUvs.Length; channel++)
-                if (hasUvs[channel])
-                    mesh.SetUVs(channel, uvs[channel]);
-            mesh.SetTriangles(triangles, 0, true);
-            if (!hasNormals)
-                mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            return mesh;
-        }
-    }
-
-    private static void PartitionExteriorForDamage(GameObject visual, Component central, Component nose,
-        Component rear, Component leftRoot, Component leftInner, Component leftOuter,
-        Component rightRoot, Component rightInner, Component rightOuter, Material seamCapMaterial)
-    {
-        Transform sourceTransform = FindDeep(visual.transform, "F117_Exterior_Mesh");
-        MeshFilter sourceFilter = sourceTransform == null ? null : sourceTransform.GetComponent<MeshFilter>();
-        MeshRenderer sourceRenderer = sourceTransform == null ? null : sourceTransform.GetComponent<MeshRenderer>();
-        if (sourceFilter == null || sourceRenderer == null || sourceFilter.sharedMesh == null)
-            throw new InvalidOperationException("The production exterior mesh is unavailable for damage partitioning.");
-
-        Directory.CreateDirectory(DamageMeshRoot);
-        Mesh sourceMesh = sourceFilter.sharedMesh;
-        Vector3[] sourceVertices = sourceMesh.vertices;
-        Vector3[] sourceNormals = sourceMesh.normals;
-        Vector4[] sourceTangents = sourceMesh.tangents;
-        Color[] sourceColors = sourceMesh.colors;
-        var sourceUvs = new List<Vector4>[8];
-        bool[] hasUvs = new bool[8];
-        for (int channel = 0; channel < sourceUvs.Length; channel++)
-        {
-            sourceUvs[channel] = new List<Vector4>();
-            sourceMesh.GetUVs(channel, sourceUvs[channel]);
-            hasUvs[channel] = sourceUvs[channel].Count == sourceMesh.vertexCount;
-        }
-        bool hasNormals = sourceNormals.Length == sourceMesh.vertexCount;
-        bool hasTangents = sourceTangents.Length == sourceMesh.vertexCount;
-        bool hasColors = sourceColors.Length == sourceMesh.vertexCount;
-        Material[] materials = sourceRenderer.sharedMaterials;
-        Component[] owners =
-        {
-            central, nose, rear,
-            leftRoot, leftInner, leftOuter,
-            rightRoot, rightInner, rightOuter
+            "F117_Elevon_L_Inner", "F117_Elevon_L_Outer",
+            "F117_Elevon_R_Inner", "F117_Elevon_R_Outer"
         };
-        var renderersByOwner = owners.ToDictionary(owner => owner, owner => new List<Renderer>());
-        int sourceTriangleCount = 0;
-        float sourceArea = 0f;
-        float assignedArea = 0f;
-
-        DamageVertex SourceVertex(int index)
-        {
-            var vertex = new DamageVertex
+        foreach (string ownerName in controlOwners)
+            AppendDamageRenderers(Owner(ownerName), new[]
             {
-                Position = visual.transform.InverseTransformPoint(
-                    sourceTransform.TransformPoint(sourceVertices[index])),
-                Normal = hasNormals
-                    ? visual.transform.InverseTransformDirection(
-                        sourceTransform.TransformDirection(sourceNormals[index])).normalized
-                    : Vector3.up,
-                Tangent = hasTangents ? sourceTangents[index] : new Vector4(1f, 0f, 0f, 1f),
-                Color = hasColors ? sourceColors[index] : UnityEngine.Color.white
-            };
-            if (hasTangents)
-            {
-                Vector3 tangent = visual.transform.InverseTransformDirection(
-                    sourceTransform.TransformDirection(new Vector3(
-                        sourceTangents[index].x, sourceTangents[index].y, sourceTangents[index].z))).normalized;
-                vertex.Tangent = new Vector4(tangent.x, tangent.y, tangent.z, sourceTangents[index].w);
-            }
-            for (int channel = 0; channel < sourceUvs.Length; channel++)
-                if (hasUvs[channel])
-                    vertex.Uvs[channel] = sourceUvs[channel][index];
-            return vertex;
-        }
-
-        for (int subMesh = 0; subMesh < sourceMesh.subMeshCount; subMesh++)
-        {
-            int[] triangles = sourceMesh.GetTriangles(subMesh);
-            sourceTriangleCount += triangles.Length / 3;
-            var builders = owners.ToDictionary(owner => owner,
-                owner => new DamageMeshBuilder(owner.transform, visual.transform,
-                    hasNormals, hasTangents, hasColors, hasUvs));
-            for (int index = 0; index < triangles.Length; index += 3)
-            {
-                var triangle = new List<DamageVertex>
-                {
-                    SourceVertex(triangles[index]),
-                    SourceVertex(triangles[index + 1]),
-                    SourceVertex(triangles[index + 2])
-                };
-                sourceArea += DamagePolygonArea(triangle);
-                assignedArea += AssignDamagePolygon(triangle, builders, central, nose, rear,
-                    leftRoot, leftInner, leftOuter, rightRoot, rightInner, rightOuter);
-            }
-
-            foreach (Component owner in owners)
-            {
-                DamageMeshBuilder builder = builders[owner];
-                if (builder.IsEmpty)
-                    continue;
-
-                Mesh mesh = builder.Build(owner.name + "_Skin_" + subMesh.ToString("D2"));
-                AssetDatabase.CreateAsset(mesh, DamageMeshRoot + "/" + mesh.name + ".asset");
-
-                GameObject piece = new GameObject(mesh.name);
-                piece.layer = sourceTransform.gameObject.layer;
-                piece.transform.SetParent(owner.transform, false);
-                piece.AddComponent<MeshFilter>().sharedMesh = mesh;
-                MeshRenderer renderer = piece.AddComponent<MeshRenderer>();
-                renderer.sharedMaterial = subMesh < materials.Length ? materials[subMesh] : null;
-                renderer.shadowCastingMode = sourceRenderer.shadowCastingMode;
-                renderer.receiveShadows = sourceRenderer.receiveShadows;
-                renderer.lightProbeUsage = sourceRenderer.lightProbeUsage;
-                renderer.reflectionProbeUsage = sourceRenderer.reflectionProbeUsage;
-                renderer.motionVectorGenerationMode = sourceRenderer.motionVectorGenerationMode;
-                renderer.enabled = true;
-                renderersByOwner[owner].Add(renderer);
-            }
-        }
-
-        CreateDamageSeamCaps(visual.transform, central, renderersByOwner[central], seamCapMaterial,
-            DamageBulkheadInset,
-            new DamageCutPlane(Vector3.forward, 4.2f),
-            new DamageCutPlane(Vector3.forward, 3.6f),
-            new DamageCutPlane(Vector3.right, 1.65f),
-            new DamageCutPlane(Vector3.right, -1.65f),
-            new DamageCutPlane(Vector3.forward, -4.35f));
-        CreateDamageSeamCaps(visual.transform, nose, renderersByOwner[nose], seamCapMaterial,
-            DamageBulkheadInset,
-            new DamageCutPlane(Vector3.forward, 4.2f));
-        CreateDamageSeamCaps(visual.transform, rear, renderersByOwner[rear], seamCapMaterial,
-            DamageBulkheadInset,
-            new DamageCutPlane(Vector3.forward, -4.35f));
-        CreateDamageSeamCaps(visual.transform, rightRoot, renderersByOwner[rightRoot], seamCapMaterial,
-            DamageBulkheadInset + DamageBulkheadLayerOffset,
-            new DamageCutPlane(Vector3.forward, 3.6f),
-            new DamageCutPlane(Vector3.right, 1.65f),
-            new DamageCutPlane(new Vector3(1f, 0f, -WingRootSweep), WingRootMetricCut));
-        CreateDamageSeamCaps(visual.transform, rightInner, renderersByOwner[rightInner], seamCapMaterial,
-            DamageBulkheadInset,
-            new DamageCutPlane(new Vector3(1f, 0f, -WingRootSweep), WingRootMetricCut),
-            new DamageCutPlane(new Vector3(1f, 0f, -WingOuterSweep), WingOuterMetricCut));
-        CreateDamageSeamCaps(visual.transform, rightOuter, renderersByOwner[rightOuter], seamCapMaterial,
-            DamageBulkheadInset,
-            new DamageCutPlane(new Vector3(1f, 0f, -WingOuterSweep), WingOuterMetricCut));
-        CreateDamageSeamCaps(visual.transform, leftRoot, renderersByOwner[leftRoot], seamCapMaterial,
-            DamageBulkheadInset + DamageBulkheadLayerOffset,
-            new DamageCutPlane(Vector3.forward, 3.6f),
-            new DamageCutPlane(Vector3.right, -1.65f),
-            new DamageCutPlane(new Vector3(-1f, 0f, -WingRootSweep), WingRootMetricCut));
-        CreateDamageSeamCaps(visual.transform, leftInner, renderersByOwner[leftInner], seamCapMaterial,
-            DamageBulkheadInset,
-            new DamageCutPlane(new Vector3(-1f, 0f, -WingRootSweep), WingRootMetricCut),
-            new DamageCutPlane(new Vector3(-1f, 0f, -WingOuterSweep), WingOuterMetricCut));
-        CreateDamageSeamCaps(visual.transform, leftOuter, renderersByOwner[leftOuter], seamCapMaterial,
-            DamageBulkheadInset,
-            new DamageCutPlane(new Vector3(-1f, 0f, -WingOuterSweep), WingOuterMetricCut));
-
-        if (sourceTriangleCount == 0 || sourceArea <= 0f ||
-            Mathf.Abs(assignedArea - sourceArea) > sourceArea * 0.0001f)
-            throw new InvalidOperationException("Exterior damage partition lost production mesh triangles.");
-        foreach (Component owner in owners)
-        {
-            if (renderersByOwner[owner].Count == 0)
-                throw new InvalidOperationException(owner.name + " received no exterior damage renderer.");
-            ConfigureDamageRenderers(owner, renderersByOwner[owner]);
-        }
-        foreach (Component wingSection in new[]
-                 {
-                     leftRoot, leftInner, leftOuter,
-                     rightRoot, rightInner, rightOuter
-                 })
-            AddDirectPlanformDamageCollider(wingSection, renderersByOwner[wingSection]);
-
-        UnityEngine.Object.DestroyImmediate(sourceRenderer, true);
-        UnityEngine.Object.DestroyImmediate(sourceFilter, true);
+                OverlayRenderer(ownerName + "_Mesh")
+            });
     }
 
-    private static float AssignDamagePolygon(List<DamageVertex> polygon,
-        Dictionary<Component, DamageMeshBuilder> builders, Component central, Component nose,
-        Component rear, Component leftRoot, Component leftInner, Component leftOuter,
-        Component rightRoot, Component rightInner, Component rightOuter)
+    private static T RequireUniqueNamedComponent<T>(GameObject root, string name)
+        where T : Component
     {
-        float assignedArea = 0f;
-        SplitDamagePolygon(polygon, 2, 4.2f, out List<DamageVertex> belowNose,
-            out List<DamageVertex> nosePolygon);
-        assignedArea += AddDamagePolygon(builders[nose], nosePolygon);
-
-        SplitDamagePolygon(belowNose, 2, 3.6f, out List<DamageVertex> wingBand,
-            out List<DamageVertex> centerBand);
-        SplitDamagePolygon(wingBand, 0, 1.65f, out List<DamageVertex> nonPositive,
-            out List<DamageVertex> positiveWing);
-        SplitDamagePolygon(nonPositive, 0, -1.65f, out List<DamageVertex> negativeWing,
-            out List<DamageVertex> centerStrip);
-
-        SplitDamagePolygon(positiveWing, new Vector3(1f, 0f, -WingRootSweep), WingRootMetricCut,
-            out List<DamageVertex> positiveRootPolygon,
-            out List<DamageVertex> positiveBeyondRoot);
-        SplitDamagePolygon(positiveBeyondRoot, new Vector3(1f, 0f, -WingOuterSweep), WingOuterMetricCut,
-            out List<DamageVertex> positiveInnerPolygon,
-            out List<DamageVertex> positiveOuterPolygon);
-        // Unity mirrors the FBX X axis: positive is the authored right wing.
-        assignedArea += AddDamagePolygon(builders[rightRoot], positiveRootPolygon);
-        assignedArea += AddDamagePolygon(builders[rightInner], positiveInnerPolygon);
-        assignedArea += AddDamagePolygon(builders[rightOuter], positiveOuterPolygon);
-
-        SplitDamagePolygon(negativeWing, new Vector3(-1f, 0f, -WingRootSweep), WingRootMetricCut,
-            out List<DamageVertex> negativeRootPolygon, out List<DamageVertex> negativeBeyondRoot);
-        SplitDamagePolygon(negativeBeyondRoot, new Vector3(-1f, 0f, -WingOuterSweep), WingOuterMetricCut,
-            out List<DamageVertex> negativeInnerPolygon, out List<DamageVertex> negativeOuterPolygon);
-        assignedArea += AddDamagePolygon(builders[leftRoot], negativeRootPolygon);
-        assignedArea += AddDamagePolygon(builders[leftInner], negativeInnerPolygon);
-        assignedArea += AddDamagePolygon(builders[leftOuter], negativeOuterPolygon);
-
-        assignedArea += AssignBodyDamagePolygon(centerBand, builders[central], builders[rear]);
-        assignedArea += AssignBodyDamagePolygon(centerStrip, builders[central], builders[rear]);
-        return assignedArea;
-    }
-
-    private static float AssignBodyDamagePolygon(List<DamageVertex> polygon,
-        DamageMeshBuilder central, DamageMeshBuilder rear)
-    {
-        SplitDamagePolygon(polygon, 2, -4.35f, out List<DamageVertex> rearPolygon,
-            out List<DamageVertex> centralPolygon);
-        return AddDamagePolygon(rear, rearPolygon) + AddDamagePolygon(central, centralPolygon);
-    }
-
-    private static float AddDamagePolygon(DamageMeshBuilder builder, List<DamageVertex> polygon)
-    {
-        if (polygon == null || polygon.Count < 3)
-            return 0f;
-        builder.AddPolygon(polygon);
-        return DamagePolygonArea(polygon);
-    }
-
-    private static float DamagePolygonArea(IReadOnlyList<DamageVertex> polygon)
-    {
-        if (polygon == null || polygon.Count < 3)
-            return 0f;
-        float area = 0f;
-        for (int index = 1; index < polygon.Count - 1; index++)
-            area += Vector3.Cross(polygon[index].Position - polygon[0].Position,
-                polygon[index + 1].Position - polygon[0].Position).magnitude * 0.5f;
-        return area;
-    }
-
-    private static void SplitDamagePolygon(List<DamageVertex> polygon, int axis, float threshold,
-        out List<DamageVertex> low, out List<DamageVertex> high)
-    {
-        Vector3 normal = axis == 0 ? Vector3.right : axis == 1 ? Vector3.up : Vector3.forward;
-        SplitDamagePolygon(polygon, normal, threshold, out low, out high);
-    }
-
-    private static void SplitDamagePolygon(List<DamageVertex> polygon, Vector3 normal, float threshold,
-        out List<DamageVertex> low, out List<DamageVertex> high)
-    {
-        low = ClipDamagePolygon(polygon, normal, threshold, false);
-        high = ClipDamagePolygon(polygon, normal, threshold, true);
-    }
-
-    private static List<DamageVertex> ClipDamagePolygon(List<DamageVertex> polygon, Vector3 normal,
-        float threshold, bool keepHigh)
-    {
-        var result = new List<DamageVertex>();
-        if (polygon == null || polygon.Count == 0)
-            return result;
-        for (int index = 0; index < polygon.Count; index++)
-        {
-            DamageVertex current = polygon[index];
-            DamageVertex previous = polygon[(index + polygon.Count - 1) % polygon.Count];
-            float currentValue = Vector3.Dot(current.Position, normal);
-            float previousValue = Vector3.Dot(previous.Position, normal);
-            bool currentInside = keepHigh ? currentValue >= threshold : currentValue <= threshold;
-            bool previousInside = keepHigh ? previousValue >= threshold : previousValue <= threshold;
-            if (currentInside != previousInside)
-            {
-                float amount = (threshold - previousValue) / (currentValue - previousValue);
-                DamageVertex intersection = DamageVertex.Lerp(previous, current, amount);
-                intersection.Position += normal * ((threshold - Vector3.Dot(intersection.Position, normal)) /
-                    normal.sqrMagnitude);
-                result.Add(intersection);
-            }
-            if (currentInside)
-                result.Add(current);
-        }
-        for (int index = result.Count - 1; index >= 0; index--)
-        {
-            int previous = (index + result.Count - 1) % result.Count;
-            if (result.Count > 1 &&
-                (result[index].Position - result[previous].Position).sqrMagnitude <= 0.0000000001f)
-                result.RemoveAt(index);
-        }
-        return result;
-    }
-
-    private readonly struct DamageCutPlane
-    {
-        internal readonly Vector3 Normal;
-        internal readonly float Threshold;
-
-        internal DamageCutPlane(Vector3 normal, float threshold)
-        {
-            Normal = normal.normalized;
-            Threshold = threshold / normal.magnitude;
-        }
-    }
-
-    private sealed class DamageCapPoint
-    {
-        internal Vector3 RootPosition;
-        internal Vector2 PlanePosition;
-    }
-
-    private static void CreateDamageSeamCaps(Transform visual, Component owner,
-        List<Renderer> ownerRenderers, Material material, float insetDepth,
-        params DamageCutPlane[] planes)
-    {
-        if (material == null)
-            throw new InvalidOperationException("The F-117 damage seam-cap material is unavailable.");
-        var rootVertices = ownerRenderers
-            .Select(renderer => renderer.GetComponent<MeshFilter>())
-            .Where(filter => filter != null && filter.sharedMesh != null)
-            .SelectMany(filter => filter.sharedMesh.vertices.Select(vertex =>
-                visual.InverseTransformPoint(filter.transform.TransformPoint(vertex))))
+        T[] matches = root.GetComponentsInChildren<T>(true)
+            .Where(component => component != null &&
+                string.Equals(component.transform.name, name, StringComparison.Ordinal))
             .ToArray();
-        var vertices = new List<Vector3>();
-        var normals = new List<Vector3>();
-        var triangles = new List<int>();
-        foreach (DamageCutPlane plane in planes)
-        {
-            List<Vector3> hull = DamagePlaneHull(rootVertices, plane);
-            if (hull.Count < 3)
-                continue;
-            Vector3 center = hull.Aggregate(Vector3.zero, (sum, point) => sum + point) / hull.Count;
-            float ownerMean = rootVertices.Average(point => Vector3.Dot(point, plane.Normal));
-            float ownerSide = ownerMean >= plane.Threshold ? 1f : -1f;
-            Vector3 inset = plane.Normal * (ownerSide * insetDepth);
-            int centerIndex = vertices.Count;
-            vertices.Add(owner.transform.InverseTransformPoint(visual.TransformPoint(center + inset)));
-            normals.Add(owner.transform.InverseTransformDirection(
-                visual.TransformDirection(plane.Normal)).normalized);
-            foreach (Vector3 point in hull)
-            {
-                Vector3 recessed = center + (point - center) * DamageBulkheadOutlineScale + inset;
-                vertices.Add(owner.transform.InverseTransformPoint(visual.TransformPoint(recessed)));
-                normals.Add(owner.transform.InverseTransformDirection(
-                    visual.TransformDirection(plane.Normal)).normalized);
-            }
-            for (int index = 0; index < hull.Count; index++)
-            {
-                triangles.Add(centerIndex);
-                triangles.Add(centerIndex + 1 + index);
-                triangles.Add(centerIndex + 1 + (index + 1) % hull.Count);
-            }
-        }
-        if (triangles.Count == 0)
-            throw new InvalidOperationException(owner.name + " received no closed damage-section cross-sections.");
-
-        Mesh mesh = new Mesh { name = owner.name + "_SeamCaps" };
-        mesh.SetVertices(vertices);
-        mesh.SetNormals(normals);
-        mesh.SetTriangles(triangles, 0, true);
-        mesh.RecalculateBounds();
-        AssetDatabase.CreateAsset(mesh, DamageMeshRoot + "/" + mesh.name + ".asset");
-
-        GameObject cap = new GameObject(mesh.name);
-        cap.layer = owner.gameObject.layer;
-        cap.transform.SetParent(owner.transform, false);
-        cap.AddComponent<MeshFilter>().sharedMesh = mesh;
-        MeshRenderer renderer = cap.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = material;
-        renderer.shadowCastingMode = ShadowCastingMode.On;
-        renderer.receiveShadows = true;
-        renderer.enabled = true;
-        ownerRenderers.Add(renderer);
+        if (matches.Length != 1)
+            throw new InvalidOperationException("Expected exactly one " + typeof(T).Name +
+                " named " + name + "; found " + matches.Length + ".");
+        return matches[0];
     }
 
-    private static List<Vector3> DamagePlaneHull(IEnumerable<Vector3> vertices, DamageCutPlane plane)
+    private static void AppendDamageRenderers(Component part, IEnumerable<Renderer> additions)
     {
-        Vector3 tangent = Vector3.Cross(Vector3.up, plane.Normal).normalized;
-        if (tangent.sqrMagnitude < 0.5f)
-            tangent = Vector3.right;
-        Vector3 bitangent = Vector3.Cross(plane.Normal, tangent).normalized;
-        var unique = new Dictionary<string, DamageCapPoint>(StringComparer.Ordinal);
-        foreach (Vector3 vertex in vertices)
+        if (part == null)
+            throw new InvalidOperationException("Cannot append damage renderers to a missing UnitPart.");
+        Renderer[] appended = additions.Where(renderer => renderer != null).Distinct().ToArray();
+        foreach (Renderer renderer in appended)
+            if (renderer.transform != part.transform && !renderer.transform.IsChildOf(part.transform))
+                throw new InvalidOperationException(renderer.name + " is not owned by " + part.name + ".");
+
+        SerializedObject data = new SerializedObject(part);
+        SerializedProperty damageMaterial = Require(data, "damageMaterial");
+        SerializedProperty rendererArray = Require(damageMaterial, "renderers");
+        var combined = new List<Renderer>();
+        for (int index = 0; index < rendererArray.arraySize; index++)
         {
-            if (Mathf.Abs(Vector3.Dot(vertex, plane.Normal) - plane.Threshold) > 0.0002f)
-                continue;
-            string key = Mathf.RoundToInt(vertex.x * 10000f) + ":" +
-                Mathf.RoundToInt(vertex.y * 10000f) + ":" +
-                Mathf.RoundToInt(vertex.z * 10000f);
-            if (!unique.ContainsKey(key))
-                unique.Add(key, new DamageCapPoint
-                {
-                    RootPosition = vertex,
-                    PlanePosition = new Vector2(Vector3.Dot(vertex, tangent), Vector3.Dot(vertex, bitangent))
-                });
+            Renderer renderer = rendererArray.GetArrayElementAtIndex(index).objectReferenceValue as Renderer;
+            if (renderer != null && !combined.Contains(renderer))
+                combined.Add(renderer);
         }
-        List<DamageCapPoint> points = unique.Values
-            .OrderBy(point => point.PlanePosition.x)
-            .ThenBy(point => point.PlanePosition.y)
-            .ToList();
-        if (points.Count < 3)
-            return new List<Vector3>();
-        var lower = new List<DamageCapPoint>();
-        foreach (DamageCapPoint point in points)
-        {
-            while (lower.Count >= 2 && DamagePlaneCross(lower[lower.Count - 2].PlanePosition,
-                       lower[lower.Count - 1].PlanePosition, point.PlanePosition) <= 0f)
-                lower.RemoveAt(lower.Count - 1);
-            lower.Add(point);
-        }
-        var upper = new List<DamageCapPoint>();
-        for (int index = points.Count - 1; index >= 0; index--)
-        {
-            DamageCapPoint point = points[index];
-            while (upper.Count >= 2 && DamagePlaneCross(upper[upper.Count - 2].PlanePosition,
-                       upper[upper.Count - 1].PlanePosition, point.PlanePosition) <= 0f)
-                upper.RemoveAt(upper.Count - 1);
-            upper.Add(point);
-        }
-        lower.RemoveAt(lower.Count - 1);
-        upper.RemoveAt(upper.Count - 1);
-        return lower.Concat(upper).Select(point => point.RootPosition).ToList();
+        foreach (Renderer renderer in appended)
+            if (!combined.Contains(renderer))
+                combined.Add(renderer);
+
+        rendererArray.arraySize = combined.Count;
+        for (int index = 0; index < combined.Count; index++)
+            rendererArray.GetArrayElementAtIndex(index).objectReferenceValue = combined[index];
+        data.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    private static float DamagePlaneCross(Vector2 origin, Vector2 first, Vector2 second)
+    private static Renderer RequireAuthoredDamageRenderer(GameObject visual, string objectName,
+        int expectedStructuralTriangles)
     {
-        return (first.x - origin.x) * (second.y - origin.y) -
-            (first.y - origin.y) * (second.x - origin.x);
+        Transform transform = FindDeep(visual.transform, objectName);
+        MeshFilter filter = transform == null ? null : transform.GetComponent<MeshFilter>();
+        Renderer renderer = transform == null ? null : transform.GetComponent<Renderer>();
+        Mesh mesh = filter == null ? null : filter.sharedMesh;
+        if (transform == null || filter == null || renderer == null || mesh == null)
+            throw new InvalidOperationException(objectName +
+                " is missing from the authored three-piece exterior.");
+
+        Material[] materials = renderer.sharedMaterials;
+        if (materials.Length != mesh.subMeshCount)
+            throw new InvalidOperationException(objectName +
+                " has a renderer/material count that does not match its authored submeshes.");
+        int[] structureSlots = Enumerable.Range(0, materials.Length)
+            .Where(index => materials[index] != null &&
+                materials[index].name.IndexOf("AircraftStructure",
+                    StringComparison.OrdinalIgnoreCase) >= 0)
+            .ToArray();
+        if (structureSlots.Length != 1)
+            throw new InvalidOperationException(objectName +
+                " must contain exactly one authored aircraft-structure material slot.");
+        Material structureMaterial = materials[structureSlots[0]];
+        if (!structureMaterial.HasProperty("_Cull") ||
+            !structureMaterial.HasProperty("_Surface") ||
+            !structureMaterial.HasProperty("_ZWrite") ||
+            Mathf.Abs(structureMaterial.GetFloat("_Cull") - (float)CullMode.Back) > 0.001f ||
+            Mathf.Abs(structureMaterial.GetFloat("_Surface")) > 0.001f ||
+            Mathf.Abs(structureMaterial.GetFloat("_ZWrite") - 1f) > 0.001f)
+            throw new InvalidOperationException(objectName +
+                " aircraft structure must be opaque, depth-writing and back-face culled.");
+        int structureTriangles = mesh.GetTriangles(structureSlots[0]).Length / 3;
+        if (structureTriangles != expectedStructuralTriangles)
+            throw new InvalidOperationException(objectName + " has " + structureTriangles +
+                " structural root triangles; expected " + expectedStructuralTriangles + ".");
+        return renderer;
     }
 
     private static void AddDirectPlanformDamageCollider(Component part, IEnumerable<Renderer> renderers)
@@ -2424,6 +3292,7 @@ internal static class F117AircraftAssembler
         mesh.SetTriangles(triangles, 0, true);
         mesh.RecalculateBounds();
         mesh.RecalculateNormals();
+        Directory.CreateDirectory(DamageMeshRoot);
         string assetPath = DamageMeshRoot + "/" + meshName + ".asset";
         if (AssetDatabase.LoadAssetAtPath<Mesh>(assetPath) != null)
             AssetDatabase.DeleteAsset(assetPath);
@@ -2524,12 +3393,12 @@ internal static class F117AircraftAssembler
         return new[] { left, right };
     }
 
-    private static void SymmetrizeElevonForcePoints(GameObject visual)
+    private static void SymmetrizeElevonForcePoints(GameObject root, GameObject visual)
     {
         foreach (string section in new[] { "Inner", "Outer" })
         {
-            Component left = FindDeep(visual.transform, "F117_Elevon_L_" + section)?.GetComponent("AeroPart");
-            Component right = FindDeep(visual.transform, "F117_Elevon_R_" + section)?.GetComponent("AeroPart");
+            Component left = FindDeep(root.transform, "F117_Elevon_L_" + section)?.GetComponent("AeroPart");
+            Component right = FindDeep(root.transform, "F117_Elevon_R_" + section)?.GetComponent("AeroPart");
             if (left == null || right == null)
                 throw new InvalidOperationException("Cannot symmetrize the F-117 " + section + " elevon force points.");
 
@@ -2904,6 +3773,12 @@ internal static class F117AircraftAssembler
             sprung.transform.SetPositionAndRotation(hinge.Transform.position, visual.transform.rotation);
 
             Transform contactLocator = Locator(visual, contactName);
+            Vector3 canonicalContact = side == "Nose"
+                ? new Vector3(0f, GearContactPlaneY, NoseGearContactZ)
+                : new Vector3(side == "Left" ? -MainGearHalfTrack : MainGearHalfTrack,
+                    GearContactPlaneY, MainGearContactZ);
+            contactLocator.SetPositionAndRotation(
+                visual.transform.TransformPoint(canonicalContact), visual.transform.rotation);
             float suspensionTravel = side == "Nose" ? NoseSuspensionTravel : MainSuspensionTravel;
             GameObject unsprung = Child(sprung.transform, "F117_Gear_" + side + "_Unsprung", Vector3.zero);
             GameObject bumpStop = Child(sprung.transform, "BumpStop", Vector3.zero);
@@ -2920,10 +3795,6 @@ internal static class F117AircraftAssembler
             Transform wheelProxy = Child(axle, "WheelProxy", Vector3.zero).transform;
             AudioSource rollingAudio = CreateTireAudio(wheelProxy.gameObject);
             AudioSource skidAudio = CreateTireAudio(wheelProxy.gameObject);
-            // The stock skid equation treats ordinary steering and wheel spin-up as
-            // a skid on this custom wheel rig. Preserve the gear physics and rolling
-            // sound, but silence this false-positive source.
-            skidAudio.mute = true;
             ParticleSystem dust = wheelProxy.gameObject.AddComponent<ParticleSystem>();
             ParticleSystem.MainModule dustMain = dust.main;
             dustMain.playOnAwake = false;
@@ -2954,21 +3825,22 @@ internal static class F117AircraftAssembler
             Set(data, "bumpStop", bumpStop);
             Set(data, "unsprung", unsprung);
             Set(data, "suspensionTravel", suspensionTravel);
-            Set(data, "springRate", side == "Nose" ? 580000f : 1180000f);
-            Set(data, "dampingRate", side == "Nose" ? 52000f : 90000f);
+            Set(data, "springRate", side == "Nose" ? NoseGearSpringRate : MainGearSpringRate);
+            Set(data, "dampingRate", side == "Nose" ? NoseGearDampingRate : MainGearDampingRate);
             Set(data, "castPoint", castPoint);
             Set(data, "wheelRadius", wheelRadius);
             SetObjectArray(data, "wheels", new UnityEngine.Object[] { wheelProxy });
             Set(data, "axle", axle);
             Set(data, "frictionCoef", side == "Nose" ? 0.82f : 0.88f);
             Set(data, "contactArea", side == "Nose" ? NoseGearContactArea : 0.045f);
-            Set(data, "rollingResistance", 0.018f);
+            Set(data, "response", side == "Nose" ? NoseTireResponse : MainTireResponse);
+            Set(data, "rollingResistance", TireRollingResistance);
             Set(data, "aircraft", aircraft);
             Set(data, "tireNoiseSound", rollingAudio);
             Set(data, "tireSkidSound", skidAudio);
-            // The stock equation adds turn slip directly to this floor. -0.8 keeps
-            // normal taxi steering silent while retaining audible high-energy skids.
-            Set(data, "skidVolumeFloor", -0.8f);
+            // The wheel and axle frames are aircraft-forward, so the native slip
+            // calculation is valid and can retain its stock audio response.
+            Set(data, "skidVolumeFloor", -0.4f);
             Set(data, "skidPitchMult", 1f);
             // Preserve the complete stock-sized probe envelope. Moving the bump stop
             // upward with the longer travel leaves the rendered tire/contact plane
@@ -3017,7 +3889,8 @@ internal static class F117AircraftAssembler
             Set(data, "steeringLock", steering ? NoseSteeringLock : 0f);
             Set(data, "steeringSpeed", steering ? NoseSteeringSpeed : 0f);
             Set(data, "aligningStrength", steering ? NoseAligningStrength : 0f);
-            Set(data, "differentialBrakeFactor", 0f);
+            Set(data, "differentialBrakeFactor",
+                side == "Left" ? -1f : side == "Right" ? 1f : 0f);
             Set(data, "dust", dust);
             data.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -3541,7 +4414,7 @@ internal static class F117AircraftAssembler
         Set(cockpitData, "tacScreenRender", cockpitScreenRenderer);
         Set(cockpitData, "aircraft", aircraft);
         UnityEngine.Object[] engineSources = new[] { "Left", "Right" }
-            .Select(side => (UnityEngine.Object)FindDeep(visual.transform, "F117_Engine_" + side)?.gameObject)
+            .Select(side => (UnityEngine.Object)FindDeep(root.transform, "F117_Engine_" + side)?.gameObject)
             .ToArray();
         if (engineSources.Any(source => source == null))
             throw new InvalidOperationException("The cockpit controller could not find both F-117 engines.");
