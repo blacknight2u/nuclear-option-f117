@@ -2015,6 +2015,8 @@ public static class F117ContractValidator
         }
 
         string manifestJson = File.ReadAllText(ManifestPath);
+        Require(!manifestJson.Contains("shelter1__shelter1"),
+            "F-117 excludes shelter1: closed doors intersect its rudders before opening", failures);
         Require(manifestJson.IndexOf("Aryx", StringComparison.OrdinalIgnoreCase) < 0 &&
                 manifestJson.IndexOf("F16", StringComparison.OrdinalIgnoreCase) < 0,
             "Manifest contains no donor F-16 asset or hierarchy names", failures);

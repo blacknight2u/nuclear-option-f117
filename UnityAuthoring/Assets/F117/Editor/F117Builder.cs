@@ -66,7 +66,7 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.4.100";
+    private const string Version = "0.4.101";
     private const string FixedJammerAsset = "JammingPod1";
 
     private sealed class WeaponLoadoutSpec
@@ -525,12 +525,7 @@ public static class F117Builder
         Set(data, "armorTier", 0f);
         Set(data, "damageTolerance", 1f);
         Set(data, "CanSlingLoad", false);
-        // The deployed tire contacts sit at Y=-1.89 m (nose) and -1.99 m (mains).
-        // A 1.90 m spawn height gives the main suspension a small static preload
-        // while keeping the fuselage more than 0.8 m above the runway.
-        // Frame 81 is the source gear animation's real fully deployed endpoint.
-        // Spawn with the two main tire planes just above the runway; the nose then
-        // settles through the source-authored 2.3-degree ground attitude.
+        // Keep placement tied to the assembled landing gear's ground clearance.
         Set(data, "spawnOffset", new Vector3(0f, F117AircraftAssembler.GroundSpawnHeight, 0f));
         Set(data, "disabled", false);
         Set(data, "isEventContent", false);
@@ -646,7 +641,10 @@ public static class F117Builder
                 BundleAsset = definition,
                 Hangars = new[]
                 {
-                    "revetment1__revetment1", "shelter1__shelter1", "hangar_med__hangar_med",
+                    // shelter1 spawns before opening its doors. Its 19.54 m closed
+                    // interior cannot contain this mesh's 20.65 m nose-to-tail span;
+                    // at the stock spawn point the rudders intersect the rear door.
+                    "revetment1__revetment1", "hangar_med__hangar_med",
                     "fleetCarrier1__hangar_R1", "fleetCarrier1__hangar_R2", "fleetCarrier1__hangar_R3",
                     "AssaultCarrier1__hangar_R1", "AssaultCarrier1__hangar_R2", "AssaultCarrier1__hangar_R3"
                 }
