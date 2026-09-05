@@ -31,7 +31,8 @@ as a dependency.
 
 ## License
 
-This project is available under the [MIT License](LICENSE).
+The mod's code is available under the [MIT License](LICENSE). The aircraft model
+uses CC BY 4.0, as credited below.
 
 ## Development documentation
 

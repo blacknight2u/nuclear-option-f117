@@ -55,8 +55,9 @@ silhouette.
 Copy or link `UnityAuthoring/Assets/F117` into `Assets/F117` in a configured
 Blueprinter authoring project. Then run:
 
-1. `F117Builder.BuildFromCommandLine`
-2. `F117ContractValidator.Validate`
+Run `F117Builder.BuildFromCommandLine`. It runs `F117ContractValidator.Validate`
+before writing the bundle; a failed contract fails the build. The validator may
+also be run separately while editing.
 
 Validation must report `PASS`. Generated prefabs, bundles, inventories, and
 reports belong under `Assets/F117/Generated` and must not be committed.
@@ -79,3 +80,30 @@ Update the DLL hash in `meta.json`, validate the final bundle, inspect the
 archive contents, and test installation through NOMM. A `.nommpack` used for
 local mod-pack import is a separate test artifact and is not the GitHub release
 ZIP.
+
+The plugin logs its build module ID at startup. Use that ID and the actual DLL's
+SHA-256 when identifying a tested build: a version number alone does not identify
+a locally rebuilt binary. Install and package the exact same verified files.
+
+Package a new release with `Tools/Release/New-F117Release.ps1 -BundlePath <built.nobp>`.
+The builder emits a `.validation.json` receipt alongside the bundle. Packaging
+requires that receipt's hash and version to match, verifies the DLL version,
+computes its metadata hash, checks attribution, and reads back the packaged binary
+hashes. Existing release ZIPs are never overwritten. This verifies packaging, not
+flight behavior or runtime shader appearance.
+
+## NOMM updates
+
+For this already-registered mod, publish a new GitHub release tag with one release
+ZIP. NOMNOM's artifact updater follows the repository because
+`autoUpdateArtifacts` is enabled. Do not submit a new manifest PR for every
+version, and do not replace the ZIP of an already-published version.
+
+Store metadata changes, including supported game version and thumbnail changes,
+use the registry's dedicated update issue templates and maintainer approval.
+`Store/blacknight2u.f117a.nighthawk.json` is a local submission snapshot, not the
+live registry or evidence that an update has been accepted.
+
+The store renderer writes a 512-by-512 PNG. Preview mode writes to
+`artifacts/renders`, never over the published store image. After intentionally
+changing the store image, update its hash and commit-pinned URL together.

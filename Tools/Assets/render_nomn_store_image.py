@@ -9,9 +9,11 @@ from mathutils import Matrix, Vector
 
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "Store" / "F117A-Nighthawk-NOMM.png"
 ENVIRONMENT = ROOT / "Tools" / "Assets" / "RenderEnvironment" / "PolyHaven"
 FAST_PREVIEW = os.environ.get("F117_RENDER_PREVIEW") == "1"
+OUTPUT = (ROOT / "artifacts" / "renders" / "F117A-Nighthawk-preview.png"
+          if FAST_PREVIEW else ROOT / "Store" / "F117A-Nighthawk-NOMM.png")
+OUTPUT_SIZE = 960 if FAST_PREVIEW else 512
 HANGAR_HDRI = ENVIRONMENT / (
     "hanger_exterior_cloudy_1k.hdr" if FAST_PREVIEW else "hanger_exterior_cloudy_4k.hdr"
 )
@@ -58,7 +60,7 @@ def strip_png_private_metadata(path):
     """Keep image/color chunks while removing source paths and other private metadata."""
     data = path.read_bytes()
     chunks = parse_png_chunks(data, path)
-    expected_size = 960 if FAST_PREVIEW else 1920
+    expected_size = OUTPUT_SIZE
     if chunks[0][0] != b"IHDR" or len(chunks[0][1]) != 13:
         raise RuntimeError(f"Rendered store image has an invalid PNG header: {path}")
     width = int.from_bytes(chunks[0][1][0:4], "big")
@@ -354,8 +356,8 @@ scene.cycles.adaptive_threshold = 0.02 if FAST_PREVIEW else 0.008
 scene.cycles.max_bounces = 8
 scene.cycles.diffuse_bounces = 4
 scene.cycles.glossy_bounces = 4
-scene.render.resolution_x = 960 if FAST_PREVIEW else 1920
-scene.render.resolution_y = 960 if FAST_PREVIEW else 1920
+scene.render.resolution_x = OUTPUT_SIZE
+scene.render.resolution_y = OUTPUT_SIZE
 scene.render.resolution_percentage = 100
 scene.render.image_settings.file_format = "PNG"
 scene.render.image_settings.color_mode = "RGB"

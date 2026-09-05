@@ -66,7 +66,7 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.4.99";
+    private const string Version = "0.4.100";
     private const string FixedJammerAsset = "JammingPod1";
 
     private sealed class WeaponLoadoutSpec
@@ -164,6 +164,7 @@ public static class F117Builder
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+        F117ContractValidator.Validate();
         BuildBundle();
         Debug.Log("F-117A Nighthawk build complete. Bounds: " + assembled.VisualBounds);
     }
@@ -1092,6 +1093,24 @@ public static class F117Builder
             ContainsAscii(normalized, "BroomGameFirstpassRuntime") || !ContainsAscii(normalized, "Assembly-CSharp"))
             throw new InvalidOperationException("The F-117 bundle contains unnormalized or missing game-script assembly references.");
         Debug.Log("Built F-117 Blueprinter bundle: " + bundlePath);
+        using (var sha = System.Security.Cryptography.SHA256.Create())
+        {
+            var receipt = new BundleValidationReceipt
+            {
+                version = Version,
+                sha256 = BitConverter.ToString(sha.ComputeHash(normalized)).Replace("-", "").ToLowerInvariant(),
+                result = "PASS"
+            };
+            File.WriteAllText(bundlePath + ".validation.json", JsonUtility.ToJson(receipt, true));
+        }
+    }
+
+    [Serializable]
+    private sealed class BundleValidationReceipt
+    {
+        public string version;
+        public string sha256;
+        public string result;
     }
 
     private static int ReplaceAscii(string path, string from, string to)

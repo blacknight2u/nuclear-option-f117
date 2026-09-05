@@ -15,12 +15,13 @@ using UnityEngine.Rendering;
 namespace Blacknight2u.F117Nighthawk
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    [BepInDependency("com.nikkorap.blueprinter", "2.0.1")]
     [BepInProcess("NuclearOption.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.4.99";
+        public const string PluginVersion = "0.4.100";
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
         internal const string LightweightAgmMountKey = "AGM1_quad_internal";
@@ -54,8 +55,6 @@ namespace Blacknight2u.F117Nighthawk
             ParadeFlagOverlayPrefix + "F117_GearDoor_Right_Outer_Mesh",
             ParadeFlagOverlayPrefix + "F117_GearDoor_Right_Inner_Mesh"
         };
-        internal const string MirrorFinishAssetPath =
-            "assets/f117/textures/f117_mirror_ms.png";
         internal const string MatteFinishAssetPrefix =
             "assets/f117/textures/f117_ext_";
         internal const string MatteAlbedoAssetPrefix =
@@ -88,7 +87,6 @@ namespace Blacknight2u.F117Nighthawk
             AccessTools.Field(typeof(LiveryBehaviour), "aircraft");
         private static readonly FieldInfo UnitPartDamageMaterial =
             AccessTools.Field(typeof(UnitPart), "damageMaterial");
-        private static Texture2D mirrorMetallicTexture;
         private static readonly Dictionary<int, Texture2D> MatteMetallicTextures =
             new Dictionary<int, Texture2D>();
         private static readonly Dictionary<int, Texture2D> MatteAlbedoTextures =
@@ -103,8 +101,6 @@ namespace Blacknight2u.F117Nighthawk
             new Dictionary<string, Texture2D>(StringComparer.Ordinal);
         private static readonly Dictionary<string, Texture2D> ParadeFlagDamageTextures =
             new Dictionary<string, Texture2D>(StringComparer.Ordinal);
-        private static readonly HashSet<string> LoggedDamageMaterialFailures =
-            new HashSet<string>(StringComparer.Ordinal);
         private static GameObject nativeTacScreenPrefab;
         private static GameObject nativeHudExtrasPrefab;
         private static bool loggedTacScreenSelection;
@@ -128,14 +124,13 @@ namespace Blacknight2u.F117Nighthawk
             Log = Logger;
             harmony = new Harmony(PluginGuid);
             harmony.PatchAll(typeof(Plugin).Assembly);
-            StartCoroutine(RegisterUnlockedStockMountsWhenReady());
-            Logger.LogInfo(PluginName + " " + PluginVersion + " runtime systems loaded.");
+            Logger.LogInfo(PluginName + " " + PluginVersion + " runtime systems loaded; build " +
+                typeof(Plugin).Assembly.ManifestModule.ModuleVersionId.ToString("D") + ".");
         }
 
         private void OnDestroy()
         {
             harmony?.UnpatchSelf();
-            mirrorMetallicTexture = null;
             MatteMetallicTextures.Clear();
             MatteAlbedoTextures.Clear();
             MatteNormalTextures.Clear();
@@ -143,7 +138,6 @@ namespace Blacknight2u.F117Nighthawk
             DamageAlbedoTextures.Clear();
             ParadeFlagCleanTextures.Clear();
             ParadeFlagDamageTextures.Clear();
-            LoggedDamageMaterialFailures.Clear();
         }
 
         internal static bool IsF117(Aircraft aircraft)
@@ -307,20 +301,6 @@ namespace Blacknight2u.F117Nighthawk
             return renderers.ToArray();
         }
 
-        internal static Texture MirrorMetallicTexture
-        {
-            get
-            {
-                if (mirrorMetallicTexture != null)
-                    return mirrorMetallicTexture;
-                mirrorMetallicTexture = LoadBundledTexture(MirrorFinishAssetPath);
-                if (mirrorMetallicTexture == null)
-                    Log.LogError("F-117 bundled mirror finish is unavailable at " +
-                        MirrorFinishAssetPath + ".");
-                return mirrorMetallicTexture;
-            }
-        }
-
         internal static Texture MatteMetallicTexture(string canonicalMaterialName)
         {
             return PanelTexture(canonicalMaterialName, MatteFinishAssetPrefix, "_ms.png",
@@ -458,11 +438,7 @@ namespace Blacknight2u.F117Nighthawk
             F117LiveryMaterialProfiles profiles =
                 aircraft.GetComponent<F117LiveryMaterialProfiles>();
             if (profiles == null || !profiles.Initialized)
-            {
-                LogDamageMaterialFailureOnce(part, null,
-                    "livery material profiles are not initialized");
                 return;
-            }
             DamageMaterial damageMaterial = UnitPartDamageMaterial == null
                 ? null
                 : UnitPartDamageMaterial.GetValue(part) as DamageMaterial;
@@ -530,7 +506,9 @@ namespace Blacknight2u.F117Nighthawk
         {
             string key = (part == null ? "<null>" : part.GetInstanceID().ToString()) + "/" +
                 (renderer == null ? "<null>" : renderer.GetInstanceID().ToString()) + "/" + reason;
-            if (!LoggedDamageMaterialFailures.Add(key))
+            F117LiveryMaterialProfiles profiles = part == null || part.parentUnit == null
+                ? null : part.parentUnit.GetComponent<F117LiveryMaterialProfiles>();
+            if (profiles != null && !profiles.RegisterDamageDiagnostic(key))
                 return;
             Log.LogError("F-117 native damage material sync skipped " +
                 (part == null ? "<null part>" : part.name) + "/" +
@@ -627,21 +605,7 @@ namespace Blacknight2u.F117Nighthawk
             return MountMatches(mount, Cbo400MountKey, Arad45MountKey);
         }
 
-        private IEnumerator RegisterUnlockedStockMountsWhenReady()
-        {
-            WaitForSecondsRealtime retryDelay = new WaitForSecondsRealtime(0.25f);
-            for (int attempt = 0; attempt < 240; attempt++)
-            {
-                if (TryRegisterUnlockedStockMounts())
-                    yield break;
-                yield return retryDelay;
-            }
-
-            Log.LogError("F-117 could not register its stock-disabled weapon mounts within " +
-                "60 seconds. ARAD-45 loadouts cannot be serialized safely.");
-        }
-
-        private static bool TryRegisterUnlockedStockMounts()
+        internal static bool TryRegisterUnlockedStockMounts(Encyclopedia encyclopedia)
         {
             if (Encyclopedia.Lookup == null ||
                 !Encyclopedia.Lookup.TryGetValue(AircraftKey, out UnitDefinition definition) ||
@@ -663,10 +627,22 @@ namespace Blacknight2u.F117Nighthawk
             if (!mounts.Any(mount => MountMatches(mount, Arad45MountKey)))
                 return false;
 
-            Encyclopedia encyclopedia = Encyclopedia.i;
             if (encyclopedia == null || encyclopedia.weaponMounts == null ||
                 encyclopedia.IndexLookup == null || Encyclopedia.WeaponLookup == null)
                 return false;
+
+            foreach (WeaponMount mount in mounts)
+            {
+                string key = mount.jsonKey;
+                if (string.IsNullOrWhiteSpace(key) ||
+                    Encyclopedia.WeaponLookup.TryGetValue(key, out WeaponMount existing) &&
+                    existing != mount)
+                {
+                    Log.LogError("F-117 cannot register stock weapon mount '" + key +
+                        "': missing key or another mount already owns it. Registry unchanged.");
+                    return false;
+                }
+            }
 
             foreach (WeaponMount mount in mounts)
             {
@@ -677,17 +653,7 @@ namespace Blacknight2u.F117Nighthawk
                 }
 
                 string key = mount.jsonKey;
-                if (!string.IsNullOrEmpty(key))
-                {
-                    if (Encyclopedia.WeaponLookup.TryGetValue(key, out WeaponMount existing) &&
-                        existing != mount)
-                    {
-                        Log.LogError("F-117 cannot register stock weapon mount '" + key +
-                            "' because another mount already owns that key.");
-                        return false;
-                    }
-                    Encyclopedia.WeaponLookup[key] = mount;
-                }
+                Encyclopedia.WeaponLookup[key] = mount;
 
                 int index = encyclopedia.IndexLookup.IndexOf(mount);
                 if (index < 0)
@@ -1021,8 +987,7 @@ namespace Blacknight2u.F117Nighthawk
         {
             AircraftSkin,
             StaticAccessory,
-            TireRubber,
-            CockpitFrame
+            TireRubber
         }
 
         private sealed class Entry
@@ -1049,16 +1014,21 @@ namespace Blacknight2u.F117Nighthawk
         private readonly List<Entry> entries = new List<Entry>();
         private readonly List<OverlayEntry> overlayEntries = new List<OverlayEntry>();
         private readonly HashSet<Material> ownedMaterials = new HashSet<Material>();
+        private readonly HashSet<string> damageDiagnostics = new HashSet<string>(StringComparer.Ordinal);
+        private Texture2D chromeColor;
+        private static readonly Color ChromeTint = new Color(0.35f, 0.39f, 0.45f, 1f);
+        private Texture2D chromeFinish;
+        private Texture2D matteFlagFinish;
         private bool initialized;
 
         internal bool Initialized => initialized;
+        internal bool RegisterDamageDiagnostic(string key) => damageDiagnostics.Add(key);
 
         internal void Initialize(Aircraft aircraft, LiveryBehaviour liveryBehaviour,
             Renderer[] exactOverlays)
         {
             if (initialized || !Plugin.IsF117(aircraft))
                 return;
-            initialized = true;
             var overlaySet = new HashSet<Renderer>(exactOverlays ?? Array.Empty<Renderer>());
             foreach (Renderer renderer in Plugin.GetAircraftRenderers(aircraft))
             {
@@ -1071,6 +1041,7 @@ namespace Blacknight2u.F117Nighthawk
                 else
                     CloneTargetSlots(renderer, liveryBehaviour, true);
             }
+            initialized = true;
             Plugin.Log.LogDebug("F-117 created " + entries.Count +
                 " renderer-slot livery profiles and " + overlayEntries.Count +
                 " per-aircraft underside wraps; shared bundle materials and exterior glass are untouched.");
@@ -1125,9 +1096,9 @@ namespace Blacknight2u.F117Nighthawk
                     : entry.Occlusion;
                 Texture matteFinish = entry == null
                     ? exterior ? Plugin.MatteMetallicTexture(canonical)
-                        : tire ? null : FinishTexture(source, kind.Value)
+                        : null
                     : entry.MatteFinish;
-                if ((!tire && matteFinish == null) || (exterior &&
+                if ((exterior && matteFinish == null) || (exterior &&
                     (baseColor == null || damageColor == null || normal == null || occlusion == null)))
                 {
                     Plugin.Log.LogError("F-117 refused to profile " + renderer.name + " slot " + slot +
@@ -1233,7 +1204,6 @@ namespace Blacknight2u.F117Nighthawk
                     finishName + ".");
                 return false;
             }
-            Color flagFinishTint = GetFlagFinishTint(finishName);
             Texture flagClean = paradeFlag ? Plugin.ParadeFlagTexture(finishName, false) : null;
             Texture flagDamage = paradeFlag ? Plugin.ParadeFlagTexture(finishName, true) : null;
             if (paradeFlag && (flagClean == null || flagDamage == null))
@@ -1244,13 +1214,13 @@ namespace Blacknight2u.F117Nighthawk
             int skinCount = 0;
             int accessoryCount = 0;
             int tireCount = 0;
-            int frameCount = 0;
             Shader lit = Shader.Find("Universal Render Pipeline/Lit");
-            if (lit == null)
+            if (lit == null || Shader.Find("Shader Graphs/AircraftSkin") == null)
             {
-                Plugin.Log.LogError("F-117 cannot restore its authored materials because URP/Lit is unavailable.");
+                Plugin.Log.LogError("F-117 requires both native AircraftSkin and URP/Lit shaders.");
                 return false;
             }
+            EnsureFinishTextures();
             foreach (Entry entry in entries)
             {
                 Material material = entry.Material;
@@ -1263,14 +1233,15 @@ namespace Blacknight2u.F117Nighthawk
                         // Smoked Chrome is a whole exterior finish. Its flag artwork
                         // remains a separate underside-only overlay; Matte Black keeps
                         // the base airframe matte.
-                        ApplyUniformExteriorFinish(material, lit, Texture2D.whiteTexture,
-                            entry.Normal, entry.Occlusion, flagFinishTint,
-                            flagMetallic, flagSmoothness);
+                        if (!ApplyNativeAircraftSkin(material, chromeColor, entry.DamageColor,
+                                entry.Normal, entry.Occlusion, chromeFinish))
+                            return false;
                     }
                     else
                     {
-                        ApplyLitExterior(material, lit, entry.BaseColor, entry.Normal,
-                            entry.Occlusion, entry.MatteFinish, Color.white);
+                        if (!ApplyNativeAircraftSkin(material, entry.BaseColor, entry.DamageColor,
+                                entry.Normal, entry.Occlusion, entry.MatteFinish))
+                            return false;
                     }
                     skinCount++;
                 }
@@ -1305,16 +1276,6 @@ namespace Blacknight2u.F117Nighthawk
                         material.EnableKeyword("_OCCLUSIONMAP");
                     tireCount++;
                 }
-                else if (entry.Kind == ProfileKind.CockpitFrame)
-                {
-                    // The canopy frame is cockpit structure, not livery-painted skin.
-                    // Preserve the source non-metallic, medium-rough black finish for
-                    // every livery so exterior chrome profiles cannot make it shimmer.
-                    material.SetTexture("_MetallicGlossMap", entry.MatteFinish);
-                    material.SetFloat("_Metallic", 0f);
-                    material.SetFloat("_Smoothness", 0.5f);
-                    frameCount++;
-                }
             }
 
             int overlayCount = 0;
@@ -1326,8 +1287,10 @@ namespace Blacknight2u.F117Nighthawk
                         continue;
                     overlay.CleanColor = flagClean;
                     overlay.DamageColor = flagDamage;
-                    ApplyFlagExterior(overlay.Material, lit, flagClean, flagMetallic,
-                        flagSmoothness);
+                    if (!ApplyNativeAircraftSkin(overlay.Material, flagClean, flagDamage,
+                            Texture2D.normalTexture, Texture2D.whiteTexture,
+                            flagMetallic > 0.001f ? chromeFinish : matteFlagFinish))
+                        return false;
                     overlayCount++;
                 }
             }
@@ -1342,38 +1305,29 @@ namespace Blacknight2u.F117Nighthawk
                     flagMetallic.ToString("0.00") + ", smoothness=" +
                     flagSmoothness.ToString("0.00") : "Nighthawk Black matte") +
                 "; " + skinReport + "; preserved " + accessoryCount +
-                " static accessory, " + tireCount + " tire, and " + frameCount +
-                " frame material(s).");
+                " static accessory and " + tireCount + " tire material(s); canopy frame uses body paint.");
             return ValidateMaterialState(paradeFlag, finishName, flagMetallic,
                 flagSmoothness);
         }
 
-        private static void ApplyFlagExterior(Material material, Shader lit, Texture albedo,
-            float metallic, float smoothness)
+        private void EnsureFinishTextures()
         {
-            ApplyUniformExteriorFinish(material, lit, albedo, Texture2D.normalTexture,
-                Texture2D.whiteTexture, Color.white, metallic, smoothness);
+            if (chromeColor == null)
+                chromeColor = ConstantTexture("F117 Smoked Chrome Color", ChromeTint);
+            if (chromeFinish == null)
+                chromeFinish = ConstantTexture("F117 Smoked Chrome MS", new Color(1f, 1f, 1f, 0.82f));
+            if (matteFlagFinish == null)
+                matteFlagFinish = ConstantTexture("F117 Matte Flag MS", new Color(0f, 0f, 0f, 0.18f));
         }
 
-        private static void ApplyUniformExteriorFinish(Material material, Shader lit,
-            Texture albedo, Texture normal, Texture occlusion, Color tint,
-            float metallic, float smoothness)
+        private static Texture2D ConstantTexture(string name, Color value)
         {
-            ApplyLitExterior(material, lit, albedo, normal, occlusion, null, tint);
-            if (Plugin.IsTextureProperty(material, "_MetallicGlossMap"))
-                material.SetTexture("_MetallicGlossMap", null);
-            material.SetFloat("_Metallic", metallic);
-            material.SetFloat("_Smoothness", smoothness);
-            material.DisableKeyword("_METALLICSPECGLOSSMAP");
-        }
-
-        private static Color GetFlagFinishTint(string finishName)
-        {
-            switch (finishName)
-            {
-                case "Smoked Chrome": return new Color(0.35f, 0.39f, 0.45f, 1f);
-                default: return Color.white;
-            }
+            // Match the previous shader's linear float uniforms without sRGB conversion
+            // or 8-bit quantization. These three tiny textures belong to this aircraft.
+            var texture = new Texture2D(1, 1, TextureFormat.RGBAFloat, false, true) { name = name };
+            texture.SetPixel(0, 0, value);
+            texture.Apply(false, true);
+            return texture;
         }
 
         private static bool TryGetFlagSurface(string finishName, out float metallic,
@@ -1390,6 +1344,8 @@ namespace Blacknight2u.F117Nighthawk
         private static bool ApplyNativeAircraftSkin(Material material, Texture cleanColor,
             Texture damageColor, Texture normal, Texture occlusion, Texture finish)
         {
+            if (material != null)
+                material.shader = Shader.Find("Shader Graphs/AircraftSkin");
             if (!Plugin.HasNativeAircraftSkinContract(material))
             {
                 Plugin.Log.LogError("F-117 refused to bind a damage-aware exterior material because " +
@@ -1405,11 +1361,15 @@ namespace Blacknight2u.F117Nighthawk
                 return false;
             }
             material.SetTexture("_Basecolor", cleanColor);
+            // AircraftSkin blends _Basecolor and _Livery using the mesh's livery weight.
+            // Both must carry our authored color; a donor/default livery turns it white.
+            material.SetTexture("_Livery", cleanColor);
             material.SetTexture("_BasecolorDmg", damageColor);
             material.SetTexture("_Normal", normal);
             material.SetTexture("_NormalDmg", normal);
             material.SetTexture("_Metallic", finish);
             material.SetTexture("_AO", occlusion);
+            material.SetFloat("_Glossiness", 0f);
             return true;
         }
 
@@ -1482,10 +1442,6 @@ namespace Blacknight2u.F117Nighthawk
                     expectedFinish = entry.MatteFinish;
                     accessoryCount++;
                 }
-                else if (entry.Kind == ProfileKind.CockpitFrame)
-                {
-                    expectedFinish = entry.MatteFinish;
-                }
                 else
                 {
                     expectedFinish = null;
@@ -1495,18 +1451,18 @@ namespace Blacknight2u.F117Nighthawk
                 if (entry.Kind == ProfileKind.AircraftSkin)
                 {
                     if (material.shader == null ||
-                        material.shader.name != "Universal Render Pipeline/Lit")
-                        failures.Add(entry.Renderer.name + "[" + entry.Slot + "] non-URP skin");
-                    else if (TextureProperty(material, "_BaseMap") !=
-                                 (metalAirframe ? Texture2D.whiteTexture : entry.BaseColor) ||
-                             TextureProperty(material, "_BumpMap") != entry.Normal ||
-                             TextureProperty(material, "_OcclusionMap") != entry.Occlusion ||
-                             TextureProperty(material, "_MetallicGlossMap") !=
-                                 (metalAirframe ? null : expectedFinish) ||
-                             (metalAirframe &&
-                                 (Math.Abs(material.GetFloat("_Metallic") - flagMetallic) > 0.001f ||
-                                  Math.Abs(material.GetFloat("_Smoothness") - flagSmoothness) > 0.001f ||
-                                  material.IsKeywordEnabled("_METALLICSPECGLOSSMAP"))))
+                        material.shader.name != "Shader Graphs/AircraftSkin")
+                        failures.Add(entry.Renderer.name + "[" + entry.Slot + "] non-native skin");
+                    else if (TextureProperty(material, "_Basecolor") !=
+                                 (metalAirframe ? chromeColor : entry.BaseColor) ||
+                             TextureProperty(material, "_Livery") !=
+                                 (metalAirframe ? chromeColor : entry.BaseColor) ||
+                             TextureProperty(material, "_BasecolorDmg") != entry.DamageColor ||
+                             TextureProperty(material, "_Normal") != entry.Normal ||
+                             TextureProperty(material, "_AO") != entry.Occlusion ||
+                             TextureProperty(material, "_Metallic") !=
+                                 (metalAirframe ? chromeFinish : expectedFinish) ||
+                             Math.Abs(material.GetFloat("_Glossiness")) > 0.001f)
                         failures.Add(entry.Renderer.name + "[" + entry.Slot +
                             "] wrong visible skin maps");
                 }
@@ -1539,14 +1495,15 @@ namespace Blacknight2u.F117Nighthawk
                 if (!paradeFlag)
                     continue;
                 if (material.shader == null ||
-                    material.shader.name != "Universal Render Pipeline/Lit" ||
-                    TextureProperty(material, "_BaseMap") != overlay.CleanColor ||
-                    TextureProperty(material, "_BumpMap") != Texture2D.normalTexture ||
-                    TextureProperty(material, "_OcclusionMap") != Texture2D.whiteTexture ||
-                    TextureProperty(material, "_MetallicGlossMap") != null ||
-                    Math.Abs(material.GetFloat("_Metallic") - flagMetallic) > 0.001f ||
-                    Math.Abs(material.GetFloat("_Smoothness") - flagSmoothness) > 0.001f ||
-                    material.IsKeywordEnabled("_METALLICSPECGLOSSMAP"))
+                    material.shader.name != "Shader Graphs/AircraftSkin" ||
+                    TextureProperty(material, "_Basecolor") != overlay.CleanColor ||
+                    TextureProperty(material, "_Livery") != overlay.CleanColor ||
+                    TextureProperty(material, "_BasecolorDmg") != overlay.DamageColor ||
+                    TextureProperty(material, "_Normal") != Texture2D.normalTexture ||
+                    TextureProperty(material, "_AO") != Texture2D.whiteTexture ||
+                    TextureProperty(material, "_Metallic") !=
+                        (flagMetallic > 0.001f ? chromeFinish : matteFlagFinish) ||
+                    Math.Abs(material.GetFloat("_Glossiness")) > 0.001f)
                     failures.Add(overlay.Renderer.name + " wrong underside finish");
             }
             if (overlayEntries.Count != Plugin.ParadeFlagOverlayNames.Length)
@@ -1585,15 +1542,6 @@ namespace Blacknight2u.F117Nighthawk
                 entry.Renderer.enabled == enabled);
         }
 
-        private static Texture FinishTexture(Material material, ProfileKind kind)
-        {
-            string property = kind == ProfileKind.AircraftSkin
-                ? "_Metallic"
-                : "_MetallicGlossMap";
-            return material != null && material.HasProperty(property)
-                ? material.GetTexture(property)
-                : null;
-        }
 
         private static Texture TextureProperty(Material material, string property)
         {
@@ -1610,9 +1558,9 @@ namespace Blacknight2u.F117Nighthawk
             if (canonical == "F117_Tires" &&
                 material.shader.name == "Universal Render Pipeline/Lit")
                 return ProfileKind.TireRubber;
-            if (renderer.name == "F117_Canopy_Mesh" && canonical == "INT_CockpitFrame" &&
-                material.shader.name == "Universal Render Pipeline/Lit")
-                return ProfileKind.CockpitFrame;
+            if (renderer.name == "F117_Canopy_Mesh" && canonical == "F117_EXTERNAL_1" &&
+                material.shader.name == "Shader Graphs/AircraftSkin")
+                return ProfileKind.AircraftSkin;
             if (IsGearDoorExteriorSkin(renderer.transform, canonical) &&
                 material.shader.name == "Shader Graphs/AircraftSkin")
                 return ProfileKind.AircraftSkin;
@@ -1720,6 +1668,9 @@ namespace Blacknight2u.F117Nighthawk
             entries.Clear();
             overlayEntries.Clear();
             ownedMaterials.Clear();
+            if (chromeColor != null) Destroy(chromeColor);
+            if (chromeFinish != null) Destroy(chromeFinish);
+            if (matteFlagFinish != null) Destroy(matteFlagFinish);
         }
     }
 
@@ -2443,6 +2394,8 @@ namespace Blacknight2u.F117Nighthawk
         private int brokenMainGearCount;
         private bool brokenGearTouchdown;
         private bool cockpitDisplayBound;
+        private float nextCockpitBindTime;
+        private TacScreen cockpitTacScreen;
         private Coroutine initialCameraRefresh;
         private float openAmount;
         private float airborneEvidenceTime;
@@ -2678,8 +2631,12 @@ namespace Blacknight2u.F117Nighthawk
             if (!initialized || aircraft == null)
                 return;
 
-            if (!cockpitDisplayBound)
+            if (!cockpitDisplayBound && Time.unscaledTime >= nextCockpitBindTime)
+            {
+                // TacScreen may initialize after spawn. Retry without scanning every frame.
+                nextCockpitBindTime = Time.unscaledTime + 0.5f;
                 TryBindCockpitDisplay();
+            }
 
             if (!chuteAvailable || body == null)
                 return;
@@ -2827,7 +2784,9 @@ namespace Blacknight2u.F117Nighthawk
         {
             if (TacScreenMaterial == null)
                 return;
-            TacScreen tacScreen = aircraft.GetComponentInChildren<TacScreen>(true);
+            if (cockpitTacScreen == null)
+                cockpitTacScreen = aircraft.GetComponentInChildren<TacScreen>(true);
+            TacScreen tacScreen = cockpitTacScreen;
             if (tacScreen == null)
                 return;
             Material screenMaterial = TacScreenMaterial.GetValue(tacScreen) as Material;

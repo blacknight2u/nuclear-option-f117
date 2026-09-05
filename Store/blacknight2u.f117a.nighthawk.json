@@ -26,13 +26,13 @@
   "autoUpdateArtifacts": "True",
   "artifacts": [
     {
-      "fileName": "F-117A-Nighthawk-v0.4.90.zip",
-      "version": "0.4.90",
+      "fileName": "F-117A-Nighthawk-v0.4.100.zip",
+      "version": "0.4.100",
       "category": "release",
       "type": "plugin",
       "gameVersion": "0.34.2",
-      "downloadUrl": "https://github.com/blacknight2u/nuclear-option-f117/releases/download/v0.4.90/F-117A-Nighthawk-v0.4.90.zip",
-      "hash": "sha256:9947641c9be635be081b2c6b2dc54beaf44c364ddaa2725827475c0475d7a1b0",
+      "downloadUrl": "https://github.com/blacknight2u/nuclear-option-f117/releases/download/v0.4.100/F-117A-Nighthawk-v0.4.100.zip",
+      "hash": "sha256:3647c7ff25b20ecf8d7bbb04d174905175720cd7b13b5d8850aed8bf76aaa871",
       "dependencies": [
         {
           "id": "com.nikkorap.blueprinter",

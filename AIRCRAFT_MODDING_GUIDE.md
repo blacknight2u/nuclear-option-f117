@@ -278,9 +278,25 @@ Missing particle materials, invalid spark emitters, or copied effects can create
 pink geometry and log flooding only after movement or damage. Validate shaders
 and effects in the packaged bundle, not only in Blender or the Unity editor.
 
+The installed game's `Shader Graphs/AircraftSkin` is not interchangeable with
+URP/Lit. It blends `_Basecolor` and `_Livery`, then progressively multiplies that
+color by `_BasecolorDmg` as hit points decrease. Damage-map alpha controls native
+cutouts. A complete alternate-color image is not the correct damage mask.
+Metallic comes from the metallic map's red channel; smoothness uses its alpha
+and the `_Glossiness` override. Keep that override zero when the map is authoritative.
+For baked artwork, bind the same authored texture to both base and livery inputs;
+do not leave a donor livery active. Validate the live post-livery material as well
+as the editor's placeholder. `Tools/Research/inspect_native_aircraftskin.py` can
+inspect the installed Windows shader when this contract needs rechecking.
+
 Every runtime patch must first prove it is operating on this aircraft. Avoid
 global weapon, airfoil, camera, UI, or detection changes. Multiplayer clients
 must load matching definitions, plugin versions, dependencies, and loadouts.
+
+Do not append network definitions from a frame-timed startup poll. Blueprinter
+2.0.1 registers its sorted definitions inside `PatchRunner.ApplyAllOps`; finish
+dependent registration synchronously at that loading boundary. Sorting only your
+own entries does not make an independently scheduled coroutine deterministic.
 
 ## 14. Runtime plugin boundaries
 

@@ -578,28 +578,16 @@ public static class F117ContractValidator
                 item.name.IndexOf("FORGOTTOTEXTURE", StringComparison.OrdinalIgnoreCase) < 0),
             "No production renderer retains the source placeholder gear material", failures);
         Material cockpitFrame = productionMaterials.FirstOrDefault(material =>
-            material.name.EndsWith("INT_CockpitFrame", StringComparison.OrdinalIgnoreCase));
-        Require(cockpitFrame != null && cockpitFrame.GetColor("_BaseColor").r <= 0.05f &&
-                cockpitFrame.GetColor("_BaseColor").g <= 0.05f &&
-                cockpitFrame.GetColor("_BaseColor").b <= 0.05f &&
-                Near(cockpitFrame.GetFloat("_Metallic"), 0f, 0.001f) &&
-                Near(cockpitFrame.GetFloat("_Smoothness"), 0.5f, 0.001f),
-            "Canopy/cockpit frame uses the authored black material instead of the white fallback", failures);
-        RequireTexturePath(cockpitFrame, "_MetallicGlossMap",
-            "Assets/F117/Textures/metal_paint02_mask.png", failures);
-        Require(cockpitFrame != null &&
-                cockpitFrame.shaderKeywords.Contains("_METALLICSPECGLOSSMAP"),
-            "Canopy frame keeps its authored URP packed-mask keyword for both finish profiles", failures);
+            material.name.EndsWith("F117_EXTERNAL_1", StringComparison.OrdinalIgnoreCase));
         Material[] cockpitStructureMaterials = productionMaterials.Where(material =>
             (material.name.IndexOf("F117_int_", StringComparison.OrdinalIgnoreCase) >= 0 &&
              material.name.IndexOf("glass", StringComparison.OrdinalIgnoreCase) < 0) ||
-            material.name.EndsWith("INT_CockpitFrame", StringComparison.OrdinalIgnoreCase) ||
             material.name.EndsWith("LIGHTS", StringComparison.OrdinalIgnoreCase)).ToArray();
-        Require(cockpitStructureMaterials.Length >= 11 &&
+        Require(cockpitStructureMaterials.Length >= 10 &&
                 cockpitStructureMaterials.All(material =>
                     Near(material.GetFloat("_Metallic"), 0f, 0.001f) &&
                     Near(material.GetFloat("_Smoothness"), 0.5f, 0.001f)),
-            "Cockpit tub and frame preserve the source non-metallic medium-rough finish", failures);
+            "Cockpit tub preserves the source non-metallic medium-rough finish", failures);
         Renderer canopyRenderer = prefab.GetComponentsInChildren<Renderer>(true)
             .FirstOrDefault(renderer => renderer.name == "F117_Canopy_Mesh");
         Material[] canopyMaterials = canopyRenderer == null ? Array.Empty<Material>() : canopyRenderer.sharedMaterials;
@@ -614,7 +602,10 @@ public static class F117ContractValidator
                 canopyFilter.sharedMesh.subMeshCount == 3 && canopyMaterials.Length == 3,
             "Production canopy resolves to one frame and two window material groups after FBX import", failures);
         Require(cockpitFrame != null && canopyOpaque.Length == 1 && canopyOpaque[0] == cockpitFrame,
-            "Every opaque canopy face resolves to the exact authored black cockpit-frame material", failures);
+            "Every opaque canopy face uses the exact existing EXTERNAL_1 body material", failures);
+        Require(canopyFilter != null && F117CanopyPaint.HasPairedFaces(canopyFilter.sharedMesh,
+                Array.IndexOf(canopyMaterials, cockpitFrame)),
+            "Frame has opposite-wound native faces without offset geometry", failures);
         Require(canopyGlass.Length == 2, "Canopy has exactly two clear window slots", failures);
         foreach (Material glass in canopyGlass)
         {
@@ -1898,10 +1889,12 @@ public static class F117ContractValidator
                      !Enumerable.Range(0, cockpit.arraySize).Any(index =>
                          cockpit.GetArrayElementAtIndex(index).objectReferenceValue == detailedCockpit)),
                 "Detailed F-117 cockpit remains enabled and is never camera-switched off", failures);
-            Require(exterior != null && exterior.isArray && exterior.arraySize >= 1 && exteriorCanopy != null &&
-                    Enumerable.Range(0, exterior.arraySize).Any(index =>
-                        exterior.GetArrayElementAtIndex(index).objectReferenceValue == exteriorCanopy),
-                "Exterior renderer group contains the dedicated F-117 canopy", failures);
+            Require(exteriorCanopy != null && exteriorCanopy.enabled &&
+                    (exterior == null || !exterior.isArray || !Enumerable.Range(0, exterior.arraySize).Any(index =>
+                        exterior.GetArrayElementAtIndex(index).objectReferenceValue == exteriorCanopy)) &&
+                    (cockpit == null || !cockpit.isArray || !Enumerable.Range(0, cockpit.arraySize).Any(index =>
+                        cockpit.GetArrayElementAtIndex(index).objectReferenceValue == exteriorCanopy)),
+                "Canopy remains visible from both cockpit and exterior cameras", failures);
             Require(fixedExteriorRenderers.Length == 3 &&
                     (exterior == null || !exterior.isArray || fixedExteriorRenderers.All(shell =>
                     !Enumerable.Range(0, exterior.arraySize).Any(index =>
@@ -2651,7 +2644,7 @@ public static class F117ContractValidator
             foreach (Material material in renderer.sharedMaterials)
             {
                 string canonical = CanonicalProfileMaterialName(material == null ? null : material.name);
-                bool frame = renderer.name == "F117_Canopy_Mesh" && canonical == "INT_CockpitFrame";
+                bool frame = renderer.name == "F117_Canopy_Mesh" && canonical == "F117_EXTERNAL_1";
                 bool tire = canonical == "F117_Tires";
                 bool exterior = canonical != null && canonical.StartsWith("F117_EXTERNAL_", StringComparison.Ordinal) &&
                     canonical.Length == "F117_EXTERNAL_1".Length &&
@@ -2659,12 +2652,12 @@ public static class F117ContractValidator
                 bool gearDoorExterior = exterior && !overlay &&
                     canonical == "F117_EXTERNAL_2" &&
                     ProfileGearDoorExteriorSkin(renderer.transform);
-                bool body = exterior && ((!excluded && !staticAccessory) || gearDoorExterior);
+                bool body = exterior && ((!excluded && !staticAccessory) || gearDoorExterior || frame);
                 if (body)
                 {
                     bodySlots++;
                     bodyFamilies.Add(canonical);
-                    if (!gearDoorExterior &&
+                    if (!gearDoorExterior && !frame &&
                         (ProfileHierarchyExcluded(renderer.transform) || staticAccessory))
                         invalidTargets.Add(GetPath(prefab.transform, renderer.transform));
                 }
@@ -2679,7 +2672,7 @@ public static class F117ContractValidator
         Require(bodySlots >= 7 && bodyFamilies.Count == 7,
             "Profile classification includes all seven AircraftSkin exterior families", failures);
         Require(frameSlots == 1,
-            "Profile classification includes exactly the canopy-frame INT_CockpitFrame slot", failures);
+            "Profile classification includes exactly one canopy frame in the body paint profile", failures);
         Require(staticAccessorySlots >= 40 && tireSlots == 3 && invalidTargets.Count == 0,
             "Profile classification includes only landing-gear-door EXTERNAL_2 skins in body tint " +
             "and isolates mechanisms, bay linkages, drag chute, and all three tires",

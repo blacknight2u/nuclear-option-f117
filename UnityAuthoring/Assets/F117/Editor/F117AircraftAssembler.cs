@@ -317,6 +317,7 @@ internal static class F117AircraftAssembler
         visual.transform.localRotation = Quaternion.identity;
         visual.transform.localScale = Vector3.one;
         ConvertMaterials(visual, materialsRoot);
+        F117CanopyPaint.Apply(visual, materialsRoot);
         MeshRenderer cockpitScreenRenderer = CreateCockpitScreenRenderer(visual, materialsRoot);
 
         Material gearDustMaterial = CreateGearDustMaterial(materialsRoot);
@@ -620,13 +621,6 @@ internal static class F117AircraftAssembler
                         // material and become active when Blueprinter replaces this placeholder.
                         target.shader = shader;
                         ApplyProductionPreviewTextures(target, canonicalMaterialName);
-                    }
-                    if (string.Equals(source.name, "INT_CockpitFrame", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // FBX does not preserve the source Multiply node. Transfer
-                        // its evaluated #000000 result while retaining the maps.
-                        target.SetColor("_BaseColor", Color.black);
-                        target.SetColor("_Color", Color.black);
                     }
                     string path = materialsRoot + "/" + index.ToString("D2") + "_" + SafeName(source.name) + ".mat";
                     AssetDatabase.CreateAsset(target, path);
@@ -2396,41 +2390,23 @@ internal static class F117AircraftAssembler
         if (existing != null)
             return existing;
 
-        string sourcePath = AssetDatabase.GetAssetPath(source);
-        TextureImporter importer = AssetImporter.GetAtPath(sourcePath) as TextureImporter;
-        bool restoreImporterReadability = false;
-        if (!source.isReadable)
-        {
-            if (importer == null)
-                throw new InvalidOperationException("Damage texture source is not readable and has no TextureImporter: " +
-                    sourcePath);
-            restoreImporterReadability = true;
-            importer.isReadable = true;
-            importer.SaveAndReimport();
-            source = AssetDatabase.LoadAssetAtPath<Texture2D>(sourcePath);
-        }
-
-        Color32[] clean = source.GetPixels32();
-        Color32[] damaged = new Color32[clean.Length];
         int width = source.width;
         int height = source.height;
+        Color32[] damaged = new Color32[width * height];
         for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++)
         {
-            Color color = clean[y * width + x];
             float broad = Mathf.PerlinNoise(x * 0.0217f + 11.3f, y * 0.0191f + 7.9f);
             float fine = Mathf.PerlinNoise(x * 0.113f + 31.7f, y * 0.097f + 19.1f);
             float abrasion = Mathf.SmoothStep(0.38f, 0.82f, broad * 0.72f + fine * 0.28f);
-            Color soot = Color.Lerp(new Color(0.018f, 0.016f, 0.014f, color.a),
-                new Color(0.20f, 0.13f, 0.075f, color.a), abrasion);
-            Color result = Color.Lerp(color * 0.28f, soot, 0.72f);
-            result.a = color.a;
+            float multiplier = Mathf.Lerp(0.72f, 0.98f, abrasion);
+            Color result = new Color(multiplier, multiplier, multiplier, 1f);
             damaged[y * width + x] = result;
         }
 
-        // AircraftSkin blends toward one authored damage texture as HP falls. Add
-        // deterministic puncture cores, exposed-metal rims, and soot blooms so gun
-        // damage reads as actual pockmarks instead of only a uniform dark tint.
+        // Native AircraftSkin multiplies clean color by this mask as HP falls;
+        // it does not replace clean color with a second painted albedo. Alpha is
+        // the native damage-cutout mask, independent of the clean artwork alpha.
         uint state = 2166136261u;
         foreach (char character in materialName)
             state = (state ^ character) * 16777619u;
@@ -2462,26 +2438,25 @@ internal static class F117AircraftAssembler
                 float blend;
                 if (distance < 0.42f)
                 {
-                    mark = new Color(0.004f, 0.004f, 0.003f, baseColor.a);
+                    mark = new Color(0.02f, 0.02f, 0.02f, 0.48f);
                     blend = 0.98f;
                 }
                 else if (distance < 0.72f)
                 {
-                    mark = new Color(0.34f, 0.25f, 0.16f, baseColor.a);
+                    mark = Color.white;
                     blend = 0.78f * (1f - (distance - 0.42f) / 0.30f);
                 }
                 else
                 {
-                    mark = new Color(0.012f, 0.010f, 0.008f, baseColor.a);
+                    mark = new Color(0.28f, 0.28f, 0.28f, 1f);
                     blend = 0.62f * Mathf.Pow(1f - (distance - 0.72f) / 1.68f, 2f);
                 }
                 Color marked = Color.Lerp(baseColor, mark, Mathf.Clamp01(blend));
-                marked.a = baseColor.a;
                 damaged[pixel] = marked;
             }
         }
 
-        Texture2D output = new Texture2D(width, height, TextureFormat.RGBA32, true, false)
+        Texture2D output = new Texture2D(width, height, TextureFormat.RGBA32, true, true)
         {
             name = "F117_" + SafeName(materialName) + "_Damage",
             filterMode = source.filterMode,
@@ -2492,12 +2467,6 @@ internal static class F117AircraftAssembler
         output.Apply(true, true);
         AssetDatabase.CreateAsset(output, outputPath);
 
-        if (restoreImporterReadability)
-        {
-            importer = AssetImporter.GetAtPath(sourcePath) as TextureImporter;
-            importer.isReadable = false;
-            importer.SaveAndReimport();
-        }
         return output;
     }
 
@@ -4569,19 +4538,14 @@ internal static class F117AircraftAssembler
     private static void ConfigureRendererLists(GameObject visual, Component aircraft)
     {
         Transform cockpitGroup = FindDeep(visual.transform, "F117_Cockpit");
-        Transform canopyGroup = FindDeep(visual.transform, "F117_Canopy");
         Transform chuteGroup = FindDeep(visual.transform, "F117_DragChute");
         Renderer[] cockpit = cockpitGroup == null
             ? Array.Empty<Renderer>()
             : cockpitGroup.GetComponentsInChildren<Renderer>(true)
                 .Where(renderer => renderer.name != "F117_Cockpit_Mesh")
                 .ToArray();
-        Renderer[] exteriorCockpit = canopyGroup == null
-            ? Array.Empty<Renderer>()
-            : canopyGroup.GetComponentsInChildren<Renderer>(true);
-
-        // Keep the detailed tub visible in both camera modes. Only auxiliary cockpit
-        // widgets and the dedicated external canopy participate in camera switching.
+        // The tub and canopy are shared by both views. Exterior-only renderers are
+        // disabled by Aircraft.SetCockpitRenderers when entering the cockpit.
         foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>(true))
             if (!(renderer is ParticleSystemRenderer))
                 renderer.enabled = true;
@@ -4590,7 +4554,7 @@ internal static class F117AircraftAssembler
 
         SerializedObject data = new SerializedObject(aircraft);
         SetObjectArray(data, "cockpitRenderers", cockpit.Cast<UnityEngine.Object>().ToArray());
-        SetObjectArray(data, "exteriorRenderers", exteriorCockpit.Cast<UnityEngine.Object>().ToArray());
+        SetObjectArray(data, "exteriorRenderers", Array.Empty<UnityEngine.Object>());
         data.ApplyModifiedPropertiesWithoutUndo();
     }
 
