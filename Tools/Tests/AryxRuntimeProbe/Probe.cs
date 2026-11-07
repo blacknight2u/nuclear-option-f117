@@ -70,6 +70,7 @@ public sealed class Probe : BaseUnityPlugin
         Require(integration != null, "New F117 integration was not loaded");
         var definition = (AircraftDefinition)Encyclopedia.Lookup["blacknight2u_F117A_Nighthawk"];
         var original = definition.unitPrefab.GetComponent<Aircraft>();
+        ApproachControlChecks.Run(original, lines);
         AutomaticChuteChecks.Run(original, lines);
         var sets = original.weaponManager.hardpointSets;
         var bays = sets.Where(set => set.name == "Left Weapon Bay" || set.name == "Right Weapon Bay").ToArray();

@@ -28,6 +28,13 @@ speed is within the deployment range (20–215 knots). It jettisons automaticall
 at about 20 knots and is single-use. No brake command or extra HUD indicator is
 required.
 
+With stability assist on and gear fully down, low-speed approach response uses
+stronger roll correction and an 11°/s full-stick pitch-rate target before AoA
+limiting. The tune is strongest below 80 m/s (155 knots), fades out by 110 m/s
+(214 knots), and transitions over half a second. Higher native pitch-rate
+targets, surface travel and the existing AoA protection are retained. This is
+an initial controller tune; handling and flare improvement need pilot evaluation.
+
 ## Requirements
 
 - Nuclear Option `0.34.6`

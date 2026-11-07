@@ -219,6 +219,24 @@ in force. It adds no HUD element and preserves the chute's existing drag force.
 The runtime probe exercises these transitions on an inactive aircraft fixture;
 this checks the controller state machine, not a live landing or stopping distance.
 
+## Approach response (0.6.3)
+
+`F117ApproachControl` (0.6.3) wraps the native `FlyByWire.Filter` for the F-117.
+With assist enabled and gear locked down, the target weight is full through
+80 m/s and smoothly fades to zero at 110 m/s. Weight changes are limited to
+2/second. It raises roll tightness from the authored 0.65 toward 0.80 and the
+pre-AoA full-stick pitch-rate target from about 8.99°/s toward a floor of 11°/s.
+Higher native targets/gains are preserved. The native AoA multiplier, ground
+clamp, integrator and surface travel remain downstream and unchanged.
+
+Only the native controller's per-call pitch scale and roll gain are overridden;
+a Harmony finalizer restores both values, including on exceptions. A weak table
+stores only the transition weight per controller. Base settings, the aircraft's
+structural G limit, lift curves and other aircraft are unchanged. Authoring keeps
+the normal-flight values; this runtime-only tune uses the unchanged bundle path.
+The runtime probe checks the actual patched native filter and its restoration,
+gear/assist/speed transitions and AoA behavior. It does not simulate pilot handling.
+
 ## NOMM release submission
 
 For this already-registered mod, publish a new GitHub release tag with one release
