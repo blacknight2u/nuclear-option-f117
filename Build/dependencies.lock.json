@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "unityEditor": "2022.3.62f3",
+  "pythonMinimum": "3.11",
+  "gameVersion": "0.34.6",
+  "steamBuild": "26327221",
+  "gameAssemblySha256": "babdd626bbab5f01e6c244150c1e77c57c131ee86967214e2e5ced6d813c2bce",
+  "downloads": [
+    {
+      "id": "blueprinter",
+      "fileName": "Blueprinter_2.1.1.dll",
+      "url": "https://github.com/nikkorap/NOBlueprinter-Releases/releases/download/2.1.1/Blueprinter_2.1.1.dll",
+      "sha256": "2dbc8e40fef56bea9a0fc2c0242614642c2a832c8062673e50ff47f677d44fe2"
+    },
+    {
+      "id": "donor",
+      "fileName": "Aryx_F16M_KingViper_1.2.3.dll",
+      "url": "https://github.com/Aryx3D/Aryx-F-16M/releases/download/1.2.3/Aryx_F16M_KingViper_1.2.3.dll",
+      "sha256": "6b71141b324ae92108125881a4db2e29abebbbd95fd968d80284aff4037dbf13"
+    },
+    {
+      "id": "publishedBaseline",
+      "fileName": "F-117A-Nighthawk-v0.5.0.zip",
+      "url": "https://github.com/blacknight2u/nuclear-option-f117/releases/download/v0.5.0/F-117A-Nighthawk-v0.5.0.zip",
+      "sha256": "df7b1dfb7c0fd6387fbf210d4e0dbfd93a3fc948b515b28b2f4b76b488e29f81"
+    }
+  ],
+  "donorBundle": {
+    "resourceName": "Aryx_F16M_KingViper.Aryx's F16M_1.2.3.nobp",
+    "fileName": "Aryx_F16M_KingViper_1.2.3.nobp",
+    "requiredAssets": [
+      "assets/blueprinter/aryx/aryx_f16m/aryx_f16m_kingviper.prefab",
+      "assets/blueprinter/aryx/aryx_f16m/aryx_f16m_kingviper_skin.mat",
+      "assets/blueprinter/generated/patch_manifest.json"
+    ]
+  },
+  "localOnly": [
+    "NuclearOption_Data/Managed: current game and Unity assemblies",
+    "BepInEx/core: installed BepInEx 5, Harmony and Mono.Cecil",
+    "UnityAuthoring/Assets/blueprinter: editable donor export for full aircraft reauthoring",
+    "UnityAuthoring/Assets/Plugins/GameReferences: isolated game references for full aircraft reauthoring"
+  ]
+}

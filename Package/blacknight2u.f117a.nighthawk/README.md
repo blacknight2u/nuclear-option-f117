@@ -21,8 +21,8 @@ The aircraft is available at rank 4 and costs $120 million.
 
 ## Requirements
 
-- Nuclear Option `0.34.2`
-- Blueprinter `2.0.1`
+- Nuclear Option `0.34.6`
+- Blueprinter `2.1.1`
 
 ## Installation
 

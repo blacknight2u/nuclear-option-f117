@@ -1,0 +1,1793 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "path": "F117_Production_Master.blend",
+      "bytes": 33302307,
+      "sha256": "4256240ec17af1bb95bb604e0e90d72f6a0220f387f620ea1389ab4983679eb7"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor/F117AircraftAssembler.cs.meta",
+      "normalization": "lf",
+      "bytes": 243,
+      "sha256": "683b177005ab75e6bd9d3876dc0999d9a42907990632f0f9e56002f176a2fe30"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor/F117AuthoringUtil.cs.meta",
+      "normalization": "lf",
+      "bytes": 243,
+      "sha256": "5d4a4f78db059af2aff84f1042fcdb07839f68d42451d58d20d2a12bf638d61d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor/F117AutoBuild.cs.meta",
+      "normalization": "lf",
+      "bytes": 243,
+      "sha256": "b8d1bb22c70d895f7e59e49d5c414c91ed921e44064477af1b325d8dca59b85d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor/F117Builder.cs.meta",
+      "normalization": "lf",
+      "bytes": 243,
+      "sha256": "64225a04a211501db58c83dd96fd5665c9a10f79826d226596ef2dd62d55e8d3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor/F117CanopyPaint.cs.meta",
+      "normalization": "lf",
+      "bytes": 240,
+      "sha256": "45800e99802247f293d3363e3d69fb8e1fbe4c461c522bd74b2995781fcee65a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor/F117ContractValidator.cs.meta",
+      "normalization": "lf",
+      "bytes": 243,
+      "sha256": "a178723b567cee1d99d557bef5b493818dae855637bf15d82a7cf85e92a18a03"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor/F117DamageAvatarGenerator.cs.meta",
+      "normalization": "lf",
+      "bytes": 240,
+      "sha256": "921bf5ec6e8b85670d5d2747dc80dd6fb0e3a818dd38e675d7ca5eb6b375c6a6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor/F117Inspector.cs.meta",
+      "normalization": "lf",
+      "bytes": 243,
+      "sha256": "6cec684ca9cf4f9443805cb9b520562611f5f99c9f649e62b7fac3d340509475"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Editor.meta",
+      "normalization": "lf",
+      "bytes": 172,
+      "sha256": "e0d51e3ce5bcc26619839f4f1baa88f7373988a433feab50cfa5ef522a7e88e9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Models/F117_Production.fbx",
+      "bytes": 25473980,
+      "sha256": "edabaf5476b2d187985566df6e5887e1904f788fad9dbe9ac5ccc805966c03ed"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Models/F117_Production.fbx.meta",
+      "normalization": "lf",
+      "bytes": 2830,
+      "sha256": "03a323baa7ff429c04b0ff52a1b17bfbd72abcdf26a37eee7687176b93e66e07"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Models.meta",
+      "normalization": "lf",
+      "bytes": 172,
+      "sha256": "77e90ece06b2f367778b60f1fff1a21fdda02f6f0b1215d538353968eb7a68eb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_albedo.png",
+      "bytes": 528618,
+      "sha256": "bd99ce2009f968f5b50c0636991b3c2b0e0761fd7a45e06a38adf612ba46b6a9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "dd0deca1bf763f9e0a0ffda0e1631300d4ba93487f33d0c11ed9ef3b7dfdf656"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_comp.png",
+      "bytes": 972441,
+      "sha256": "eb37c71ab04fa869597bf86d354222c2ebaadd27786430b2c15eb5d342af1213"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "0ea231752cec90ca1b02a57f99f6af40aca08c84414f107d1f0c9f6edf4f0866"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_mask.png",
+      "bytes": 920524,
+      "sha256": "6a2c5ee48aa41e1aab9239be25cba4f8c6df39a1aa82f6d1494ba9bf9137c4e2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "99de24109ffaa96cf9f6af8a46d786af7b8b296a895e2421771e9a89c17f53a8"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_ms.png",
+      "bytes": 750307,
+      "sha256": "c86a39ed9701f459d611008f4fd421fbadc14ee9aca99a8b0f66d475fd8ba373"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_ms.png.meta",
+      "normalization": "lf",
+      "bytes": 2619,
+      "sha256": "f5b7ad9ba11dec4c93f7f3e747a4039dc165afdc1a40866bcae02524f9d81e49"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_normal.png",
+      "bytes": 132915,
+      "sha256": "b21b3f89fdb2aa4178ff72b54ae250a2eb789b46d725715c47e01fb5f13a0aeb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "e10a7b5ab8dcd2f1d3ef13195a88e4261d4640639d11858f9fc2d9875e9634df"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_occlusion.png",
+      "bytes": 588151,
+      "sha256": "adf45678429c123ee6495756cb0badc199ca2722e9c25d4f4b9a65b20ff79f2d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_1_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "7d73b0bed45198ce3ea23b4f6af57d1e95a5cea80a83066a3305d6ae771a8a0b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_albedo.png",
+      "bytes": 819220,
+      "sha256": "d192a1f441df35fa5e28129d2f955d5e6f5eda32f7ca6546878d7cd5468c207f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "8508b1a64d74a09ddd74a7f6fe80f6d4245b4e12d9284c37a38e2b55e9593186"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_comp.png",
+      "bytes": 1377052,
+      "sha256": "7964ac8b911996050704e51d1c67f3d0882dc61180b17fe9f67d03027ae0abe3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "f393301ca82792e24b906f79bf068aeba48447964e96d8c031eabc70033d9e8c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_mask.png",
+      "bytes": 1259627,
+      "sha256": "0410baac1f156193fd75deb19c980fafb4c7ba1e6fc1977121f9786c76bba1b8"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "09b11aad62f9ad685613edfa194ea279a31a21fd37711804733817186e750738"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_ms.png",
+      "bytes": 1106215,
+      "sha256": "67da9a80c3f05e7db4bbe9a8a7a639db45b4d43fa45798fa480d6c0c57c9cce4"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_ms.png.meta",
+      "normalization": "lf",
+      "bytes": 2619,
+      "sha256": "5dc90ed11bce065f483291dfa471814fb0b53eca68c7a5476777b40366e6acc6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_normal.png",
+      "bytes": 271166,
+      "sha256": "848cd9ebf43c35977884e3eb82092bab44c2d29651397f8e25988ee967732bdc"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "de4d13a51cdf9598b747c0558b8d8b8848b321d0c766a1818583c1fcc1c1554c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_occlusion.png",
+      "bytes": 811023,
+      "sha256": "81a458e6984c34109b892ff53d5bc86faab39bc307bc269e1c778fd66b70c5fd"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_2_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "0252c0646eb6f8b273ed8068cd78177aa539a38ae6f90a9b77df4ad923ae51b7"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_albedo.png",
+      "bytes": 585331,
+      "sha256": "fcb898acc7ce843dd0b94056a98e34c8b09ca48538131c67076deb4a0b493a0c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "6edd462f7fc97c68a54173c3508c6befcc643c04a6e7514038b1a82b95d26941"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_comp.png",
+      "bytes": 1053060,
+      "sha256": "030a486010083232bfe38b6f779234cbe1e12382651c99645b174a59ed8ad3c4"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "57d3d8cdeabcf706e2d3a68fd89633bd75a3cbd986e64cb81179e76fe07af8a9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_mask.png",
+      "bytes": 989946,
+      "sha256": "fb2167905795821718247e5f11902dc757f1fb78570358aaade4f6ade9ba507a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "88bc937a2baf3b09249ac01a647ab1a899be5c826671b403ce7e33a8e0c3046c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_ms.png",
+      "bytes": 812046,
+      "sha256": "bb37c0771080ca02010ca20ad9569e01f5301da0f6ee9ef3143d0f4aec4674ba"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_ms.png.meta",
+      "normalization": "lf",
+      "bytes": 2619,
+      "sha256": "25debcad554460f74b1952e371e67ba3dcb35ea1fc197c22a3ad79246be11c4a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_normal.png",
+      "bytes": 146830,
+      "sha256": "2a2e5fcba01102a36aa9ab43340a7ed0ed87dfef4d3f4afbb51fa7fa11030f21"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "a60fd082d3f319dd0b9f0281ec4c6b2c873acea07e8618b8365e1ae72c8160ab"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_occlusion.png",
+      "bytes": 637211,
+      "sha256": "225261ecf4c0d1deccc2f4a82f82c49435e8d808fbc8580c96a4b9d0e7d5e81f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_3_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "6ced95e595384a3b0c8fb9b0da87c1a40b06ac168d9cf3402b4b4f60e6d9a5b4"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_albedo.png",
+      "bytes": 589624,
+      "sha256": "573117ddc376e502e26760d5dafca7fdf0d65d7174ed93190d6740ac9d4957e2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "e3aa8c5da2c99bd05aae85e5f9c9e7de80dec5bef3b9d2e33c1a8cc521f845b3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_comp.png",
+      "bytes": 1041463,
+      "sha256": "e88e8be38bd0fa25d7b748905271f8ea67172e433cef35da60474de694e76fa3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "9717d4d572afb03861b03dae32fda42726445550c53b404c17219b900b7da4b3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_mask.png",
+      "bytes": 978465,
+      "sha256": "ae0a477211ff6e4fe2a8619f5e0f1a35672e297bc162ec773ce49fa281dd2764"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "ad3895e342596cd4cceb9f48035347001a7e8409991cc11de07c0d45a01316b6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_ms.png",
+      "bytes": 801705,
+      "sha256": "76dfd5d55af8ec93d1eb39cc10a3e034f5145adfd70f28da2d72a3ec5be0df17"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_ms.png.meta",
+      "normalization": "lf",
+      "bytes": 2619,
+      "sha256": "bb813ea8a11bac8564f2bd624623f9067bac6143d0b0bfcd2b2de19b104d93bf"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_normal.png",
+      "bytes": 138350,
+      "sha256": "a7b8ccddf1c070e5f8a17391a5a42b014fd03f699923be387d0fd2e8b8a99ad2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "75302a9dafd27c34e0362b18225b022ff7723ea5e0cbe510465d560cc94a61a1"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_occlusion.png",
+      "bytes": 628532,
+      "sha256": "7bfb6b7f6e4ef10ca63dbc6f37d8dd65e467cf8ae1aede6e5db0217b1138027c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_4_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "7a055d227d18d96fcd5e1c010a9128b28f3a3910be929bd7056ddebc450e9e59"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_albedo.png",
+      "bytes": 498562,
+      "sha256": "2b4591257dd17437f6295b2f1a5810b156211c76ae7eeadff46d8d1db701f2cf"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "e87dfd4e2417e4ea16c1198c6b1f95b1e52a434183cd7f3a43a22aedd590ba3a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_comp.png",
+      "bytes": 1906159,
+      "sha256": "4332c61114161da0d85cd7a19f1c9290b8cb54927f1adee5c4498be64793a772"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "44c1d955d09d3faf8304283de7126961f8a96cd9f83db1e649f435abc4a7faad"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_mask.png",
+      "bytes": 1616080,
+      "sha256": "53ca5e91db2d36ad223541b0a5337327b536230ee919f0313e46ac82881fadca"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3bf454d57bf9d2f332537b8b09f3f82ea5315e0257a164ff4d4424fe2aefac7f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_ms.png",
+      "bytes": 1500180,
+      "sha256": "ae4fb99bc232c9b60fdbe401c84b7f69e331c17582b03ef997335cde1c501000"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_ms.png.meta",
+      "normalization": "lf",
+      "bytes": 2619,
+      "sha256": "bfb8297a988e0dc4ebc180c6dd59f12d1690773248cf2e5d14d44b07e4d5717f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_normal.png",
+      "bytes": 524480,
+      "sha256": "9a7904c33af2638c380c9eae0abf82ff726b86401461dae7cba4355e42813ffb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "73bd8c3333475958262979023617ee96afaabb88d0b64fe5138e6458b136168d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_occlusion.png",
+      "bytes": 1140138,
+      "sha256": "999aec8b98c5488d54497a60c050423bbf6412b41153ea569da94db81b775eb4"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_5_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "4da71790b2b69fda53371bbe598ed90e7fae9f7c97ea5792bc71ee43d8f21b0e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_albedo.png",
+      "bytes": 1404675,
+      "sha256": "bb579468eba10deeb7f1136bd86a8101689ffd115fbee65de1f1f5d3fddba649"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "453d15da49eee903ffe41555ec45a0d52a8ea4731956ca87a00fcab23781e9b8"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_comp.png",
+      "bytes": 2070417,
+      "sha256": "91536ecf618937d991e0da2dd5a161e4e2e9af019723da83d70fa96a45d51b18"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "f09038c26d496ab7a0bbc3c3378ed0fb623e02b094323f2c3495476d07043442"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_mask.png",
+      "bytes": 1775876,
+      "sha256": "0620790bff3a6ae92a2a8ef49c5c020276602bdd1852a8c0451ed8dc03da2596"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "ca1dd945040aae12785c5f4716bc76ab63251434e1aea0ed8d0c4263e8bb3d13"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_ms.png",
+      "bytes": 1690544,
+      "sha256": "e708923e9ab3050b5fdad74581477f438e20838ce9e0e57310b86e8903b4e6c2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_ms.png.meta",
+      "normalization": "lf",
+      "bytes": 2619,
+      "sha256": "caaaf0239133e2ca6248f0aa6074be2c0dc7c48a31dca75bafe29b63c4979c65"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_normal.png",
+      "bytes": 789926,
+      "sha256": "4c4c2abb8d67d410da855f36fccd2e74411128341d3004d495a74f6ebeb12ae1"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "135c12c414c1300064c3710626d5b6340be368a3bb0873c8a7b41d97ccddcec1"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_occlusion.png",
+      "bytes": 1194654,
+      "sha256": "58167b4435845d21fa04fed70607a613a7c80314d366170451aad82761214435"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_6_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "fe933f0b347447990b1aa4d1ea9e3f1966d7dc84e0e2db27470af0f6d633f752"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_albedo.png",
+      "bytes": 1234720,
+      "sha256": "90dc2eca0e0687cb7440bd0612c7f84df435ce404d55e09e488a71ba2c84d0be"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "8d7156966d47e959a0d6b67c418f57a827019aadd7bcf1fbbb3ed683d690409a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_comp.png",
+      "bytes": 1496584,
+      "sha256": "4518d912f275530450af012da94e422902c6163d4a8a187331626aa19182d3a7"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "9bf3cec941aa930eda9a7c76c64deb4f6eb007254d9c3d56b2d49e81cd22df15"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_mask.png",
+      "bytes": 1364630,
+      "sha256": "8836d9f1e3d49f78a75df9c7732062f1fa7f10d6e0c74acc295e48040db96858"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "8daa7dd0fa3640ea5df8f571bf8ec5207347d1baf273e1bc959c0357a52a4b82"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_ms.png",
+      "bytes": 1343222,
+      "sha256": "b5cad0cbc27a4c46417447c15260b953a9fb165771a9e117547434490305b5f6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_ms.png.meta",
+      "normalization": "lf",
+      "bytes": 2619,
+      "sha256": "73f2f53d7ad458484436f22c80e782ce9dd17fabae4ea2c319afc059f56a63e0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_normal.png",
+      "bytes": 869971,
+      "sha256": "82b6bf001f4e3a2ca0787caeffc6e7a1602ceb5b450627deba6c06cf4c5d4646"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "d89c5b7335355453b4de2dea1aa8291387023557b9646d195e3a3b70a3f2eb6e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_occlusion.png",
+      "bytes": 842748,
+      "sha256": "df7f3a2cd5e0b27613b6ae9c855a774cb94144ebd9143f384c1f853346e8d6fe"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_7_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "46a267be083749d866513ca6fc0b6befd7a4bb5dadbd6e8f92767eb1793a66ee"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_decals.png",
+      "bytes": 247262,
+      "sha256": "2e273f92fc8e5df078e48504b737bb21abd67533d11d0cd2f8b82dc78d3736a2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_decals.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "ef9becb26a74c2732433f9c952ed1aba13ba8659a150c723507898750da9c0d9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_decals_comp.png",
+      "bytes": 412,
+      "sha256": "39f8f4e0179fd896398029897bcd36ef8db89be21fb8958c5193b8cb7c4edcf6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_decals_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "70bfd4715bda21309d22d989ffc0c72d6a3f7ffd537aab44d10c99937db940fb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_decals_mask.png",
+      "bytes": 379,
+      "sha256": "41ede25ca345f1c9e614f35e4f43fe96b082a06e494fb13a892d3ef5d78aebf8"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_decals_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "ad8b66c63a75e6b48673a0808e6ebf05a251dba9b399e5d8d0834a32ec67168d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_decals_occlusion.png",
+      "bytes": 378,
+      "sha256": "c417a7e4e9f5d54194828d1c06ac8477ccf304920bc6f0b52432e73774d1837a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_decals_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "699c0ff0eb7fc946de243ff346c899e11ed7ba37dd78522f8b713f65e4639477"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_albedo.png",
+      "bytes": 915086,
+      "sha256": "7fdd62682313e0915e6c736e4da3fcb98ba25cf4b08a1e495a635c68a10715c2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "1439622a0bec6b5b1977783370f9f9c4ed5c1ea2979e99a44ec1af4ac2163099"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_comp.png",
+      "bytes": 1709274,
+      "sha256": "a54cbd3b77e367f51396c555deb7034e151546da413ddc29b71dabee4b01b906"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "674c88d5955459ecd73a03fdb40ae6742698805f5e0ad918ae49ab2ccc725a75"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_mask.png",
+      "bytes": 1555239,
+      "sha256": "3feed5c4d443732a238f47def882073fd7bdf61387f93ec4e6b6cb0c9fb0cd8b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "d0bc38eafe9e0dbdc4f59eff23b8ae469f963ee59c45ed4f86dfa8eeea169a06"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_normal.png",
+      "bytes": 266468,
+      "sha256": "a428202ade76a9a9baff371df415c827e6073309babe7185e8e3a7ad93eacc86"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "75f26d3745bef7a2b2496498ad1b49b4bfbb1b193aaf0dc0fd77f21b79fd76c9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_occlusion.png",
+      "bytes": 974339,
+      "sha256": "e789c9e8b6227350f92ec23e03ddb7c7a35066f5759b6c3ca8ed37b02f427c85"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_ext_weapons_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3d5f0706064bb2f37fda58d07f0ec8a5775bbd54a10319d0c881f4d68dc3ab4d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_albedo.png",
+      "bytes": 421719,
+      "sha256": "d94f0ee3ca773a26bd9d64e9205111d31f3864e515ff86bedd7d5c22b73d2208"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "c31b31ed155f74dce59955c85d6b46ed42d461fdd5cc7b27730804b6504a51f0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_comp.png",
+      "bytes": 1150256,
+      "sha256": "eb1f4f86f01a81906544ac34c7dc6b51dc8ba79c4fa62f16013b2694dabe494d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "c71a37fbed8fcce52c424e9d514ec0f7e342fec8718df38cd2ed5352b8c07834"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_mask.png",
+      "bytes": 1007820,
+      "sha256": "695bb57d292a3dbc059c2754497295ac70c4e51577660b97bb1099dc7498dcc0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "78e055484d9ae11e8d4461e60cbcfab1bd9ca2840a9814f5a5a53ed1ed422d5f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_normal.png",
+      "bytes": 498019,
+      "sha256": "c1acb6194f0cbeb35289952e254a9a8b68606033a48cf4f3e213706b7678d0d9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "8348ec49bfcd6168206a9bd24a662fa32a290487434605f81803a75a23a246f1"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_occlusion.png",
+      "bytes": 690033,
+      "sha256": "0fdae40f5282b52f1b77d080e3e8bfc9570b950c4b9ba2de24fc5228f7d2f668"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_1_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3083f29141fc8645388ec1d45f70f45ee6a933aa9fb6275a78f730598875f060"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_albedo.png",
+      "bytes": 1877055,
+      "sha256": "45305a12e2f258d21d63c91ef1ef8749b3baaeea0e76fa198764e3d96081033b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "62e94296c11101ccaf118bc3ca71f9e9c3d1be2ec3e9c3660e56ea8e74e3f4cb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_comp.png",
+      "bytes": 1526876,
+      "sha256": "ad3a14215a4e767f50805d1c1b591bf39a9bc6621a772761e13497dad60d0c7d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "89998f6bdb5548ba15328ed6c6ca0ec3f70d3433d5b893e1fc13d0569b15b69c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_emissive.png",
+      "bytes": 145545,
+      "sha256": "61e7e9bbfdc6cafe5e401e7ed9b31b7823098787c84b90341cd64bc62a2696bf"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_emissive.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "38a273b7f325a2355882e638bb8d18734527e28879cfaec7255d4964f64348cf"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_mask.png",
+      "bytes": 1364547,
+      "sha256": "fb36a486c71bdfe562fe3b69a2ec26f8d3f432071da2aa3c598bd08b4d7aa264"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "27bd0076a4465d551a1ad76ca08a7bc1bbb3fc85bae889476de4049423d6a70f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_normal.png",
+      "bytes": 391704,
+      "sha256": "26a311b3d862c273bea8bfc3daa3ed90d2a4eb909ca6d56a58677ccc13f06780"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "efc24b0a771436288ec9478f84b9787fce09ee11ffb2b5c878004855c57deaf7"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_occlusion.png",
+      "bytes": 903470,
+      "sha256": "67ff27de84f55afa739dc30de7ee44aedfeb850edfb516fdd9801905dfcc3cdd"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_2_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "e333ab0b4060f15026909897f5dc4e2a9e1227e01bf23918f5f5465cb7955a5d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_albedo.png",
+      "bytes": 1087513,
+      "sha256": "f28962ed87cdc3d452cd8414de75565d15a7f7da0c3a4f2882e4639d2c94a04c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "ec059030fed9ff467bad43898e1ab1246e3feabaaf80ce1a993f51f42ff221bd"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_comp.png",
+      "bytes": 1591375,
+      "sha256": "7e2116ce3beb399672c6043aafb1961cfde0ffbaeafbe45494f63d1eed1585b2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "98cc1e3b91a170d07e8ae022589523e6f90ab43584f5021b828bd7caa0af14a1"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_emis.png",
+      "bytes": 36422,
+      "sha256": "88a41893f6699a63b67887b28d82771904319fb947d7256d19c3e2d0918ef152"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_emis.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "b24a93a1aa0a6f520700831164e60e1d304f739d1fc72d909f4bd664703ba00d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_mask.png",
+      "bytes": 1424448,
+      "sha256": "4b420f420b818ecda4186f5081b889567580b922a09193d7008e0be94a8b6610"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "a6a1adf105f43a8861a0cbf2195dc8aeb89c3e632eec89e9c71c0e13dbf7c5df"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_normal.png",
+      "bytes": 381949,
+      "sha256": "ff874d29e0a253b5c7f6067498adf53b7889b4f31ed349a3b677e9a8c0ea9e85"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3f04b94b3a65101d8b89b9b843cde486071e09f3f241bf453a33b8047ce87963"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_occlusion.png",
+      "bytes": 929125,
+      "sha256": "8914b51b751fdf914c52bdf3b8caf25b09f1329f8fad6ccc98a3ab79dee8a22a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_3_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "b320affc26c54596fc5f85f50b91d890cae831de08f1bd1720993e249d78cd16"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_albedo.png",
+      "bytes": 708454,
+      "sha256": "ab18f69331b669b78ac0c9c14f905268944d9dfc310ce2d0a78001e3c7db9e15"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "9341993584a92bfd680532d40bd34f17d5f961b380e8510ed0e3cfd2b087016e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_comp.png",
+      "bytes": 1340557,
+      "sha256": "4254713ce6ab6f781a3a92fa7ddfde0c67e2be315545ad717e5e5d8021379bc5"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "1eba8dba5e5eddef42e177b9084ee6b73d6b31ca5dc049cda8c1fc9d0e2a9510"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_mask.png",
+      "bytes": 1230728,
+      "sha256": "998dfb2c7938ab66d60da413e22e7a67a73814384b2b2efec927a46c7d4f244d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "89581963ad01ebd7d1748ec8c478c03bc9f0b3b01d228ea2e87703f5c926250e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_normal.png",
+      "bytes": 443766,
+      "sha256": "cb7428e075003093daf168e0d97291a5367e14029e02e575e299ed5887906e50"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "ab847d4c8ea417764f1322ec1ab7bf9e08b40f9a093960f117eb169138ba75f3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_occlusion.png",
+      "bytes": 731079,
+      "sha256": "a59f2fd02644aa0b0ae7c8e2a4c3d172667c33d339d172bf0ff29e971d9dfca8"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_4_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "e8fda5869bd46dc4ed9c9c3f28fc2bf8bca1ffda0c8fc096fd1326db7098456b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_albedo.png",
+      "bytes": 952777,
+      "sha256": "d3f485d523bdcbb85264b86a4ef7cb63d042974aea54e9e9d2ffbb1e5bf6f551"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "42773b5a620b3649ed1cddf2410cd0f8be55928494efbb8ea6728b3214051b75"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_comp.png",
+      "bytes": 1581247,
+      "sha256": "49cba8653201a75c82f1d0e3c1dbc9b7466eec328b6611f5d6eb0160542e4bf3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "dfdea4a6518fe3e1220bd55d8f7172b57ac999ac2f6dea233cff68c93827c9dc"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_mask.png",
+      "bytes": 1392220,
+      "sha256": "4c28a1ac77330f020a8edfe565613f84707abf087d70d228741044da66b2c7f3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3f934ddf6e9773dcf3e587aa6a292d325b333f78212c99c836009f37d18b1e37"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_normal.png",
+      "bytes": 390013,
+      "sha256": "fdd321234ad4ccec54f0b7612d9b39a8e65f10fa1ad8e1a1bb83de7b78f98291"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3bb5afeadad0b74deaeafbfd708efc603098d9a3ad1e70be15194d70faee2db4"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_occlusion.png",
+      "bytes": 924651,
+      "sha256": "d819c1166b0ce81392da61b3bb344c13d0bdcff589df995ea1c6b892df69e31e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_5_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "c6d5209dab369acaafd4f0ac711938eeab1b6ee4111fe7a091764b3315f0840d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_albedo.png",
+      "bytes": 767006,
+      "sha256": "74f863123a377bee4a123bd8b14fb38becb1de41b207388fedae877cc9818523"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "b8dc1a5ebcddc969959a82ccf3606f42662cd7a4f7a3db10279c0b3a138cb052"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_comp.png",
+      "bytes": 1371761,
+      "sha256": "1565279129c1fa7eec0160ff733dc7f1c7576c7c2f8cfce4ff061e766fa4f66d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "316649d08092014b6310b24e52ab8141e8e8d3655e4a76ca41cafe1642dfec3e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_emis.png",
+      "bytes": 26946,
+      "sha256": "8ae28691d4731fb71f813aea45641b4c78d85f27218ef0609ac7ec62bdaa251b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_emis.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3e95b808675e3a222cabd7bad5916f69a326c3d5bc5fc399f7f67e8c68d42890"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_mask.png",
+      "bytes": 1199633,
+      "sha256": "52549721a2b568c55294ef3778adc482705b04974503eb7a0b7f30fa314c715d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "a1a386e622481b62c3364003091dcbb5566b27043cd660a5e629ebab10f29748"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_normal.png",
+      "bytes": 426183,
+      "sha256": "d0aaa87bcf9314a943e3d45a7966297a326d0987acc887f458a4579ddb12dffb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "ca30ceb350acd766b3168dcfef9ad5bd860cd05afd190ed6fb51c54f588334b7"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_occlusion.png",
+      "bytes": 828871,
+      "sha256": "589ce634c6161eb945d7d78b53d31e997e8d1a54de890a74bad295310cc024f6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_6_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "2af4eca47b6cf4364ec7a822fcd1a675e1618e69aa6ce05ded6c510ffc19059e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_albedo.png",
+      "bytes": 1087059,
+      "sha256": "4c42c78e056dc0a16c9fc42ba945136b72326b18049515d2688ecc5130c4a0db"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3c4307e2d0b11e7b20293331d8166f6a2ba343f9d933ac4d92b5d618b891fe1e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_comp.png",
+      "bytes": 1386969,
+      "sha256": "742a5399f371822be2a194221d24733eebe1b278ab2f4c128388062692a5c80b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "eceeb7f33108a437fe4f1b8dd25fbcea4d8265af6439478a3764e4c2dbe73b3f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_mask.png",
+      "bytes": 1275975,
+      "sha256": "1c4fd74b9e5fb628c5cc4a643df9f7d3a324cec12f5e31359b5e181c7fdea4e0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "99dac2258ef44b62dd10731e829909046c1ae79c820129141a6efd4dbf3f304a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_normal.png",
+      "bytes": 1016674,
+      "sha256": "4ea130c0a361f97b8a21c36276ae9d26548348ea7e0faef63ef0542ace44876c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "26b107b79e1712eacc835079d0dbf86d5e184dae4604cd82dbe4c93771e5a574"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_occlusion.png",
+      "bytes": 753982,
+      "sha256": "1e067cab66c71600b4801e9f81f0afd954525a09efbfebe2e4595ea43193c3de"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_7_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "c299111f80c6dee1594def16077253ec586b81325e5995bbaca68c372a75ddc0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_albedo.png",
+      "bytes": 1039586,
+      "sha256": "7e4b3ca33c7bb1af5fa88482cf869e3a5d33f9ec29d6df94de0fe69b747e0847"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "a478d102b75530efc12d13e0f45b9a87ee9167c98e71ffb27d13468bb61e7e4d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_comp.png",
+      "bytes": 1683774,
+      "sha256": "38db9c9fc3fc51876a2b4a31751e2725bf45eb98115f7c5fda27a5bfbf537b11"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "5732afc9cb375c29a8b080308140303c7a509d25dd92efc4417dcb603f99e55f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_mask.png",
+      "bytes": 1563938,
+      "sha256": "4057b12b1c0e5e51e1ad1b20ea9d36332dabf82fa9b51772a8dff23baf53d041"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "b8aff95713b031aaeafa74f95eaf2a3e716ad2c2d05ec9a5da0e6246ea05a2b9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_normal.png",
+      "bytes": 346609,
+      "sha256": "b84db90fad5575c9a31a8150c82a24dac97b6fe5623d165003140f3ab115e1fe"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "25ca21645357fc9b1bb69d557f72375f2f8a6aad1b88530176bf4124d13533fd"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_occlusion.png",
+      "bytes": 887568,
+      "sha256": "85dd04a5e20c8470501cac3c6692a219d383ea4335f198a5eb77611a0a1331a1"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_8_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "25041a639e2b191f1422e721c04d5dd077b04a2d7ef9af61da276cc093e8f26e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_albedo.png",
+      "bytes": 1325706,
+      "sha256": "acb569774ca266b9345a1618d8bdbe2468b327f2e943c0286f1abded0408ff3f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "a3d84284e215d616412feb98a3f5445bc067ae6a287e837eafcd37719a30306f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_comp.png",
+      "bytes": 1379560,
+      "sha256": "c8e9bcd68d790944ef1d7bdd314b90f88d7930ed60106d826505035c10d56923"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "4fac384718a777f2d6a23f7b6543d00c6ce0e783c60e9c7825f1fbdea02b3833"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_mask.png",
+      "bytes": 1253100,
+      "sha256": "467ffb552e84d846a8770c4999773bd81a87a98fbb849a717e7bac021cd8bd07"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "88baeaf0566e0834043e1303f193e9ea02b173afecd21a3b3368134b23ccb495"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_normal.png",
+      "bytes": 470932,
+      "sha256": "d29af9230e793714973c2c19e7cdd49bafeb1298d72840400c8a7df918e8391b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "398bac8d3a3bec91bcd80bb4f0d1270ebfab6c8580395707d638179ffb895372"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_occlusion.png",
+      "bytes": 742537,
+      "sha256": "2b826a7ec782b6213b5ee5611571494015fdca1af2354d89196ab30044d428e6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_9_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "57528969e1e965e09e9c1a082d76267ed6636e207cf8f1343d93983d99358891"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_decal_1.png",
+      "bytes": 555126,
+      "sha256": "9dad264e0ae622151ffd946bbb25e85ac9b7271903fb8c8ffe5a78948d468eac"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_decal_1.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "ed58b6e509f91fd5ca0ca37e26eb36aa4e0fd11730ea4c806e05022ddf73b524"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_decal_1_emis.png",
+      "bytes": 105570,
+      "sha256": "c4f7a489ee7355402875c77e7ee0b955a69936d3828d40a47cdbd3f5e0abb021"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_decal_1_emis.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "49a719594b23207c1307aeb97d70a1513d576d7ff3832ecaaf0d8df03ef9e677"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_decal_1_green_emis.png",
+      "bytes": 100699,
+      "sha256": "94beccb4dd48391693477c7f9595198ef4db4b57d73779b1f6a4277fe4a86a35"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_decal_1_green_emis.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "dbf0f4b79025ee6a5122abc45f3f1d35bd1d298cc74f254808b52ca7bfbb2447"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_decal_1_white_emis.png",
+      "bytes": 100234,
+      "sha256": "16e25eef94a3649c947dbbe6d9cf7970f42f221209c22e8346ab356e659f2476"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_decal_1_white_emis.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "1b273a8e8cb375966798a1b01a07a964f5cb5cea841428f2cd3f6fc9d16ed026"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_albedo.png",
+      "bytes": 672873,
+      "sha256": "364ab125a434879d676164a74e3d93349dc071645739673fbe91ff7d6754d6b6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "84b8b75ec54175860a4f90d238332c668b586c921d0026c98621dabc288ea6f7"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_comp.png",
+      "bytes": 848783,
+      "sha256": "fd8ecb218721021af2381298944e96e1da0ddd69fa47150585aabbdaa47334f4"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "d647bd5a9765da5788f6ff60bceb2f7a8c1f324f7368a130f068ec25d8caa0b0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_emis.png",
+      "bytes": 817678,
+      "sha256": "422a25fad50396528cc1bfb5439a77b06aae8f157b372c2db3b4912bbb3084f4"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_emis.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "6f01b2b395af4f44c76c048e27ae4a1c2b41cf5f52b66693c13068e1ddfd4df3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_mask.png",
+      "bytes": 759368,
+      "sha256": "dd991918c237d9788abc238f5d9a870aacd8f0d62131468798659220f55565ea"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3931da476303a544ca9196818cf4ca117baa54bbcb892b191ae754c8f528ca84"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_normal.png",
+      "bytes": 164453,
+      "sha256": "7505c606917a4af160e951a7365dde8d3a4bca2d5c5e6d97f0f9c5208044ef16"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3d96c548a7aaae55d851155cb10ef2a9afad7c2119fb06c9a81c600d6fc933c3"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_occlusion.png",
+      "bytes": 575181,
+      "sha256": "5cb0b3ceb9eaf755790bd475676088d8bdd777b7d650fa80f373d3069a46c6e7"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_1_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "33e059364457fb5bd188e3e594ff3682862822f290e4b8e5bf93ed16827141cb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_albedo.png",
+      "bytes": 232048,
+      "sha256": "e216a8cc05133020b4eed7ce9638cceb7db4a3dfc4e3fd6b911cb56b35668980"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "6e918e7da1c763334b4dc1cd3942c0a3eea1afad5623a076229195673241e457"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_comp.png",
+      "bytes": 722237,
+      "sha256": "d57ff0f1a7224b2f0213605abab6a90dc7344b7a660136173bae4c78350c3a5c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "4b34d27c87e3c255f9496304a6161d2f321e3409e5b7c07569da1f775d315373"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_emis.png",
+      "bytes": 303144,
+      "sha256": "05e3efbdd99eec78fe1c455fabf2a98a17992aeea820e64d4ab7e96b61193c8d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_emis.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "90591eb9288c3f3dc35f188736e037376a4316aa0591ba9233aa51d55fe85b8d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_mask.png",
+      "bytes": 669021,
+      "sha256": "79c700fc8621ce04b1281eacc77ef38618b5a3bbb359ef9fd045ccaaf5d4868f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "d33fcb8570a8f6040ef684b03784863c5df02e9ec7293ce155f5c34c6bb62ec7"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_normal.png",
+      "bytes": 142935,
+      "sha256": "c11dae3c67e596718bf832f77040b941f80037b3d889399e374fee057368331d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "a0b1fea83635d6e2213e886452845e358cf2223ac2e8c742fb941f0ad127dbd2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_occlusion.png",
+      "bytes": 481716,
+      "sha256": "8a5a48f769710df6071c854fda98258c933424a539fb4b254473a0568fb556e4"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_int_gauges_2_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "51a752619196732ff9ea12a0dd9a6b272900100d44a77854c9935eb99cbc0ff9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_albedo.png",
+      "bytes": 576709,
+      "sha256": "1c4b8ec6cff661efd83bcbb3f72d2b054c5dc661dda321be7cd450d5b02ba413"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "cdfd3fffea551394d8cfbd13ab3d1fcbd83359e248e3caeaf09318504aea5c8d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_comp.png",
+      "bytes": 31327,
+      "sha256": "95d25b2a59c8d94cbf3ac2fb3832ebc14e9566db21df8a43c6790f02b36a2437"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "90dd73184180fea3c435fb744eafae3ec120609cc81ce45e0c8927b5441b4bf1"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_emis.png",
+      "bytes": 611719,
+      "sha256": "337270424eec9cbc0288b4f6b5c75617d206da6257b0c3e2c3486e12d2f75f2d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_emis.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "d4febb06d1cb6f168a408408fb0535d48cf0056f29a7623c777a077829fa0962"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_mask.png",
+      "bytes": 35961,
+      "sha256": "4a90e6eb46bba607278625c9da7054de175e21466e15ae986c47e6ea107b2b46"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "bed3c197110458f878dfda0b866f473e1bd5796ed127bab5a5382a5d37c4a5ab"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_norm.png",
+      "bytes": 869900,
+      "sha256": "59fc7472d2835ac6cc096e1ca694b6558dc9783cb6f7da4d0b8efe1636fccb15"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_norm.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "eeec108c476db5c4961dc3d4ea3a818990ab378d4733e78fb7802a9156d08461"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_occlusion.png",
+      "bytes": 31949,
+      "sha256": "08bbba8146eda458787a9fa8ba1f9866cedcf8ba584193931591f5a2537b7110"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_lights_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "0051bc1422c79393de38b1b875322f5ec340947e8c820fc91decff7fdf1ee403"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/F117_Mirror_MS.png",
+      "bytes": 70,
+      "sha256": "5e7724fef7c59cebc1ddf436830109bdf2b20ed33689374b5f889ac58ea03e52"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/F117_Mirror_MS.png.meta",
+      "normalization": "lf",
+      "bytes": 2619,
+      "sha256": "4f88b858bd411d49c9a086cceae2564b472055202fe881f003783e3e05662637"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/F117_ParadeFlag.png",
+      "bytes": 336998,
+      "sha256": "94e494c455362a6a11e5858ed4f1d5225245ef87829acdd5620797a08c97cd51"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/F117_ParadeFlag.png.meta",
+      "normalization": "lf",
+      "bytes": 2586,
+      "sha256": "c707db00d06359b2ec3976d4a3f75f263221a8eb3e297bcbe895234a10c67557"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/F117_ParadeFlag_Wrap.png",
+      "bytes": 334559,
+      "sha256": "2f3cbd242f28a04e73c3c34b6bf9aa88ecebf99efecc3319e2f2270925fea172"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/F117_ParadeFlag_Wrap.png.meta",
+      "normalization": "lf",
+      "bytes": 2589,
+      "sha256": "8719e13e0bb3e728d70302080abc7a52bd6b6a1e9faa653d63665d0d03d4cce9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_albedo.png",
+      "bytes": 248010,
+      "sha256": "64b3c59c5a4299eabffb85cf599a7717cb90cac8d0a924f502f7dde970ed5dda"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "facca1ecd2f9a30cae6a9d380ecdf39a3eaa43ba0f65a548b889453338acd0ce"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_comp.png",
+      "bytes": 852152,
+      "sha256": "24096e485e1013a5c79b5c3da20dc04e858a83d2680ba91c8599e023f1010998"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "3156568460a0de737a8f9c875c8eda586daaaeefc76560fada6ec8e99f3484b6"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_mask.png",
+      "bytes": 808456,
+      "sha256": "ba6d6d10e37268079c91726f72701b39c7d1ace3d210b49bfb64af8dd2f41e51"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "9ff1cbbbaf5f57936aa8e6947a88076d77510163fcea91cdd38c4073a836f647"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_normal.png",
+      "bytes": 73100,
+      "sha256": "5f98c778e6caa8b529952dad095e9493d9cec2b9edb90a4c8c0030883dd10ac0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "a39a7dbf6a3397aeb1e04c37b1a14aa5be0ae8ede38a5484deed14471456a9d9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_occlusion.png",
+      "bytes": 585061,
+      "sha256": "ab8475b77c9844b06665838c6fb6e4f745270015f9fbcf13e9d3d4a6a7b4f212"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/f117_tires_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "bcc3a9d164ad9a7f061b67434cd89c67dc793242f4674bb8a5d25eb4fb0ec571"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_albedo.png",
+      "bytes": 827544,
+      "sha256": "c2daf91c2a5d1e68720b886bdc7d47b9da2c1966f51681e7aa0501666df97821"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_albedo.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "af515cf3bae1d49efbf829a5ebe1219f4d93e52ca1bd24e862ed0d352675b388"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_comp.png",
+      "bytes": 593168,
+      "sha256": "f42c43a4a7b1017381442fdf6689310d6f47f14cb468d22b8b95fab8929a3c03"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "62e75fbbaa5374a02b060433c5fd03931f23ed8d361027fb508c033cdb674e5a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_mask.png",
+      "bytes": 582159,
+      "sha256": "7dd274643f2611a7ef5931338fbf0e402e2a02d3179c56d97a49ab565ddfc85d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "a007c607418708ab555c8035e559ee1c52baee1513b48a66a092f42d58ddc791"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_normal.png",
+      "bytes": 18691,
+      "sha256": "001bf08444587306e46c02135b3be63c4e6e90f576e91ed4b52f08c5d3c734c9"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_normal.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "1e517977ae2c996f805e564faed511f730a42a1ec945c8d60d96ca4c7da60d52"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_occlusion.png",
+      "bytes": 302854,
+      "sha256": "69177e8f251db5b0010f0f5a10a0e3c3e24f45eace5e30cfa580cf4c54f08107"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/gauge_glass_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "92dc3ffdba8d4bc8862c327286eee3c71c11220901983213cbbab7af4a77747a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/metal_paint02_comp.png",
+      "bytes": 1388130,
+      "sha256": "34e679bc4990a2b75d81703d1658cf94402d8a1bb996a28a716ba5cd66a725f0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/metal_paint02_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "97af9dadee7b40ba956cc717081baac2de87287a6a40de3dc16d0e148eafa7de"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/metal_paint02_mask.png",
+      "bytes": 1372441,
+      "sha256": "41863b3fb0b4506ee7fdd726edf6fce5f0a688b0bbae3b0b0b43c517869d0914"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/metal_paint02_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "28c90f911f2e8688ded8cc0897b07ee2432ddab1527270746b80c7bf77ed4d2b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/metal_paint02_occlusion.png",
+      "bytes": 635801,
+      "sha256": "7f12358198a0651da8a2295262215b5d7791b15cbeca2bac4770c3337f5e2f4a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/metal_paint02_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "b715c7c2023149795b19689827eac1b443c144e3d5bc90e20fe2843b19cbb8cc"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/windshield_comp.png",
+      "bytes": 4590,
+      "sha256": "17b119340a9f4a82bb0fe864ae1a70b3403ba36bf859bdd7afbca55e544fa48f"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/windshield_comp.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "62e8a422b5875f32831f2ad5057b7a9339483e8ccd5582aff5b7ed7ea054185c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/windshield_mask.png",
+      "bytes": 5806,
+      "sha256": "4cf9584f74c0a527a82667a569e71f89259a65fc8b52c2b43f2717efa1613c41"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/windshield_mask.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "6be9cb0f9af720a103856501c835280b80bcf03ac6871ab250c62a3ed2b89445"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/windshield_norm.png",
+      "bytes": 4587,
+      "sha256": "834833538cc23c0712c58e85b36470138c21894197015e25d7259ad8ad73c57b"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/windshield_norm.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "0a8f55a0a939abfafe88c449fe732a78ca7b0cb3e2dbc792c68b90c37801dfcb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/windshield_occlusion.png",
+      "bytes": 5806,
+      "sha256": "5a72577f1f00608a2432788548670459e7f1866a777ab5df37975191bf8afdbe"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures/windshield_occlusion.png.meta",
+      "normalization": "lf",
+      "bytes": 2591,
+      "sha256": "87a62bc9d94257bbe0f16b974c57e08daaa0d08495c775b34629741f143a7a64"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/Textures.meta",
+      "normalization": "lf",
+      "bytes": 172,
+      "sha256": "712ca589372a9405ad3dcfcdcc9a087e141653fea4443050075fd4c9589b5f8d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_CentralBody.png",
+      "bytes": 8723,
+      "sha256": "1b97d82a9924b9431c1246207c5a2f34f000bda11542a1d465cfed1bd961961d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_CentralBody.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "b452e702c0919edacca0ca9a944f0e2b0504532391be2aa349b14221b2ec775c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Elevon_L_Inner.png",
+      "bytes": 1995,
+      "sha256": "845730f4960d37269fc800790aa1032392eeaa5d4e038141b05d5e12d881589a"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Elevon_L_Inner.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "2b3f730e196ddc9861e83c83da04c94d4abbab153f8930f3777afef909504dd8"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Elevon_L_Outer.png",
+      "bytes": 1912,
+      "sha256": "53c8e2da5880cf7b2669672c09dd759c55ac76da105f5fd3f2695d3522c7c88c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Elevon_L_Outer.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "5b18345410af528dbd502727b90a5dcde33a3cdc2af4df6870f73a945ecf4670"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Elevon_R_Inner.png",
+      "bytes": 1999,
+      "sha256": "146b5e8bc6af5069b289a4167aef32a6a9f6fedf04d4bcc36286ad28810aa231"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Elevon_R_Inner.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "fd39d4724171181f56bf27db6893ecd95c85497188e25585c6bce5532fe608cc"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Elevon_R_Outer.png",
+      "bytes": 1935,
+      "sha256": "f668bfe89a1594f33029d7e5945d72e882e2a8599267d11dea862a495f5026f2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Elevon_R_Outer.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "23c71a31e9efb202a283f157ace655b3c363ed32dfcda92613bdd623adc19c61"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Engine_Left.png",
+      "bytes": 1303,
+      "sha256": "9e0083b5ce6686e19b5d2de1f1f52489833e1bc1768b7bb75d472dcb01f6a170"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Engine_Left.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "810fa601629b942c2c99b3f0653c560019d455ca37669ddb267ae7cefb1afdf0"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Engine_Right.png",
+      "bytes": 1318,
+      "sha256": "d5e605d74af1bd8682ccb15e487eba6132ea3cf39d0301f94825ef92eefcdbe8"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Engine_Right.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "9115542cdabef7ee4cf90b245d19a085a129c33709d1c3bf462aff69b53e03b2"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Rudder_L.png",
+      "bytes": 2147,
+      "sha256": "0f15769a8e1f9947e5344522465e1a4cebff8032324b098fb7152ebeb00c42ca"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Rudder_L.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "7eb6099ae138f131b794e6f9950a790606f191138c506ebc818d4bafa5f228f1"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Rudder_R.png",
+      "bytes": 2120,
+      "sha256": "64e8ca85f8b96d8fa76ca59b2bdab06bcecf033ce5004a050b1191d6e55d3e54"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Rudder_R.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "3ebf39c4c3447788c26b00bbb6165afe143ce7ddbed4839a3b5986b40599d8eb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Wing_Left.png",
+      "bytes": 4197,
+      "sha256": "b9a55769bfb8e179ff32a71c248cd3f2e7ed0424192e0f993a795f35d417195c"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Wing_Left.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "e7d902ee77cba21ea3ea7b78237e48dfc6d309ca0d3e15986f7f9233f99861eb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Wing_Right.png",
+      "bytes": 4249,
+      "sha256": "efedc373484e082ff011fb65fb244564bd0ed1b2deb0236d227751379ba0e128"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections/F117_Wing_Right.png.meta",
+      "normalization": "lf",
+      "bytes": 2617,
+      "sha256": "52d2917bc2b3adb79be06a3312c5e12f80bed054bd4383b3d1493e4760454cfb"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/DamageSections.meta",
+      "normalization": "lf",
+      "bytes": 169,
+      "sha256": "3034eb197d98dc76a6f1d3ff62cffdc57ebbe51faf9f145a9521b1be792e9572"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/F117_Damage.png",
+      "bytes": 111829,
+      "sha256": "d8fca9edd26535f8a63dc8263ea25846b060a9eddb70ad02ea4c4452fbf87d83"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/F117_Damage.png.meta",
+      "normalization": "lf",
+      "bytes": 2623,
+      "sha256": "6fd528d8016c135559093dc99d857929a64eac97bae225a26fbd527d69e2880d"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/F117_Icon.png",
+      "bytes": 36027,
+      "sha256": "8c94b8bc8fd594931652f014bfa6fd04f651dda323c73052250533a1745e690e"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI/F117_Icon.png.meta",
+      "normalization": "lf",
+      "bytes": 2622,
+      "sha256": "1d058b3b8caf3916d866111900973bed8c11ca854872425d04a321785c239297"
+    },
+    {
+      "path": "UnityAuthoring/Assets/F117/UI.meta",
+      "normalization": "lf",
+      "bytes": 172,
+      "sha256": "9ea8c91489801a8c25ef1f2d8efa162ad060321d8f850cf8b351b15cc8d48d6a"
+    }
+  ]
+}

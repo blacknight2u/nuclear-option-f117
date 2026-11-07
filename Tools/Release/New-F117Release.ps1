@@ -20,6 +20,14 @@ if ($receipt.result -ne 'PASS' -or $receipt.sha256 -ne $bundleHash) {
     throw 'Bundle does not match its successful build-validation receipt. Rebuild it.'
 }
 $dllHash = (Get-FileHash -LiteralPath $dllPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($receipt.validationKind -eq 'published-bundle-compatibility') {
+    if ($receipt.pluginSha256 -ne $dllHash -or $receipt.bundleChecks.result -ne 'PASS' -or
+        $receipt.bundleChecks.bundleSha256 -ne $bundleHash -or
+        $receipt.bundleChecks.gameAssemblySha256 -ne $receipt.gameAssemblySha256 -or
+        $receipt.changedObjects.Count -ne 1 -or $receipt.changedObjects[0] -ne 'patch_manifest.modVersion') {
+        throw 'Compatibility receipt does not match this plugin and bundle.'
+    }
+}
 $metadata.artifact.hash = 'sha256:' + $dllHash
 $readme = Get-Content -LiteralPath (Join-Path $packageRoot 'README.md') -Raw
 if ($readme -notmatch 'Ricardo3D' -or $readme -notmatch 'creativecommons.org/licenses/by/4.0') {
@@ -73,7 +81,22 @@ try {
 } finally { $archive.Dispose() }
 [IO.File]::Move($pending, $output)
 
+# Generate a submission snapshot from the exact archive, not a hand-maintained hash.
+$zipHash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+$store = Get-Content -LiteralPath (Join-Path $repoRoot 'Store\blacknight2u.f117a.nighthawk.json') -Raw | ConvertFrom-Json
+$store.artifacts = @([ordered]@{
+    fileName = [IO.Path]::GetFileName($output)
+    version = $version
+    category = 'release'
+    type = 'plugin'
+    gameVersion = $metadata.artifact.gameVersion
+    downloadUrl = 'https://github.com/blacknight2u/nuclear-option-f117/releases/download/v' + $version + '/' + [IO.Path]::GetFileName($output)
+    hash = 'sha256:' + $zipHash
+    dependencies = $metadata.artifact.dependencies
+})
+$store | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $outputDir 'blacknight2u.f117a.nighthawk.json') -Encoding utf8
+
 Write-Output ('Verified release: ' + $output)
 Write-Output ('DLL SHA256: ' + $dllHash)
 Write-Output ('Bundle SHA256: ' + $bundleHash)
-Write-Output ('ZIP SHA256: ' + (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant())
+Write-Output ('ZIP SHA256: ' + $zipHash)

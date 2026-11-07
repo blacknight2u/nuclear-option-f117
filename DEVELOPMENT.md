@@ -15,6 +15,48 @@
 
 Clone with Git LFS enabled so the Blender and FBX assets are materialized.
 
+## Restore on a new computer
+
+The repository and its pinned public dependencies are sufficient to restore the
+source assets and build a compatibility release. Previous home-directory projects
+and Codex sessions are not required.
+
+```powershell
+pwsh -File Tools/Build/Restore-Workspace.ps1 -GameDir "C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option"
+pwsh -File Tools/Release/Build-CompatibilityRelease.ps1 -SkipRestore
+```
+
+Use PowerShell 7, Git LFS, Python 3.11 or newer, a .NET SDK, and a game installation
+with BepInEx 5. Restore downloads the dependency versions in
+`Build/dependencies.lock.json`, verifies SHA-256 hashes, extracts the donor's
+embedded bundle, creates a Python environment under `artifacts/python`, and
+records absolute paths in `artifacts/workspace.json`. Re-running restore verifies
+and reuses the same files. It never writes into the installed game.
+
+`Build/source-assets.json` records the authored source files and their sizes and
+hashes. GitHub Actions checks this inventory with LFS materialized. Deliberate
+asset edits require `python Tools/Build/check_source_assets.py --write`; review
+the resulting inventory changes before committing.
+
+### What is and is not backed up here
+
+- The canonical Blender file, Unity FBX, textures, UI images, import metadata,
+  editor scripts and project settings are in Git/Git LFS.
+- The exact donor DLL is downloaded from its original public release. Its
+  embedded `.nobp` contains the required `Aryx_F16M_KingViper.prefab`, skin material
+  and `patch_manifest.json`. Restore checks their bundle paths automatically.
+- Current game/BepInEx assemblies are read from the local game installation.
+- The old editable donor export and isolated game-reference DLLs were never
+  committed. Compiled bundle recovery is not a substitute for those editable
+  files when making new geometry/physics/material changes. Export the recovered
+  donor with a Unity asset exporter into `UnityAuthoring/Assets/blueprinter`,
+  supply isolated game references under `UnityAuthoring/Assets/Plugins`, then
+  use the full Unity build workflow below. Do not publish these third-party
+  reference files in this repository.
+
+Compatibility-only updates do not need that full reauthoring environment because
+they preserve every published aircraft asset except its manifest version token.
+
 ## Local requirements
 
 - Blender with Python support
@@ -91,6 +133,32 @@ requires that receipt's hash and version to match, verifies the DLL version,
 computes its metadata hash, checks attribution, and reads back the packaged binary
 hashes. Existing release ZIPs are never overwritten. This verifies packaging, not
 flight behavior or runtime shader appearance.
+
+### Compatibility-only releases
+
+When aircraft assets do not change, the immutable published v0.5.0 bundle can
+be reused with `Tools/Release/new_compatibility_bundle.py`. This is a version-only
+repack, not a Unity rebuild. The tool pins the source ZIP and bundle SHA-256,
+requires an equal-length manifest-version replacement, compares every serialized
+object, and refuses changes outside `patch_manifest.modVersion`.
+
+First build the plugin and run `Tools/Audits/Test-GameCompatibility.ps1` with
+`-PluginAssembly`, `-SourceDirectory Plugin`, `-BlueprinterAssembly`, and
+`-OutputPath`. Export the installed game's schema with
+`Tools/Audits/Export-GameSchema.ps1 -OutputPath <schema.json>`. Then run:
+
+```powershell
+python Tools/Release/new_compatibility_bundle.py <published-v0.5.0.zip> <schema.json> <plugin-audit.json> artifacts/Blueprinter/blacknight2u.f117a.nighthawk.nobp --version 0.5.1
+```
+
+The tool additionally checks serialized script fields and Blueprinter member
+paths against the installed game's schema. Its receipt explicitly records
+`validationKind: published-bundle-compatibility`, the original release hashes,
+the plugin hash, and the limits of static verification. `New-F117Release.ps1`
+accepts this receipt only for the exact plugin and bundle it identifies.
+Do not use this path for changes to geometry, physics, materials, or patch ops.
+Those changes still require the configured Unity authoring project and its
+full build validator. Neither path substitutes for in-game validation.
 
 ## NOMM updates
 

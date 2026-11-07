@@ -21,8 +21,8 @@ The aircraft is available at rank 4 and costs $120 million.
 
 ## Requirements
 
-- Nuclear Option `0.34.2`
-- Blueprinter `2.0.1`
+- Nuclear Option `0.34.6`
+- Blueprinter `2.1.1`
 
 ## Installation
 
@@ -35,6 +35,23 @@ The mod's code is available under the [MIT License](LICENSE). The aircraft model
 uses CC BY 4.0, as credited below.
 
 ## Development documentation
+
+The source assets are in this repository: `F117_Production_Master.blend` and
+`UnityAuthoring/Assets/F117` (model, textures, UI and builder). The Blender and FBX
+files use Git LFS. Do not use an old local Broom Witch checkout as the source.
+
+On Windows with Git LFS, Python 3.11+, .NET, Nuclear Option and BepInEx installed:
+
+```powershell
+git clone https://github.com/blacknight2u/nuclear-option-f117.git
+cd nuclear-option-f117
+pwsh -File Tools/Build/Restore-Workspace.ps1
+pwsh -File Tools/Release/Build-CompatibilityRelease.ps1 -SkipRestore
+```
+
+The restore command verifies every source asset, downloads checksum-pinned build
+dependencies, and writes their locations to `artifacts/workspace.json`. It does
+not modify the installed game. See the development guide for full aircraft edits.
 
 - [Development and release process](DEVELOPMENT.md)
 - [Aircraft modding guide](AIRCRAFT_MODDING_GUIDE.md)
