@@ -21,6 +21,7 @@ namespace Blacknight2u.F117Nighthawk
             if (!Plugin.TryRegisterUnlockedStockMounts(__0))
                 Plugin.Log.LogError("F-117 stock-disabled weapon registration failed after " +
                     "Blueprinter loading. ARAD-45 loadouts may not serialize safely.");
+            AryxWeaponIntegration.Register();
         }
     }
 }

@@ -29,6 +29,35 @@ The aircraft is available at rank 4 and costs $120 million.
 Install and enable **F-117A Nighthawk** through NOMM. Blueprinter is installed
 as a dependency.
 
+## Optional Aryx weapons
+
+Install and enable [Aryx Weaponry Pack 1.1.1](https://github.com/Aryx3D/AryxWeaponryPack/releases/tag/1.1.1)
+alongside the F-117 to unlock these additional presets. Counts are for the entire aircraft.
+
+| Preset | Payload |
+| --- | --- |
+| Stealth Strike | 2 PGM-400LR |
+| Anti-Armor | 8 or 12 AGM-27 Pyre |
+| Laser Strike | 4 AGR-37 Jester |
+| Standoff | 8 AGM-76 Atlatl |
+| Air Defense | 6 MRM-S4 Broadsword or 4 IRM-S5 Gladius |
+| Mixed Strike | 1 PGM-400LR + 6 Pyre |
+| Defensive Strike | 1 PGM-400LR + 3 Broadsword or 2 Gladius |
+
+Both bays can also be configured independently. Every preset retains the fixed
+jammer. Jester uses the aircraft's built-in, single-target laser designator;
+maintain designation until impact. These weapons retain Aryx's damage and guidance.
+Bay doors open before the mounted weapons lower clear of the aircraft.
+
+Aryx is optional and distributed by its author separately. Without it, the original
+19 presets remain available. For multiplayer, use matching aircraft and weapon-pack
+versions on the server and clients. Missing or oversized mounts are skipped with a
+log message rather than added to the bays.
+
+Validated on game 0.34.6: registration with and without Aryx, mount geometry,
+rearming and native downward rail motion. Combat effectiveness, actual projectile
+flight, laser tracking and multiplayer sessions still require gameplay testing.
+
 ## License
 
 The mod's code is available under the [MIT License](LICENSE). The aircraft model

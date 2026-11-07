@@ -160,7 +160,46 @@ Do not use this path for changes to geometry, physics, materials, or patch ops.
 Those changes still require the configured Unity authoring project and its
 full build validator. Neither path substitutes for in-game validation.
 
-## NOMM updates
+## Optional weapon integration (0.6.0)
+
+`Plugin/AryxWeaponIntegration.cs` resolves the separately loaded Aryx mounts after
+Blueprinter `ApplyAllOps`. It appends options and presets only to the F-117 and
+uses the existing weapon registry IDs. It never calls `Initialize` on those
+mounts, mutates their shared prefabs, or registers new network definitions.
+Mount positioning changes the spawned rack instance; release settings change
+only mounted missiles on the F-117's named internal stations. The original
+projectile definitions supply all damage, seeking and flight behavior.
+
+The seven supported rack keys and expected counts are explicit. Missing weapon
+meshes, unregistered definitions and bounds exceeding the bay envelope with
+10 mm clearance on each side are rejected. The working external PGM single mount
+is used because the pack's internal single has missing mounted meshes. New weapon
+options are optional at runtime; they are not hard NOMM dependencies.
+
+This update changes runtime code and the bundle's version token only. The
+unchanged-bundle build path above applies; it does not require rebuilding the
+aircraft geometry or exporting third-party assets.
+
+Build the isolated runtime probe with:
+
+```powershell
+dotnet build Tools/Tests/AryxRuntimeProbe/AryxRuntimeProbe.csproj -c Release
+pwsh -File Tools/Tests/Test-AryxRuntime.ps1 -IsolatedGameDir <game-copy> -AryxDll <official-Aryx-DLL> -OutputDirectory artifacts/aryx-tests/with-pack
+pwsh -File Tools/Tests/Test-AryxRuntime.ps1 -IsolatedGameDir <game-copy> -OutputDirectory artifacts/aryx-tests/without-pack
+```
+
+The copy must contain the base F-117, Blueprinter and BepInEx. Use the optional
+runtime dependency URL/hash in the lock file to obtain the tested pack. The runner
+refuses the Steam library, backs up and restores its F-117 DLL and exits the game
+automatically. Reports identify the tested plugin module ID. Supply `-ReleaseZip`
+to test the exact packaged DLL and bundle. The probe checks both bay
+placements, native attach/rearm/rail motion, unchanged source mounts and another
+aircraft's release settings, fixed jammers, original registry IDs, repeated
+registration, and absence of optional dependencies. These inactive test rigs do
+not spawn combat projectiles or establish interception performance or multiplayer
+compatibility. Complete flight and multiplayer trials before claiming those.
+
+## NOMM release submission
 
 For this already-registered mod, publish a new GitHub release tag with one release
 ZIP. NOMNOM's artifact updater follows the repository because

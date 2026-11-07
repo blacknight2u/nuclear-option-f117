@@ -21,7 +21,7 @@ namespace Blacknight2u.F117Nighthawk
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.5.1";
+        public const string PluginVersion = "0.6.0";
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
         internal const string LightweightAgmMountKey = "AGM1_quad_internal";
@@ -1797,6 +1797,7 @@ namespace Blacknight2u.F117Nighthawk
             // AttachToHardpoint derives its cached rail vector inside the original method,
             // so the direction must be set before that calculation runs.
             Plugin.ConfigureBayMissileRelease(__instance, aircraft, hardpoint, weaponMount);
+            AryxWeaponIntegration.ConfigureRelease(__instance, aircraft, hardpoint, weaponMount);
         }
     }
 

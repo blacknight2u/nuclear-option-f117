@@ -34,6 +34,15 @@
       "assets/blueprinter/generated/patch_manifest.json"
     ]
   },
+  "optionalRuntimeDependencies": [
+    {
+      "id": "aryx.weaponpack",
+      "version": "1.1.1",
+      "fileName": "AryxWeaponsPack_1.1.1.dll",
+      "url": "https://github.com/Aryx3D/AryxWeaponryPack/releases/download/1.1.1/AryxWeaponsPack_1.1.1.dll",
+      "sha256": "acb6e94fff6354bee7a5f28893fd28837cafadf298b945270c029aa1f0b3e996"
+    }
+  ],
   "localOnly": [
     "NuclearOption_Data/Managed: current game and Unity assemblies",
     "BepInEx/core: installed BepInEx 5, Harmony and Mono.Cecil",
