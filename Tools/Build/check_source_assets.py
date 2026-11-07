@@ -15,7 +15,9 @@ def asset_paths():
     assets.extend(p for p in (ROOT / "UnityAuthoring/Assets/F117").rglob("*")
                   if p.is_file() and "Generated" not in p.parts
                   and p.suffix.lower() in {".fbx", ".png", ".meta"})
-    return sorted(assets)
+    # pathlib sorts case-insensitively on Windows and case-sensitively on Linux.
+    # Sort the portable strings so checkout platform cannot change the inventory.
+    return sorted(assets, key=lambda path: path.relative_to(ROOT).as_posix())
 
 
 def record(path):
@@ -41,7 +43,8 @@ def main():
     if args.write:
         INVENTORY.parent.mkdir(parents=True, exist_ok=True)
         INVENTORY.write_text(json.dumps({"schemaVersion": 1, "assets": actual}, indent=2) + "\n", encoding="utf-8")
-    expected = json.loads(INVENTORY.read_text(encoding="utf-8"))["assets"]
+    expected = sorted(json.loads(INVENTORY.read_text(encoding="utf-8"))["assets"],
+                      key=lambda item: item["path"])
     if actual != expected:
         old = {x["path"]: x for x in expected}
         new = {x["path"]: x for x in actual}
