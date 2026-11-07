@@ -22,6 +22,12 @@ The aircraft is available at rank 4 and costs $120 million.
 Default fuel and all standard loadouts start at **25%**. Increase the fuel
 selection when you need more range; tank capacity remains 8,250 kg.
 
+The drag chute deploys automatically after landing once the main and nose wheels
+are supporting the aircraft, it is aligned with its direction of travel, and
+speed is within the deployment range (20–215 knots). It jettisons automatically
+at about 20 knots and is single-use. No brake command or extra HUD indicator is
+required.
+
 ## Requirements
 
 - Nuclear Option `0.34.6`

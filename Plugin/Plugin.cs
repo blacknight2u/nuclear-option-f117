@@ -21,7 +21,7 @@ namespace Blacknight2u.F117Nighthawk
     {
         public const string PluginGuid = "blacknight2u.f117a.nighthawk";
         public const string PluginName = "F-117A Nighthawk";
-        public const string PluginVersion = "0.6.1";
+        public const string PluginVersion = "0.6.2";
         internal const float DefaultFuelRatio = 0.25f;
         internal const string AircraftKey = "blacknight2u_F117A_Nighthawk";
         internal const string FixedJammerHardpointName = "JammingPod1";
@@ -2371,7 +2371,6 @@ namespace Blacknight2u.F117Nighthawk
         private static readonly FieldInfo CockpitTacScreenRender = AccessTools.Field(typeof(Cockpit), "tacScreenRender");
         private Aircraft aircraft;
         private Rigidbody body;
-        private ControlInputs inputs;
         private Transform chute;
         private Transform leftDoor;
         private Transform rightDoor;
@@ -2408,7 +2407,6 @@ namespace Blacknight2u.F117Nighthawk
                 return;
             aircraft = owner;
             body = owner.GetComponent<Rigidbody>();
-            inputs = owner.GetInputs();
             chute = FindDeep(owner.transform, "F117_DragChute");
             leftDoor = FindDeep(owner.transform, "F117_ChuteDoor_Left");
             rightDoor = FindDeep(owner.transform, "F117_ChuteDoor_Right");
@@ -2643,13 +2641,10 @@ namespace Blacknight2u.F117Nighthawk
             if (!chuteAvailable || body == null)
                 return;
 
-            if (inputs == null)
-                inputs = aircraft.GetInputs();
             float speed = body.velocity.magnitude;
             bool gearLocked = aircraft.gearState == LandingGear.GearState.LockedExtended;
             bool mainGearOnGround = MainGearCarryWeight();
             bool noseOnGround = noseGear != null && noseGear.WeightOnWheel(WheelLoadThreshold);
-            bool requested = inputs != null && inputs.brake >= 0.65f;
             // Broken wheels no longer expose suspension compression. Once their native break event
             // has confirmed this touchdown, do not reinterpret the missing components as a new
             // airborne interval and cancel the landing roll 0.75 seconds later.
@@ -2676,7 +2671,7 @@ namespace Blacknight2u.F117Nighthawk
                 wasAirborne = false;
                 landingRollArmed = true;
                 Plugin.Log.LogDebug("F-117 landing roll armed drag chute at " +
-                    (speed * 3.6f).ToString("0") + " km/h; waiting for nose-wheel contact, alignment, and brake command.");
+                    (speed * 3.6f).ToString("0") + " km/h; waiting for nose-wheel contact and alignment.");
             }
             previousMainGearContact = mainGearOnGround;
 
@@ -2696,12 +2691,14 @@ namespace Blacknight2u.F117Nighthawk
                 aircraft.radarAlt <= 4f && Mathf.Abs(body.velocity.y) <= MaximumDeploymentSinkRate &&
                 alignmentAngle <= MaximumRunwayAlignmentAngle;
 
-            if (!deployed && !spent && requested && validLandingRoll &&
+            // Deploy automatically once the existing touchdown, contact, alignment
+            // and speed gates pass. Wheel-brake input is independent of the chute.
+            if (!deployed && !spent && validLandingRoll &&
                 speed <= MaximumChuteDeploymentSpeed && speed > ChuteJettisonSpeed)
             {
                 deployed = true;
                 landingRollArmed = false;
-                Plugin.Log.LogDebug("F-117 drag chute deployed at " + (speed * 3.6f).ToString("0") +
+                Plugin.Log.LogDebug("F-117 drag chute automatically deployed at " + (speed * 3.6f).ToString("0") +
                     " km/h with landing contact confirmed" +
                     (brokenGearTouchdown ? " after gear damage" : " on all gear") +
                     " and runway alignment " + alignmentAngle.ToString("0.0") + " degrees.");

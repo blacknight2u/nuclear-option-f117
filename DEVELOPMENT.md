@@ -210,6 +210,15 @@ runtime change works with the unchanged published aircraft assets; use the
 version-only bundle workflow above. The runtime probe checks both the 19 base
 presets and the 29 presets available with Aryx.
 
+## Automatic drag chute (0.6.2)
+
+The 0.6.2 runtime update makes the existing drag chute automatic. It removes only
+the wheel-brake input gate; prior airborne evidence, landing contact, alignment,
+deployment speed, sink rate, damaged-gear handling and single-use jettison remain
+in force. It adds no HUD element and preserves the chute's existing drag force.
+The runtime probe exercises these transitions on an inactive aircraft fixture;
+this checks the controller state machine, not a live landing or stopping distance.
+
 ## NOMM release submission
 
 For this already-registered mod, publish a new GitHub release tag with one release
