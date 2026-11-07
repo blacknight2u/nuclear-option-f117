@@ -80,6 +80,7 @@ public sealed class Probe : BaseUnityPlugin
             Require(bay.weaponOptions.Count(mount => mount != null && Keys.Contains(mount.jsonKey)) == (pack ? 7 : 0),
                 "Wrong optional mount count in " + bay.name);
         var parameters = definition.aircraftParameters;
+        Require(Mathf.Approximately(parameters.DefaultFuelLevel, .25f), "Default fuel is not 25%");
         Require(parameters.StandardLoadouts.Length == (pack ? 29 : 19), "Wrong preset count: " + parameters.StandardLoadouts.Length);
         int[] optionCounts = sets.Select(set => set.weaponOptions.Count).ToArray();
         int loadoutCount = parameters.loadouts.Count;
@@ -92,6 +93,7 @@ public sealed class Probe : BaseUnityPlugin
             "Registration changed network indices");
         foreach (var preset in parameters.StandardLoadouts)
         {
+            Require(Mathf.Approximately(preset.FuelRatio, .25f), "Preset fuel is not 25%: " + preset.Name);
             Require(preset.loadout.weapons.Count == sets.Length, "Wrong preset station count");
             for (int i = 0; i < sets.Length; i++)
             {
@@ -104,6 +106,7 @@ public sealed class Probe : BaseUnityPlugin
             Require(preset.loadout.weapons.Any(m => m != null && m.jsonKey == "JammingPod1"), "Preset lost fixed jammer");
         }
         lines.Add("PASS presets, original registry identities, fixed jammer and idempotent registration");
+        lines.Add("PASS 25% default fuel and all " + parameters.StandardLoadouts.Length + " preset fuel levels");
         var laser = original.GetComponentInChildren<LaserDesignator>(true);
         Require(laser != null && (int)F(laser, "maxTargets") == 1 && (float)F(laser, "range") == 20000f,
             "Built-in laser designator changed");

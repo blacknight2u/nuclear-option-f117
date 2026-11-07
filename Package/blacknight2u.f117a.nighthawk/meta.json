@@ -16,7 +16,7 @@
   ],
   "artifact": {
     "fileName": "F117Nighthawk.dll",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "category": "release",
     "type": "plugin",
     "gameVersion": "0.34.6",

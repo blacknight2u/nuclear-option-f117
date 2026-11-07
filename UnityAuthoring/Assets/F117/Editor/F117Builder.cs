@@ -66,7 +66,8 @@ public static class F117Builder
     private const string AircraftKey = "blacknight2u_F117A_Nighthawk";
     private const string AircraftName = "F-117A Nighthawk";
     private const string BundleName = "blacknight2u.f117a.nighthawk.nobp";
-    private const string Version = "0.6.0";
+    private const string Version = "0.6.1";
+    internal const float DefaultFuelRatio = 0.25f;
     private const string FixedJammerAsset = "JammingPod1";
 
     private sealed class WeaponLoadoutSpec
@@ -75,7 +76,7 @@ public static class F117Builder
         internal readonly string DisplayName;
         internal readonly float FuelRatio;
 
-        internal WeaponLoadoutSpec(string assetName, string displayName, float fuelRatio = 1f)
+        internal WeaponLoadoutSpec(string assetName, string displayName, float fuelRatio = DefaultFuelRatio)
         {
             AssetName = assetName;
             DisplayName = displayName;
@@ -90,12 +91,12 @@ public static class F117Builder
         new WeaponLoadoutSpec("AGM1_quad_internal", "8× AGM-48"),
         new WeaponLoadoutSpec("bomb_250_internalx2", "4× PAB-250"),
         new WeaponLoadoutSpec("bomb_500_internal", "2× GPO-500"),
-        new WeaponLoadoutSpec("bomb_penetrator1", "2× GPO-2P Auger", 0.96f),
+        new WeaponLoadoutSpec("bomb_penetrator1", "2× GPO-2P Auger"),
         new WeaponLoadoutSpec("AGM_heavy_internal", "2× AGM-68"),
         new WeaponLoadoutSpec("ARM1_single", "2× ARAD-116"),
         new WeaponLoadoutSpec("AAM1_double_internal", "4× MMR-S3"),
         new WeaponLoadoutSpec("AAM2_double_internal", "4× AAM-29 Scythe"),
-        new WeaponLoadoutSpec("CruiseMissile1_internal", "2× ALM-C450", fuelRatio: 0.98f),
+        new WeaponLoadoutSpec("CruiseMissile1_internal", "2× ALM-C450"),
         new WeaponLoadoutSpec("nuclearBomb1_internal", "2× GPO-N (1.5 kt)"),
         new WeaponLoadoutSpec("bomb_250_glide_internalx2", "4× PAB-250LR"),
         new WeaponLoadoutSpec("bomb_500_glide_internalx1", "2× GBM-500LR"),
@@ -359,7 +360,7 @@ public static class F117Builder
         SetString(data, "aircraftName", AircraftName);
         Set(data, "rankRequired", 4);
         ConfigureAirfoils(data);
-        Set(data, "DefaultFuelLevel", 1f);
+        Set(data, "DefaultFuelLevel", DefaultFuelRatio);
         Set(data, "StatusDisplay", status);
         Set(data, "HUDExtras", runtimeUiFallback);
         Set(data, "takeoffMusic", null);

@@ -19,6 +19,9 @@ Adds the F-117A Nighthawk as a separate flyable aircraft in Nuclear Option.
 
 The aircraft is available at rank 4 and costs $120 million.
 
+Default fuel and all standard loadouts start at **25%**. Increase the fuel
+selection when you need more range; tank capacity remains 8,250 kg.
+
 ## Requirements
 
 - Nuclear Option `0.34.6`

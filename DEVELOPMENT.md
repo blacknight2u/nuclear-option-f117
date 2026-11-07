@@ -199,6 +199,17 @@ registration, and absence of optional dependencies. These inactive test rigs do
 not spawn combat projectiles or establish interception performance or multiplayer
 compatibility. Complete flight and multiplayer trials before claiming those.
 
+## Fuel defaults (0.6.1)
+
+After Blueprinter finishes applying its patches and optional Aryx presets are
+registered, `F117WeaponRegistration` sets the F-117's `DefaultFuelLevel` and all
+`StandardLoadouts[].FuelRatio` values to 0.25. This changes defaults only, not
+the selected fuel of a saved loadout or the live contents/capacity of a tank.
+The authoring builder uses the same value for future full bundle builds. The
+runtime change works with the unchanged published aircraft assets; use the
+version-only bundle workflow above. The runtime probe checks both the 19 base
+presets and the 29 presets available with Aryx.
+
 ## NOMM release submission
 
 For this already-registered mod, publish a new GitHub release tag with one release

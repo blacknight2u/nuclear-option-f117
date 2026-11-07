@@ -96,7 +96,7 @@ namespace Blacknight2u.F117Nighthawk
                 loadout.weapons[left] = leftMount;
                 loadout.weapons[right] = rightMount;
                 loadout.weapons[jammer] = fixedJammer;
-                standards.Add(new StandardLoadout { Name = preset[0], FuelRatio = 1f, loadout = loadout });
+                standards.Add(new StandardLoadout { Name = preset[0], FuelRatio = Plugin.DefaultFuelRatio, loadout = loadout });
                 if (parameters.loadouts == null)
                     parameters.loadouts = new List<Loadout>();
                 parameters.loadouts.Add(loadout);
