@@ -1,78 +1,88 @@
 # F-117A Nighthawk for Nuclear Option
 
-Adds the F-117A Nighthawk as a separate flyable aircraft in Nuclear Option.
+Fly the F-117A Nighthawk into defended airspace with an exceptionally low radar
+signature and two independently configurable internal weapon bays. Choose a
+precision strike, an anti-radar payload, or a mixed loadout, then use passive
+sensors and the built-in laser designator to work your target.
 
-## Aircraft
+Keeping the gear and bays closed gives the aircraft its smallest radar signature.
+Each bay door and the landing gear increase that signature as they open, making
+when you expose the aircraft part of the attack.
 
-- Extreme-low-observable radar profile while clean, with increased signature
-  when the landing gear or either weapon bay is open
-- High-subsonic flight model with twin non-afterburning engines
-- Two independent internal weapon bays with a broad selection of compatible
-  strike and defensive loadouts
-- Passive electro-optical targeting and radar-warning equipment without an
-  emitting search radar
-- Permanently installed active radar jammer, 64 radar chaff, and 32 infrared
-  flares
-- Animated landing gear, weapon bays, canopy, and one-use landing drag chute
-- Purpose-built damage model and aircraft status display
-- Nighthawk Black plus Farewell Flag liveries in Smoked Chrome and Matte Black
+## Choose your payload
 
-The aircraft is available at rank 4 and costs $120 million.
+The aircraft includes **19 base loadout presets**, with options for guided bombs,
+anti-radar missiles, anti-ship weapons, defensive missiles and nuclear strike.
+Configure each bay separately to suit the mission. The built-in jammer stays
+installed with every loadout.
 
-Default fuel and all standard loadouts start at **25%**. Increase the fuel
-selection when you need more range; tank capacity remains 8,250 kg.
+Install the optional [Aryx Weaponry Pack 1.1.1](https://github.com/Aryx3D/AryxWeaponryPack/releases/tag/1.1.1)
+to add **10 more presets**:
 
-The drag chute deploys automatically after landing once the main and nose wheels
-are supporting the aircraft, it is aligned with its direction of travel, and
-speed is within the deployment range (20–215 knots). It jettisons automatically
-at about 20 knots and is single-use. No brake command or extra HUD indicator is
-required.
-
-With stability assist on and gear fully down, low-speed approach response uses
-stronger roll correction and an 11°/s full-stick pitch-rate target before AoA
-limiting. The tune is strongest below 80 m/s (155 knots), fades out by 110 m/s
-(214 knots), and transitions over half a second. Higher native pitch-rate
-targets, surface travel and the existing AoA protection are retained. This is
-an initial controller tune; handling and flare improvement need pilot evaluation.
-
-## Requirements
-
-- Nuclear Option `0.34.6`
-- Blueprinter `2.1.1`
-
-## Installation
-
-Install and enable **F-117A Nighthawk** through NOMM. Blueprinter is installed
-as a dependency.
-
-## Optional Aryx weapons
-
-Install and enable [Aryx Weaponry Pack 1.1.1](https://github.com/Aryx3D/AryxWeaponryPack/releases/tag/1.1.1)
-alongside the F-117 to unlock these additional presets. Counts are for the entire aircraft.
-
-| Preset | Payload |
+| Role | Full-aircraft payload |
 | --- | --- |
-| Stealth Strike | 2 PGM-400LR |
-| Anti-Armor | 8 or 12 AGM-27 Pyre |
-| Laser Strike | 4 AGR-37 Jester |
-| Standoff | 8 AGM-76 Atlatl |
-| Air Defense | 6 MRM-S4 Broadsword or 4 IRM-S5 Gladius |
-| Mixed Strike | 1 PGM-400LR + 6 Pyre |
-| Defensive Strike | 1 PGM-400LR + 3 Broadsword or 2 Gladius |
+| Stealth strike | 2 PGM-400LR stealth glide bombs |
+| Anti-armor | 8 or 12 AGM-27 Pyre missiles |
+| Laser strike | 4 AGR-37 Jester laser-guided rockets |
+| Standoff strike | 8 AGM-76 Atlatl cruise missiles |
+| Air defense | 6 MRM-S4 Broadsword or 4 IRM-S5 Gladius missiles |
+| Mixed strike | 1 PGM-400LR + 6 Pyre |
+| Defensive strike | 1 PGM-400LR + 3 Broadsword or 2 Gladius |
 
-Both bays can also be configured independently. Every preset retains the fixed
-jammer. Jester uses the aircraft's built-in, single-target laser designator;
-maintain designation until impact. These weapons retain Aryx's damage and guidance.
-Bay doors open before the mounted weapons lower clear of the aircraft.
+Weapons lower clear of the internal bays after the doors open. For Jester,
+keep the built-in laser on the target until impact; it designates one target
+at a time. Aryx supplies the optional weapons and their original damage and
+guidance. The F-117 works with its base loadouts when that pack is absent.
 
-Aryx is optional and distributed by its author separately. Without it, the original
-19 presets remain available. For multiplayer, use matching aircraft and weapon-pack
-versions on the server and clients. Missing or oversized mounts are skipped with a
-log message rather than added to the bays.
+## The aircraft
 
-Validated on game 0.34.6: registration with and without Aryx, mount geometry,
-rearming and native downward rail motion. Combat effectiveness, actual projectile
-flight, laser tracking and multiplayer sessions still require gameplay testing.
+- Twin non-afterburning engines and high-subsonic performance.
+- Passive electro-optical targeting, laser designation and radar warning.
+- Built-in radar jammer, 64 chaff and 32 infrared flares.
+- Animated landing gear, weapon bays, canopy and automatic drag chute.
+- Custom damage model and aircraft status display.
+- Three finishes: **Nighthawk Black**, **Farewell Flag / Matte Black**, and
+  **Farewell Flag / Smoked Chrome**.
+
+Available at **rank 4** for **$120 million**.
+
+## Flying and landing
+
+**Fuel starts at 25%.** Choose more for longer missions; total capacity is
+8,250 kg. A fuel selection already remembered by the hangar can override the
+default.
+
+With stability assist enabled and the gear fully down, the aircraft has additional
+pitch and roll assistance for slower approaches. It is strongest below about
+155 knots and fades out by 214 knots. Existing angle-of-attack protection remains
+active. These are assist thresholds, not recommended touchdown speeds.
+
+**The drag chute deploys automatically on a settled, aligned landing roll.**
+It waits for main- and nose-wheel support and a speed between 20 and 215 knots,
+then jettisons at approximately 20 knots. It needs no separate button or HUD
+indicator. Wheel brakes remain available independently.
+
+**One chute per aircraft.** Once used, it does not repack during rearming or a
+second takeoff. A fresh aircraft has a fresh chute.
+
+## Install
+
+Requires **Nuclear Option 0.34.6**, **BepInEx 5**, and **Blueprinter 2.1.1**.
+Install and enable **F-117A Nighthawk** through NOMM; Blueprinter is listed as its
+dependency. Restart the game after updating. Aryx Weaponry Pack is optional and
+must be installed separately.
+
+For multiplayer, the host and clients need matching aircraft and optional
+weapon-pack versions. This update has not been validated in a multiplayer session.
+
+## Tested status
+
+The release uses the flight code tested locally in v0.6.3. Game loading, 25% spawn
+fuel, takeoffs and runway landings were observed on Nuclear Option 0.34.6.
+Automated runtime checks cover loadouts with and without Aryx, bay fit, rearming,
+weapon rail clearance, approach-controller transitions and the chute's deployment
+gates. The low-speed approach tune still needs targeted flight evaluation;
+multiplayer and comparative weapon effectiveness remain unverified.
 
 ## License
 
